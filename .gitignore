@@ -24,8 +24,9 @@ data/raw/*.csv
 data/processed/*.npy
 data/plots/*.png
 
-# Agent logs (keep structure)
+# Agent logs (keep structure, but track init log for traceability)
 agent_logs/*.json
+!agent_logs/init_log.json
 
 # OS
 .DS_Store
