@@ -70,10 +70,8 @@
 \newtheorem{example}{Example}[section]
 
 % Custom commands
-\newcommand{\ket}[1]{\left|#1\right\rangle}
-\newcommand{\bra}[1]{\left\langle#1\right|}
-\newcommand{\braket}[2]{\left\langle#1\middle|#2\right\rangle}
-\newcommand{\Tr}{\operatorname{Tr}}
+% Note: \ket, \bra, \braket are provided by physics package
+\renewcommand{\Tr}{\operatorname{Tr}}
 \newcommand{\paulix}{\sigma_x}
 \newcommand{\pauliy}{\sigma_y}
 \newcommand{\pauliz}{\sigma_z}
@@ -221,36 +219,36 @@ The QubitPulseOpt repository follows a modular, hierarchical structure:
 
 \begin{verbatim}
 quantumControls/
-├── src/
-│   ├── __init__.py
-│   ├── hamiltonian/
-│   │   ├── __init__.py
-│   │   ├── drift.py          # Drift Hamiltonian (Phase 1.2)
-│   │   ├── evolution.py      # Time evolution engine (Phase 1.2)
-│   │   └── control.py        # Control Hamiltonian (Phase 1.3, future)
-│   ├── pulses/               # Pulse shapes (future)
-│   ├── optimization/         # GRAPE, Krotov (future)
-│   └── visualization/        # Plotting utilities (future)
-├── tests/
-│   ├── unit/
-│   │   ├── test_drift.py     # Unit tests for drift.py
-│   │   └── ...
-│   └── integration/          # End-to-end tests (future)
-├── notebooks/
-│   ├── 01_drift_dynamics.ipynb    # Phase 1.2 demonstration
-│   └── ...
-├── scripts/
-│   ├── validate_setup.sh     # Environment validation
-│   ├── activate_env.sh       # Activate venv helper
-│   └── verify_drift_evolution.py  # Standalone drift test
-├── docs/
-│   ├── science/
-│   │   └── quantum_control_theory.tex  # This document
-│   ├── SETUP_COMPLETE.md
-│   └── REVIEW_SUMMARY.md
-├── environment.yml           # Conda environment spec
-├── README.md
-└── .gitignore
+  src/
+    __init__.py
+    hamiltonian/
+      __init__.py
+      drift.py          # Drift Hamiltonian (Phase 1.2)
+      evolution.py      # Time evolution engine (Phase 1.2)
+      control.py        # Control Hamiltonian (Phase 1.3, future)
+    pulses/             # Pulse shapes (future)
+    optimization/       # GRAPE, Krotov (future)
+    visualization/      # Plotting utilities (future)
+  tests/
+    unit/
+      test_drift.py     # Unit tests for drift.py
+      ...
+    integration/        # End-to-end tests (future)
+  notebooks/
+    01_drift_dynamics.ipynb    # Phase 1.2 demonstration
+    ...
+  scripts/
+    validate_setup.sh     # Environment validation
+    activate_env.sh       # Activate venv helper
+    verify_drift_evolution.py  # Standalone drift test
+  docs/
+    science/
+      quantum_control_theory.tex  # This document
+    SETUP_COMPLETE.md
+    REVIEW_SUMMARY.md
+  environment.yml       # Conda environment spec
+  README.md
+  .gitignore
 \end{verbatim}
 
 This structure separates concerns: \texttt{src/} contains all production code, \texttt{tests/} validates correctness, \texttt{notebooks/} provides interactive demonstrations, and \texttt{docs/} maintains theoretical documentation.
