@@ -154,6 +154,14 @@ class GRAPEOptimizer:
         verbose: bool = True,
     ):
         """Initialize GRAPE optimizer."""
+        # Validate inputs first
+        if len(H_controls) == 0:
+            raise ValueError("Must provide at least one control Hamiltonian")
+        if n_timeslices <= 0:
+            raise ValueError("Number of timeslices must be positive")
+        if total_time <= 0:
+            raise ValueError("Total time must be positive")
+
         self.H_drift = H_drift
         self.H_controls = H_controls
         self.n_controls = len(H_controls)
@@ -165,14 +173,6 @@ class GRAPEOptimizer:
         self.max_iterations = max_iterations
         self.learning_rate = learning_rate
         self.verbose = verbose
-
-        # Validate inputs
-        if self.n_controls == 0:
-            raise ValueError("Must provide at least one control Hamiltonian")
-        if self.n_timeslices <= 0:
-            raise ValueError("Number of timeslices must be positive")
-        if self.total_time <= 0:
-            raise ValueError("Total time must be positive")
 
         # Get Hilbert space dimension
         self.dim = H_drift.shape[0]
@@ -234,25 +234,34 @@ class GRAPEOptimizer:
         """
         Compute cumulative backward propagators.
 
+        For gradient computation, backward_unitaries[k] contains the product
+        of all propagators AFTER timeslice k (not including k itself).
+
         Returns
         -------
         backward_unitaries : list of qutip.Qobj
-            Cumulative backward propagators [U_N*...*U_2, U_N*U_{N-1}, U_N].
+            Cumulative backward propagators where backward_unitaries[k] = U_{N}*...*U_{k+1}
+            (product of propagators after timeslice k).
+            Length is n_timeslices, with backward_unitaries[-1] = Identity.
         """
         backward_unitaries = []
         U_accum = qt.qeye(self.dim)
 
-        for U_k in reversed(propagators):
-            U_accum = U_accum * U_k
+        # Build backward propagators in reverse, excluding current timeslice
+        for i in range(len(propagators) - 1, -1, -1):
             backward_unitaries.insert(0, U_accum.copy())
+            U_accum = U_accum * propagators[i]
 
         return backward_unitaries
 
     def _compute_fidelity_unitary(self, U_evolved: qt.Qobj, U_target: qt.Qobj) -> float:
         """
-        Compute gate fidelity between evolved and target unitaries.
+        Compute average gate fidelity between evolved and target unitaries.
 
-        F = (1/d²) |Tr(U_target† U_evolved)|²
+        Uses the global-phase-invariant average gate fidelity:
+        F_avg = (|Tr(U_target† U_evolved)|² + d) / (d(d + 1))
+
+        This metric is invariant under global phase and ranges from 0 to 1.
 
         Parameters
         ----------
@@ -264,10 +273,11 @@ class GRAPEOptimizer:
         Returns
         -------
         float
-            Fidelity in range [0, 1].
+            Average gate fidelity in range [0, 1].
         """
         overlap = (U_target.dag() * U_evolved).tr()
-        fidelity = np.abs(overlap) ** 2 / self.dim**2
+        d = self.dim
+        fidelity = (np.abs(overlap) ** 2 + d) / (d * (d + 1))
         return np.real(fidelity)
 
     def _compute_gradients_unitary(
@@ -329,7 +339,9 @@ class GRAPEOptimizer:
                 # Gradient contribution
                 trace_val = (U_target.dag() * X_jk).tr()
                 grad_contribution = 2 * np.real(np.conj(overlap_final) * trace_val)
-                gradients[j, k] = grad_contribution / self.dim**2
+                # Normalize gradient to match average gate fidelity: F = (|z|² + d) / (d(d+1))
+                d = self.dim
+                gradients[j, k] = grad_contribution / (d * (d + 1))
 
         return gradients
 
@@ -533,7 +545,7 @@ class GRAPEOptimizer:
             psi_final = U_final * psi_init
 
             # Compute fidelity
-            overlap = (psi_target.dag() * psi_final).tr()
+            overlap = psi_target.dag() * psi_final  # Returns complex scalar
             fidelity = np.abs(overlap) ** 2
             fidelity = np.real(fidelity)
             fidelity_history.append(fidelity)
@@ -544,7 +556,7 @@ class GRAPEOptimizer:
             # Backward propagation
             backward_unitaries = self._backward_propagation(propagators)
 
-            overlap = (psi_target.dag() * psi_final).tr()
+            overlap = psi_target.dag() * psi_final  # Returns complex scalar
 
             for k in range(self.n_timeslices):
                 if k > 0:
@@ -558,7 +570,9 @@ class GRAPEOptimizer:
                     dU = -1j * self.dt * self.H_controls[j] * propagators[k]
                     X_jk = U_before * dU * U_after
                     psi_derivative = X_jk * psi_init
-                    trace_val = (psi_target.dag() * psi_derivative).tr()
+                    trace_val = (
+                        psi_target.dag() * psi_derivative
+                    )  # Returns complex scalar
                     gradients[j, k] = 2 * np.real(np.conj(overlap) * trace_val)
 
             # Gradient norm
@@ -596,7 +610,7 @@ class GRAPEOptimizer:
         propagators = self._compute_propagators(u)
         _, U_final = self._forward_propagation(propagators)
         psi_final = U_final * psi_init
-        overlap = (psi_target.dag() * psi_final).tr()
+        overlap = psi_target.dag() * psi_final  # Returns complex scalar
         final_fidelity = np.abs(overlap) ** 2
         final_fidelity = np.real(final_fidelity)
         fidelity_history.append(final_fidelity)
