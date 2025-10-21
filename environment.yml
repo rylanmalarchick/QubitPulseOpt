@@ -1,0 +1,21 @@
+name: qubitpulseopt
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy>=1.24
+  - scipy>=1.10
+  - matplotlib>=3.7
+  - jupyter>=1.0
+  - pytest>=7.3
+  - pytest-cov>=4.1
+  - qutip>=4.8.0
+  - pip
+  - pip:
+    - black
+    - flake8
+    - ipykernel
+    # Optional: Uncomment for ML extensions (SOW Week 3 Milestone 3)
+    # - torch>=2.0
+    # - optuna>=3.2

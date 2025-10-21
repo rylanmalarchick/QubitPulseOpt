@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data (track structure, not files)
+data/raw/*.csv
+data/processed/*.npy
+data/plots/*.png
+
+# Agent logs (keep structure)
+agent_logs/*.json
+
+# OS
+.DS_Store
