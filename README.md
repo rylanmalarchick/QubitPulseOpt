@@ -19,6 +19,30 @@
 
 ## Quick Start
 ### 1. Environment Setup
+
+**Option A: Python venv (Recommended - Fast Setup)**
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate environment
+source venv/bin/activate  # On Linux/Mac
+# OR: venv\Scripts\activate  # On Windows
+
+# Install dependencies
+pip install qutip numpy scipy matplotlib jupyter pytest pytest-cov black flake8 ipykernel
+
+# Register Jupyter kernel
+python -m ipykernel install --user --name=qubitpulseopt --display-name="Python (QubitPulseOpt)"
+
+# Verify installation
+python -c "import qutip; print(qutip.about())"
+
+# Or use the helper script
+source scripts/activate_env.sh
+```
+
+**Option B: Conda (Alternative - Full Isolation)**
 ```bash
 # Create conda environment (CPU-only QuTiP)
 conda env create -f environment.yml
