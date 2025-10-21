@@ -9,6 +9,8 @@ Modules
 -------
 drift
     Drift (free precession) Hamiltonian H₀ = (ω₀/2)σ_z
+control
+    Control (driving) Hamiltonian H_c(t) = Ω(t)σ_x for time-dependent pulses
 evolution
     Time evolution under Hamiltonians (analytical and numerical)
 
@@ -16,6 +18,8 @@ Classes
 -------
 DriftHamiltonian
     Drift Hamiltonian with configurable frequency
+ControlHamiltonian
+    Control Hamiltonian for time-dependent qubit driving
 TimeEvolution
     Time evolution engine with multiple solver methods
 
@@ -52,11 +56,13 @@ SOW Reference: Lines 150-161 (Week 1.2: Drift Dynamics)
 """
 
 from .drift import DriftHamiltonian, create_drift_hamiltonian
+from .control import ControlHamiltonian
 from .evolution import TimeEvolution, bloch_coordinates, bloch_trajectory
 
 __all__ = [
     "DriftHamiltonian",
     "create_drift_hamiltonian",
+    "ControlHamiltonian",
     "TimeEvolution",
     "bloch_coordinates",
     "bloch_trajectory",
