@@ -147,15 +147,20 @@ class TestGRAPEPropagators:
         backward_unitaries = optimizer._backward_propagation(propagators)
 
         assert len(backward_unitaries) == 5
-        # First element should be product of all propagators
+
+        # backward_unitaries[k] should be product of propagators AFTER timeslice k
+        # backward_unitaries[0] = U_5 * U_4 * U_3 * U_2 (all except U_1)
         U_product = qt.qeye(2)
-        for U_k in reversed(propagators):
-            U_product = U_product * U_k
+        for i in range(len(propagators) - 1, 0, -1):  # indices 4, 3, 2, 1
+            U_product = U_product * propagators[i]
         assert np.allclose(backward_unitaries[0].full(), U_product.full(), atol=1e-10)
+
+        # backward_unitaries[-1] should be identity (no propagators after last timeslice)
+        assert np.allclose(backward_unitaries[-1].full(), qt.qeye(2).full(), atol=1e-10)
 
 
 class TestGRAPEFidelity:
-    """Test fidelity computation."""
+    """Test GRAPE fidelity computation."""
 
     def test_identity_fidelity(self):
         """Test fidelity of identity evolution."""
@@ -178,16 +183,85 @@ class TestGRAPEFidelity:
         Hc = [qt.sigmax()]
         optimizer = GRAPEOptimizer(H0, Hc, n_timeslices=1, total_time=1)
 
-        # π pulse: u = π (for H = u/2 σ_x, need u*dt = π)
-        u = np.array([[np.pi / 1.0]])
+        # π/2 pulse: u = π/2 for H = u σ_x with dt = 1
+        # U = exp(-i π/2 σ_x) = -i σ_x, which equals σ_x up to global phase
+        u = np.array([[np.pi / 2.0]])
         propagators = optimizer._compute_propagators(u)
         _, U_final = optimizer._forward_propagation(propagators)
 
         U_target = qt.sigmax()
         fidelity = optimizer._compute_fidelity_unitary(U_final, U_target)
 
-        # Should be close to 1 (X-gate)
+        # Should be close to 1 (X-gate, accounting for global phase)
         assert fidelity > 0.99
+
+    def test_global_phase_invariance(self):
+        """Test that fidelity is invariant under global phase."""
+        H0 = 0 * qt.sigmaz()
+        Hc = [qt.sigmax()]
+        optimizer = GRAPEOptimizer(H0, Hc, n_timeslices=1, total_time=1)
+
+        # Test with identity and -I (differ by global phase π)
+        U_evolved = -qt.qeye(2)
+        U_target = qt.qeye(2)
+        fidelity = optimizer._compute_fidelity_unitary(U_evolved, U_target)
+
+        # Should be 1.0 (same gate up to global phase)
+        assert np.isclose(fidelity, 1.0, atol=1e-10)
+
+    def test_fidelity_against_qutip(self):
+        """Validate fidelity computation against QuTiP's average_gate_fidelity."""
+        from qutip import average_gate_fidelity
+
+        H0 = 0 * qt.sigmaz()
+        Hc = [qt.sigmax()]
+        optimizer = GRAPEOptimizer(H0, Hc, n_timeslices=1, total_time=1)
+
+        # Test several cases
+        test_cases = [
+            (qt.qeye(2), qt.qeye(2)),  # Perfect match
+            (-qt.qeye(2), qt.qeye(2)),  # Global phase
+            ((-1j * np.pi / 2 * qt.sigmax()).expm(), qt.sigmax()),  # X gate
+            ((-1j * np.pi / 4 * qt.sigmaz()).expm(), qt.sigmaz()),  # Z rotation
+        ]
+
+        for U_evolved, U_target in test_cases:
+            fid_ours = optimizer._compute_fidelity_unitary(U_evolved, U_target)
+            fid_qutip = average_gate_fidelity(U_evolved, U_target)
+            assert np.isclose(fid_ours, fid_qutip, atol=1e-10), (
+                f"Fidelity mismatch: ours={fid_ours}, QuTiP={fid_qutip}"
+            )
+
+    def test_perfect_gate_fidelity(self):
+        """Test fidelity for various perfect gate implementations."""
+        H0 = 0 * qt.sigmaz()
+        Hc = [qt.sigmax()]
+        optimizer = GRAPEOptimizer(H0, Hc, n_timeslices=1, total_time=1)
+
+        # Test identity
+        U_identity = qt.qeye(2)
+        fid = optimizer._compute_fidelity_unitary(U_identity, U_identity)
+        assert np.isclose(fid, 1.0, atol=1e-10)
+
+        # Test Pauli gates
+        for pauli in [qt.sigmax(), qt.sigmay(), qt.sigmaz()]:
+            fid = optimizer._compute_fidelity_unitary(pauli, pauli)
+            assert np.isclose(fid, 1.0, atol=1e-10)
+
+    def test_orthogonal_gates_fidelity(self):
+        """Test fidelity between orthogonal gates."""
+        H0 = 0 * qt.sigmaz()
+        Hc = [qt.sigmax()]
+        optimizer = GRAPEOptimizer(H0, Hc, n_timeslices=1, total_time=1)
+
+        # Identity vs Pauli X should have fidelity 1/3 for qubits
+        U_evolved = qt.qeye(2)
+        U_target = qt.sigmax()
+        fid = optimizer._compute_fidelity_unitary(U_evolved, U_target)
+
+        # For average gate fidelity, orthogonal gates have F = 1/(d+1) = 1/3 for d=2
+        expected = 1.0 / 3.0
+        assert np.isclose(fid, expected, atol=1e-10)
 
 
 class TestGRAPEOptimization:
@@ -465,12 +539,12 @@ class TestGRAPEEdgeCases:
         )
 
         U_target = qt.sigmax()
-        # Perfect π pulse
-        u_init = np.array([[np.pi]])
+        # Perfect π/2 pulse (generates X gate up to global phase)
+        u_init = np.array([[np.pi / 2]])
 
         result = optimizer.optimize_unitary(U_target, u_init)
 
-        # Should converge quickly or already be optimal
+        # Should converge quickly or already be optimal (accounting for global phase)
         assert result.final_fidelity > 0.999
 
     def test_zero_initial_guess(self):
