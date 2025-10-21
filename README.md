@@ -3,7 +3,7 @@
 ## Project Context
 **From Perception to Coherence:** This project applies control theory principles familiar from real-time robotics (e.g., AirHound's drone yaw stabilization under sensor noise) to quantum systems. Instead of steering a quadrotor with noisy IMU data, we shape electromagnetic pulses to drive qubit state transitions while battling decoherence—a temporal "noise budget" analogous to loop closure times in ROS2 pipelines.
 
-**Academic Foundation:** Builds on prior work in noisy signal processing (NASA deep learning for spacecraft telemetry) by treating T1/T2 decay as systematic corruption of quantum information channels.
+**Academic Foundation:** Builds on prior work in noisy signal processing (NASA deep learning for high altitude imagery) by treating T1/T2 decay as systematic corruption of quantum information channels.
 
 ---
 
