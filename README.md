@@ -80,6 +80,29 @@ QubitPulseOpt/
 
 ---
 
+## Science Documentation
+
+A comprehensive **LaTeX science document** covering all theoretical foundations, mathematical derivations, and implementation details is maintained in `docs/science/quantum_control_theory.tex`.
+
+**Pre-compiled PDF:** [`docs/quantum_control_theory.pdf`](docs/quantum_control_theory.pdf)
+
+### Current Coverage
+- **Phase 1.1:** Computational infrastructure, reproducibility, environment design philosophy
+- **Phase 1.2:** Drift Hamiltonian derivation, analytical propagator, Bloch sphere dynamics, validation methodology
+
+### Building the PDF (Optional)
+If you modify the LaTeX source:
+```bash
+cd docs/science/
+pdflatex quantum_control_theory.tex
+pdflatex quantum_control_theory.tex  # Run twice for references
+cp quantum_control_theory.pdf ../
+```
+
+**Requirements:** Standard LaTeX distribution (TeX Live, MiKTeX) with packages: `amsmath`, `physics`, `hyperref`, `cleveref`, `listings`, `tikz`.
+
+---
+
 ## Milestones (4-Week Plan)
 - **Week 1:** Drift dynamics + unitary evolution validated
 - **Week 2:** GRAPE optimizer converges for X-gate (F>0.99)
