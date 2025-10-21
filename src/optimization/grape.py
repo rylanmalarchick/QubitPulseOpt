@@ -152,8 +152,22 @@ class GRAPEOptimizer:
         max_iterations: int = 500,
         learning_rate: float = 0.1,
         verbose: bool = True,
+        gradient_clip: Optional[float] = 10.0,
+        use_line_search: bool = True,
+        momentum: float = 0.0,
     ):
-        """Initialize GRAPE optimizer."""
+        """
+        Initialize GRAPE optimizer.
+
+        Parameters
+        ----------
+        gradient_clip : float, optional
+            Maximum gradient norm. If specified, gradients will be clipped.
+        use_line_search : bool, optional
+            Use backtracking line search for step size. Default: True.
+        momentum : float, optional
+            Momentum coefficient (0 = no momentum, 0.9 = high momentum). Default: 0.0.
+        """
         # Validate inputs first
         if len(H_controls) == 0:
             raise ValueError("Must provide at least one control Hamiltonian")
@@ -173,6 +187,9 @@ class GRAPEOptimizer:
         self.max_iterations = max_iterations
         self.learning_rate = learning_rate
         self.verbose = verbose
+        self.gradient_clip = gradient_clip
+        self.use_line_search = use_line_search
+        self.momentum = momentum
 
         # Get Hilbert space dimension
         self.dim = H_drift.shape[0]
@@ -345,6 +362,89 @@ class GRAPEOptimizer:
 
         return gradients
 
+    def _clip_gradients(self, gradients: np.ndarray) -> np.ndarray:
+        """
+        Clip gradients to prevent excessively large updates.
+
+        Parameters
+        ----------
+        gradients : np.ndarray
+            Gradients to clip.
+
+        Returns
+        -------
+        np.ndarray
+            Clipped gradients.
+        """
+        if self.gradient_clip is None:
+            return gradients
+
+        grad_norm = np.linalg.norm(gradients)
+        if grad_norm > self.gradient_clip:
+            return gradients * (self.gradient_clip / grad_norm)
+        return gradients
+
+    def _line_search(
+        self,
+        u: np.ndarray,
+        gradients: np.ndarray,
+        current_fidelity: float,
+        U_target: qt.Qobj,
+        alpha_init: float = 1.0,
+        beta: float = 0.5,
+        max_backtracks: int = 10,
+    ) -> Tuple[float, float]:
+        """
+        Backtracking line search to find good step size.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current control amplitudes.
+        gradients : np.ndarray
+            Current gradients.
+        current_fidelity : float
+            Current fidelity value.
+        U_target : qutip.Qobj
+            Target unitary.
+        alpha_init : float, optional
+            Initial step size. Default: 1.0.
+        beta : float, optional
+            Backtracking factor (0 < beta < 1). Default: 0.5.
+        max_backtracks : int, optional
+            Maximum number of backtracking steps. Default: 10.
+
+        Returns
+        -------
+        float
+            Chosen step size.
+        float
+            New fidelity at chosen step size.
+        """
+        alpha = alpha_init
+        grad_norm_sq = np.linalg.norm(gradients) ** 2
+
+        for _ in range(max_backtracks):
+            # Try step
+            u_new = u + alpha * gradients
+            u_new = self._apply_constraints(u_new)
+
+            # Compute new fidelity
+            propagators = self._compute_propagators(u_new)
+            _, U_final = self._forward_propagation(propagators)
+            new_fidelity = self._compute_fidelity_unitary(U_final, U_target)
+
+            # Accept if fidelity increased or stayed same (we're doing gradient ascent)
+            # Allow very small decreases due to numerical precision
+            if new_fidelity >= current_fidelity - 1e-10:
+                return alpha, new_fidelity
+
+            # Backtrack
+            alpha *= beta
+
+        # If all backtracks fail, use tiny step to avoid getting stuck
+        return alpha * beta, current_fidelity
+
     def _apply_constraints(self, u: np.ndarray) -> np.ndarray:
         """
         Apply amplitude constraints to control pulses.
@@ -412,23 +512,34 @@ class GRAPEOptimizer:
         current_lr = self.learning_rate
         converged = False
         message = "Max iterations reached"
+        best_fidelity = 0.0
+        best_u = u.copy()
+        velocity = np.zeros_like(u)  # For momentum
+
+        # Compute initial fidelity
+        propagators = self._compute_propagators(u)
+        forward_unitaries, U_final = self._forward_propagation(propagators)
+        fidelity = self._compute_fidelity_unitary(U_final, U_target)
 
         for iteration in range(self.max_iterations):
-            # Forward propagation
-            propagators = self._compute_propagators(u)
-            forward_unitaries, U_final = self._forward_propagation(propagators)
-
-            # Compute fidelity
-            fidelity = self._compute_fidelity_unitary(U_final, U_target)
+            # Store fidelity
             fidelity_history.append(fidelity)
 
-            # Backward propagation
+            # Track best solution
+            if fidelity > best_fidelity:
+                best_fidelity = fidelity
+                best_u = u.copy()
+
+            # Backward propagation (reuse forward propagators from current u)
             backward_unitaries = self._backward_propagation(propagators)
 
             # Compute gradients
             gradients = self._compute_gradients_unitary(
                 u, propagators, forward_unitaries, backward_unitaries, U_target
             )
+
+            # Clip gradients if specified
+            gradients = self._clip_gradients(gradients)
 
             # Gradient norm (convergence check)
             grad_norm = np.linalg.norm(gradients)
@@ -445,18 +556,42 @@ class GRAPEOptimizer:
                     )
                 break
 
-            # Gradient ascent update
-            u_new = u + current_lr * gradients
+            # Apply momentum to gradients
+            velocity = self.momentum * velocity + gradients
+            effective_gradients = velocity
 
-            # Apply constraints
-            u_new = self._apply_constraints(u_new)
+            # Determine step size and update controls
+            if self.use_line_search:
+                # Backtracking line search
+                step_size, new_fidelity = self._line_search(
+                    u, effective_gradients, fidelity, U_target, alpha_init=current_lr
+                )
+                u_new = u + step_size * effective_gradients
+                u_new = self._apply_constraints(u_new)
+                u = u_new
 
-            # Update controls
-            u = u_new
+                # Recompute propagators for next iteration
+                propagators = self._compute_propagators(u)
+                forward_unitaries, U_final = self._forward_propagation(propagators)
+                fidelity = new_fidelity
 
-            # Adaptive learning rate
-            if adaptive_step:
-                current_lr *= step_decay
+                # Update for next iteration
+                if adaptive_step:
+                    current_lr *= step_decay
+            else:
+                # Standard gradient ascent with momentum
+                u_new = u + current_lr * effective_gradients
+                u_new = self._apply_constraints(u_new)
+                u = u_new
+
+                # Recompute for next iteration
+                propagators = self._compute_propagators(u)
+                forward_unitaries, U_final = self._forward_propagation(propagators)
+                fidelity = self._compute_fidelity_unitary(U_final, U_target)
+
+                # Adaptive learning rate
+                if adaptive_step:
+                    current_lr *= step_decay
 
             # Verbose output
             if self.verbose and (iteration % 10 == 0 or iteration < 5):
@@ -465,7 +600,8 @@ class GRAPEOptimizer:
                     f"Grad Norm = {grad_norm:.2e}, LR = {current_lr:.4f}"
                 )
 
-        # Final fidelity
+        # Use best solution found
+        u = best_u
         propagators = self._compute_propagators(u)
         forward_unitaries, U_final = self._forward_propagation(propagators)
         final_fidelity = self._compute_fidelity_unitary(U_final, U_target)
@@ -474,6 +610,7 @@ class GRAPEOptimizer:
         if self.verbose:
             print(f"\nOptimization complete: {message}")
             print(f"Final fidelity: {final_fidelity:.8f}")
+            print(f"Best fidelity: {best_fidelity:.8f}")
             print(f"Iterations: {iteration + 1}")
 
         return GRAPEResult(
