@@ -203,12 +203,13 @@ This SOW integrates **2025-state-of-the-art AI agent paradigms** to maximize eff
 1. **GitHub Repo:** `rylanmalarchick/QubitPulseOpt` (structure: `/src/` code, `/notebooks/` sims, `/tests/`, `/docs/` report, `/data/` CSVs).
 2. **Core Notebooks:** baseline_sim.ipynb, grape_opt.ipynb, ml_extension.ipynb (with %load_ext autoreload for Zed).
 3. **Technical Report:** qubit_controls_sow_report.md (export to PDF via Pandoc).
-4. **Science Documentation:** `docs/science/` directory with LaTeX-rendered theory documents:
-   - Written as features are implemented (e.g., `01_drift_hamiltonian.tex` for Week 1.2)
-   - Covers mathematical foundations, derivations, and physical interpretations
+4. **Science Documentation:** Single comprehensive LaTeX document `docs/science/quantum_control_theory.tex`:
+   - Written progressively as features are implemented (sections for Weeks 1.1, 1.2, 1.3, etc.)
+   - Covers mathematical foundations, derivations, and physical interpretations for all phases
    - Serves as learning/teaching resource with full rigor (equations, proofs, examples)
+   - Organized by project phases/milestones within one unified document
    - Rendered to PDF for portfolio/academic presentation
-   - Requirement: Every major physics module must have corresponding science doc
+   - Requirement: Every major physics module must have corresponding section in science doc
 5. **Tests \& Metrics:** pytest suite (80% coverage); fidelity_benchmark.json.
 6. **README.md:** Executive summary, install guide, demo GIF (Bloch animation), ties to your resume (AirHound/NASA).
 7. **Agent Logs:** Consolidated JSON for traceability (optional upload to repo).
