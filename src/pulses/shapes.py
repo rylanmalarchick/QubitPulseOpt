@@ -476,7 +476,7 @@ def pulse_area(times: np.ndarray, pulse: np.ndarray) -> float:
     >>> area = pulse_area(times, pulse)
     >>> print(f"Rotation angle: {area/np.pi:.3f}π")
     """
-    return np.trapz(pulse, times)
+    return np.trapezoid(pulse, times)
 
 
 def scale_pulse_to_target_angle(
