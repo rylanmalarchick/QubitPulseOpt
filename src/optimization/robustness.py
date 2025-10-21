@@ -191,7 +191,8 @@ class RobustnessTester:
             H_list = [H_drift]
             for j in range(self.n_controls):
                 # Piecewise constant coefficient function
-                def coeff_func(t, args, ctrl_idx=j, pulses=pulse_amplitudes):
+                # QuTiP 5.x may call with just (t) or (t, args)
+                def coeff_func(t, args=None, ctrl_idx=j, pulses=pulse_amplitudes):
                     idx = int(np.clip(t / self.dt, 0, self.n_timeslices - 1))
                     return pulses[ctrl_idx, idx]
 
