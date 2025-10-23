@@ -1,0 +1,1652 @@
+{
+  "overall_score": 90.37037037037037,
+  "summary": {
+    "total_modules": 27,
+    "total_functions": 337,
+    "total_violations": 139,
+    "errors": 2,
+    "warnings": 73,
+    "info": 0
+  },
+  "modules": {
+    "src/config.py": {
+      "lines_of_code": 424,
+      "functions": 18,
+      "classes": 2,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 18.944444444444443,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.42857142857142855
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 118,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 137,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 168,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 256,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 263,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 265,
+          "column": 20,
+          "message": "Nesting depth 5 exceeds limit of 3"
+        }
+      ]
+    },
+    "src/logging_utils.py": {
+      "lines_of_code": 467,
+      "functions": 19,
+      "classes": 3,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 21.647058823529413,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 341,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 424,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "error",
+          "line": 340,
+          "column": 0,
+          "message": "Direct recursion detected in function '_log_dict'"
+        },
+        {
+          "rule": 1,
+          "severity": "error",
+          "line": 340,
+          "column": 0,
+          "message": "Indirect recursion detected in call chain involving '_log_dict'"
+        }
+      ]
+    },
+    "src/__init__.py": {
+      "lines_of_code": 27,
+      "functions": 0,
+      "classes": 0,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 0,
+        "assertion_density": 0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/visualization/reports.py": {
+      "lines_of_code": 736,
+      "functions": 18,
+      "classes": 3,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 35.705882352941174,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.4444444444444444
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 209,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 285,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 390,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 468,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 477,
+          "column": 4,
+          "message": "Function 'generate_summary' has 107 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 586,
+          "column": 0,
+          "message": "Function 'generate_latex_table' has 68 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 656,
+          "column": 0,
+          "message": "Function 'create_publication_figure' has 80 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 712,
+          "column": 4,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/visualization/dashboard.py": {
+      "lines_of_code": 789,
+      "functions": 17,
+      "classes": 5,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 44.0,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 180,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 192,
+          "column": 4,
+          "message": "Function '_update_plots' has 63 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 247,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 306,
+          "column": 4,
+          "message": "Function 'plot_heatmap' has 81 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 455,
+          "column": 4,
+          "message": "Function 'compare_pulses' has 107 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 495,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 510,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 542,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 585,
+          "column": 4,
+          "message": "Function 'plot_states' has 75 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 620,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 661,
+          "column": 4,
+          "message": "Function 'plot_trajectory' has 84 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 701,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/visualization/__init__.py": {
+      "lines_of_code": 46,
+      "functions": 0,
+      "classes": 0,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 0,
+        "assertion_density": 0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/visualization/bloch_animation.py": {
+      "lines_of_code": 524,
+      "functions": 12,
+      "classes": 2,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 37.75,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.3333333333333333
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 107,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 114,
+          "column": 4,
+          "message": "Function 'create_animation' has 78 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 154,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 167,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 193,
+          "column": 4,
+          "message": "Function '_update_frame' has 66 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 205,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/hamiltonian/control.py": {
+      "lines_of_code": 385,
+      "functions": 9,
+      "classes": 1,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 33.44444444444444,
+        "assertion_density": 0.0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/hamiltonian/drift.py": {
+      "lines_of_code": 308,
+      "functions": 11,
+      "classes": 1,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 21.272727272727273,
+        "assertion_density": 0.0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/hamiltonian/lindblad.py": {
+      "lines_of_code": 574,
+      "functions": 10,
+      "classes": 2,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 42.6,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 273,
+          "column": 4,
+          "message": "Function 'compare_with_unitary' has 73 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 329,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/hamiltonian/evolution.py": {
+      "lines_of_code": 409,
+      "functions": 12,
+      "classes": 2,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 27.0,
+        "assertion_density": 0.0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/hamiltonian/__init__.py": {
+      "lines_of_code": 72,
+      "functions": 0,
+      "classes": 0,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 0,
+        "assertion_density": 0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/pulses/drag.py": {
+      "lines_of_code": 665,
+      "functions": 15,
+      "classes": 2,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 43.07692307692308,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 289,
+          "column": 4,
+          "message": "Function 'compare_with_gaussian' has 119 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 410,
+          "column": 0,
+          "message": "Function 'create_drag_pulse_for_gate' has 83 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 553,
+          "column": 0,
+          "message": "Function 'scan_beta_parameter' has 112 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 611,
+          "column": 4,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/pulses/composite.py": {
+      "lines_of_code": 948,
+      "functions": 22,
+      "classes": 4,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 37.095238095238095,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.5
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 508,
+          "column": 4,
+          "message": "Function 'simulate_sequence' has 71 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 543,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 553,
+          "column": 12,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 662,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 694,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/pulses/shapes.py": {
+      "lines_of_code": 525,
+      "functions": 8,
+      "classes": 0,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 58.875,
+        "assertion_density": 0.0,
+        "bounded_loops": 1.0
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 100,
+          "column": 0,
+          "message": "Function 'square_pulse' has 79 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 181,
+          "column": 0,
+          "message": "Function 'drag_pulse' has 77 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 260,
+          "column": 0,
+          "message": "Function 'blackman_pulse' has 62 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 383,
+          "column": 0,
+          "message": "Function 'custom_pulse' has 65 lines (max 60)"
+        }
+      ]
+    },
+    "src/pulses/adiabatic.py": {
+      "lines_of_code": 835,
+      "functions": 28,
+      "classes": 6,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 25.434782608695652,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 373,
+          "column": 12,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 654,
+          "column": 4,
+          "message": "Function 'adiabatic_condition' has 78 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 678,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 691,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/pulses/__init__.py": {
+      "lines_of_code": 30,
+      "functions": 0,
+      "classes": 0,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 0,
+        "assertion_density": 0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/optimization/krotov.py": {
+      "lines_of_code": 593,
+      "functions": 11,
+      "classes": 2,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 40.45454545454545,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 201,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 204,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 238,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 241,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 288,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 292,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 305,
+          "column": 4,
+          "message": "Function 'optimize_unitary' has 135 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 359,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 384,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 441,
+          "column": 4,
+          "message": "Function 'optimize_state' has 116 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 488,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 506,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 574,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/optimization/grape.py": {
+      "lines_of_code": 813,
+      "functions": 14,
+      "classes": 2,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 47.357142857142854,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.16666666666666666
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 216,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 219,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 268,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 300,
+          "column": 4,
+          "message": "Function '_compute_gradients_unitary' has 64 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 340,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 349,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 464,
+          "column": 4,
+          "message": "Function 'optimize_unitary' has 161 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 524,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 626,
+          "column": 4,
+          "message": "Function 'optimize_state' has 143 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 676,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 698,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 706,
+          "column": 16,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 794,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/optimization/benchmarking.py": {
+      "lines_of_code": 680,
+      "functions": 23,
+      "classes": 5,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 25.8,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.9375
+      },
+      "violations": [
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 109,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 112,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 115,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 120,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 124,
+          "column": 24,
+          "message": "Nesting depth 5 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 128,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 385,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 405,
+          "column": 4,
+          "message": "Function 'fit_rb_decay' has 74 lines (max 60)"
+        }
+      ]
+    },
+    "src/optimization/robustness.py": {
+      "lines_of_code": 996,
+      "functions": 18,
+      "classes": 2,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 50.76470588235294,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.5714285714285714
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 168,
+          "column": 4,
+          "message": "Function '_compute_fidelity' has 68 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 192,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 237,
+          "column": 4,
+          "message": "Function 'sweep_detuning' has 70 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 308,
+          "column": 4,
+          "message": "Function 'sweep_amplitude_error' has 68 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 377,
+          "column": 4,
+          "message": "Function 'add_gaussian_noise' has 68 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 446,
+          "column": 4,
+          "message": "Function 'sweep_2d_parameters' has 71 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 494,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 495,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 567,
+          "column": 4,
+          "message": "Function 'compute_fisher_information' has 61 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 664,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 829,
+          "column": 4,
+          "message": "Function 'compute_robustness_landscape' has 108 lines (max 60)"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 884,
+          "column": 16,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 912,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 913,
+          "column": 16,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 917,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 919,
+          "column": 20,
+          "message": "Nesting depth 5 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 922,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 924,
+          "column": 20,
+          "message": "Nesting depth 5 exceeds limit of 3"
+        }
+      ]
+    },
+    "src/optimization/filter_functions.py": {
+      "lines_of_code": 674,
+      "functions": 28,
+      "classes": 5,
+      "compliance_score": 90.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 25.35,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.0
+      },
+      "violations": [
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 191,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 376,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 406,
+          "column": 4,
+          "message": "Function 'optimize_pulse_shape' has 72 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 538,
+          "column": 0,
+          "message": "Function 'visualize_filter_function' has 81 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 668,
+          "column": 4,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/optimization/gates.py": {
+      "lines_of_code": 840,
+      "functions": 12,
+      "classes": 2,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 56.75,
+        "assertion_density": 0.0,
+        "bounded_loops": 1.0
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 193,
+          "column": 4,
+          "message": "Function 'optimize_hadamard' has 62 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 256,
+          "column": 4,
+          "message": "Function 'optimize_phase_gate' has 74 lines (max 60)"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 314,
+          "column": 8,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 316,
+          "column": 8,
+          "message": "Nesting depth 5 exceeds limit of 3"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 331,
+          "column": 4,
+          "message": "Function 'optimize_rotation' has 102 lines (max 60)"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 389,
+          "column": 12,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 483,
+          "column": 4,
+          "message": "Function '_optimize_gate' has 116 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 600,
+          "column": 4,
+          "message": "Function 'check_clifford_closure' has 101 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 723,
+          "column": 0,
+          "message": "Function 'euler_angles_from_unitary' has 78 lines (max 60)"
+        }
+      ]
+    },
+    "src/optimization/compilation.py": {
+      "lines_of_code": 705,
+      "functions": 12,
+      "classes": 3,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 47.18181818181818,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.4
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 200,
+          "column": 4,
+          "message": "Function 'compile_circuit' has 75 lines (max 60)"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 276,
+          "column": 4,
+          "message": "Function '_compile_sequential' has 67 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 291,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 344,
+          "column": 4,
+          "message": "Function '_compile_joint' has 75 lines (max 60)"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 467,
+          "column": 8,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 471,
+          "column": 8,
+          "message": "Nesting depth 5 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 475,
+          "column": 8,
+          "message": "Nesting depth 6 exceeds limit of 3"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 479,
+          "column": 8,
+          "message": "Nesting depth 7 exceeds limit of 3"
+        },
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 499,
+          "column": 4,
+          "message": "Function 'decompose_unitary' has 74 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 635,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 643,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        }
+      ]
+    },
+    "src/optimization/__init__.py": {
+      "lines_of_code": 105,
+      "functions": 0,
+      "classes": 0,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 0,
+        "assertion_density": 0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    },
+    "src/io/export.py": {
+      "lines_of_code": 689,
+      "functions": 20,
+      "classes": 2,
+      "compliance_score": 80.0,
+      "rule_scores": {
+        "1": false,
+        "2": true,
+        "3": true,
+        "4": false,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 30.210526315789473,
+        "assertion_density": 0.0,
+        "bounded_loops": 0.25
+      },
+      "violations": [
+        {
+          "rule": 4,
+          "severity": "warning",
+          "line": 48,
+          "column": 4,
+          "message": "Function 'export_pulse_json' has 74 lines (max 60)"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 267,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 272,
+          "column": 12,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 303,
+          "column": 8,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 419,
+          "column": 8,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        },
+        {
+          "rule": 2,
+          "severity": "info",
+          "line": 547,
+          "column": 12,
+          "message": "Loop bound not statically verifiable"
+        },
+        {
+          "rule": 1,
+          "severity": "warning",
+          "line": 549,
+          "column": 20,
+          "message": "Nesting depth 4 exceeds limit of 3"
+        }
+      ]
+    },
+    "src/io/__init__.py": {
+      "lines_of_code": 59,
+      "functions": 0,
+      "classes": 0,
+      "compliance_score": 100.0,
+      "rule_scores": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      },
+      "metrics": {
+        "avg_function_length": 0,
+        "assertion_density": 0,
+        "bounded_loops": 1.0
+      },
+      "violations": []
+    }
+  }
+}
