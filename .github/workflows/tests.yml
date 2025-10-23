@@ -1,0 +1,151 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run slow tests nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      run_slow_tests:
+        description: 'Run slow tests'
+        required: false
+        default: 'false'
+
+jobs:
+  fast-tests:
+    name: Fast Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy scipy matplotlib pytest pytest-cov pytest-xdist
+        pip install qutip>=4.7.0
+
+    - name: Run fast unit tests
+      run: |
+        pytest tests/unit -v -m "not slow" --cov=src --cov-report=xml --cov-report=term -n auto
+
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.10'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  slow-tests:
+    name: Slow Tests (Python 3.10)
+    runs-on: ubuntu-latest
+    # Only run on schedule, manual trigger, or if explicitly requested
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[run-slow]')
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy scipy matplotlib pytest pytest-cov
+        pip install qutip>=4.7.0
+
+    - name: Run slow optimization tests
+      run: |
+        pytest tests/unit -v -m "slow" --cov=src --cov-report=xml --cov-report=term
+      timeout-minutes: 60
+
+    - name: Upload slow test coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: slowtests
+        name: codecov-slow
+        fail_ci_if_error: false
+
+  integration-tests:
+    name: Integration Tests (Python 3.10)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy scipy matplotlib pytest pytest-cov
+        pip install qutip>=4.7.0
+
+    - name: Run integration tests
+      if: hashFiles('tests/integration/**/*.py') != ''
+      run: |
+        pytest tests/integration -v --cov=src --cov-report=xml --cov-report=term
+      timeout-minutes: 30
+
+    - name: Skip integration tests if not present
+      if: hashFiles('tests/integration/**/*.py') == ''
+      run: |
+        echo "No integration tests found, skipping..."
+
+  lint:
+    name: Linting & Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+
+    - name: Check code formatting with black
+      run: |
+        black --check src tests || echo "Black formatting issues found (non-blocking)"
+      continue-on-error: true
+
+    - name: Check import ordering with isort
+      run: |
+        isort --check-only src tests || echo "Import ordering issues found (non-blocking)"
+      continue-on-error: true
+
+    - name: Lint with flake8
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 src tests --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 src tests --count --exit-zero --max-complexity=15 --max-line-length=100 --statistics

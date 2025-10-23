@@ -1,0 +1,229 @@
+system:
+  qubit:
+    frequency: 5.0e9
+    anharmonicity: -300.0e6
+  decoherence:
+    T1: 0.0001
+    T2: 0.0002
+    T2_echo: 8.0e-05
+  control:
+    max_amplitude: 1.0
+    rabi_frequency: 10.0e6
+  noise:
+    include_decoherence: true
+    include_amplitude_noise: false
+    amplitude_noise_std: 0.01
+    include_frequency_noise: false
+    frequency_noise_std: 1.0e3
+pulse:
+  default:
+    duration: 1.0e-07
+    sample_rate: 1.0e9
+    num_samples: 100
+  shapes:
+    gaussian:
+      sigma: 2.0e-08
+      truncation: 4.0
+    drag:
+      alpha: 0.5
+      beta: 0.0
+    blackman:
+      window_type: blackman
+    adiabatic:
+      sweep_range: 500.0e6
+      adiabaticity: 10.0
+  composite:
+    bb1_phases:
+    - 0.0
+    - 3.14159
+    - 6.28318
+    - 3.14159
+    corpse_phases:
+    - 0.0
+    - 1.57079
+    - 0.0
+    sk1_angles:
+    - 1.57079
+    - 3.14159
+    - 1.57079
+optimization:
+  grape:
+    max_iterations: 50
+    tolerance: 1.0e-06
+    learning_rate: 0.01
+    gradient_method: finite_difference
+    finite_diff_step: 1.0e-08
+    line_search: true
+    convergence_window: 10
+    early_stopping: true
+    min_fidelity: 0.999
+  crab:
+    num_coefficients: 10
+    max_iterations: 500
+    basis_function: fourier
+    optimization_method: Nelder-Mead
+    tolerance: 1.0e-05
+  cost:
+    type: infidelity
+    penalty_amplitude: 0.0
+    penalty_derivative: 0.0
+    penalty_bandwidth: 0.0
+  constraints:
+    enforce_max_amplitude: true
+    max_amplitude: 1.0
+    enforce_bandwidth: false
+    max_bandwidth: 100.0e6
+    enforce_smoothness: false
+    max_derivative: 10.0
+gates:
+  pauli_x:
+    target_unitary: pauli_x
+    initial_pulse: gaussian
+    optimize: true
+  pauli_y:
+    target_unitary: pauli_y
+    initial_pulse: gaussian
+    optimize: true
+  pauli_z:
+    target_unitary: pauli_z
+    initial_pulse: gaussian
+    optimize: false
+  hadamard:
+    target_unitary: hadamard
+    initial_pulse: composite_xy
+    optimize: true
+  t_gate:
+    target_unitary: t_gate
+    initial_pulse: gaussian
+    optimize: false
+  rotation:
+    default_axis:
+    - 0
+    - 0
+    - 1
+    default_angle: 1.57079
+benchmarking:
+  randomized_benchmarking:
+    num_sequences: 50
+    sequence_lengths:
+    - 1
+    - 2
+    - 5
+    - 10
+    - 20
+    - 50
+    - 100
+    num_repetitions: 100
+    gate_set:
+    - I
+    - X
+    - Y
+    - X/2
+    - Y/2
+  filter_functions:
+    num_samples: 1000
+    frequency_range:
+    - 0
+    - 100.0e6
+    noise_types:
+    - amplitude
+    - dephasing
+  sensitivity:
+    parameter_variations: 0.1
+    num_samples: 100
+    parameters:
+    - T1
+    - T2
+    - frequency
+    - amplitude
+visualization:
+  plots:
+    dpi: 150
+    figure_size:
+    - 10
+    - 6
+    style: default
+    save_format: png
+  bloch:
+    sphere_alpha: 0.2
+    vector_color: red
+    point_size: 50
+    animation_fps: 30
+  dashboard:
+    refresh_rate: 1.0
+    show_convergence: true
+    show_fidelity: true
+    show_pulse: true
+  reports:
+    include_metadata: true
+    include_statistics: true
+    latex_format: true
+    publication_quality: true
+io:
+  export:
+    default_format: json
+    include_metadata: true
+    compress_arrays: true
+    precision: 8
+  paths:
+    data_dir: data
+    results_dir: results
+    figures_dir: figures
+    logs_dir: logs
+  hardware:
+    platform: generic
+    time_unit: ns
+    amplitude_unit: normalized
+logging:
+  level: INFO
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  date_format: '%Y-%m-%d %H:%M:%S'
+  log_to_file: true
+  log_file: logs/qubitpulseopt.log
+  max_file_size: 10485760
+  backup_count: 5
+  log_to_console: true
+  console_level: INFO
+  loggers:
+    optimization: INFO
+    simulation: INFO
+    visualization: WARNING
+    io: INFO
+performance:
+  parallel:
+    enable: false
+    num_workers: 4
+    backend: threading
+  memory:
+    cache_size: 1000
+    clear_cache_on_complete: true
+  numerical:
+    dtype: complex128
+    rtol: 1.0e-09
+    atol: 1.0e-12
+reproducibility:
+  random_seed: 42
+  numpy_seed: 42
+  track_versions: true
+  save_environment: true
+  track_git_commit: false
+  save_diff: false
+metadata:
+  project_name: QubitPulseOpt
+  experiment_id: null
+  author: null
+  description: null
+  tags: []
+  custom: {}
+advanced:
+  two_qubit:
+    enabled: false
+    coupling_strength: 10.0e6
+  ml_optimization:
+    enabled: false
+    framework: optuna
+    num_trials: 100
+  adaptive:
+    enabled: false
+    update_frequency: 10
+    adaptation_rate: 0.1

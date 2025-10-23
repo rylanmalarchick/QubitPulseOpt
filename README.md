@@ -1,5 +1,12 @@
 # QubitPulseOpt: Optimal Pulse Engineering for Single-Qubit Gates
 
+[![Tests](https://github.com/YOUR_USERNAME/quantumControls/workflows/Tests/badge.svg)](https://github.com/YOUR_USERNAME/quantumControls/actions/workflows/tests.yml)
+[![Documentation](https://github.com/YOUR_USERNAME/quantumControls/workflows/Documentation/badge.svg)](https://github.com/YOUR_USERNAME/quantumControls/actions/workflows/docs.yml)
+[![Notebooks](https://github.com/YOUR_USERNAME/quantumControls/workflows/Notebooks/badge.svg)](https://github.com/YOUR_USERNAME/quantumControls/actions/workflows/notebooks.yml)
+[![codecov](https://codecov.io/gh/YOUR_USERNAME/quantumControls/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/quantumControls)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ## Project Context
 **From Perception to Coherence:** This project applies control theory principles familiar from real-time robotics (e.g., AirHound's drone yaw stabilization under sensor noise) to quantum systems. Instead of steering a quadrotor with noisy IMU data, we shape electromagnetic pulses to drive qubit state transitions while battling decoherence—a temporal "noise budget" analogous to loop closure times in ROS2 pipelines.
 
@@ -52,13 +59,28 @@ conda activate qubitpulseopt
 python -c "import qutip; print(qutip.about())"
 ```
 
-### 2. Run Baseline Demo (Week 1 Milestone)
+### 2. Run Tests
 ```bash
-# Interactive exploration
-jupyter notebook notebooks/01_drift_dynamics.ipynb
+# Run fast unit tests (< 1 minute)
+pytest tests/unit -v -m "not slow" --cov=src
 
-# Automated validation
+# Run all tests including slow optimization tests
 pytest tests/ -v --cov=src
+
+# Run with parallel execution
+pytest tests/unit -v -m "not slow" -n auto
+```
+
+### 3. Explore Notebooks
+```bash
+# Launch Jupyter
+jupyter notebook
+
+# Open any notebook from notebooks/ directory
+# Recommended starting points:
+# - 01_basic_pulse_design.ipynb - Introduction to pulse design
+# - 02_grape_optimization.ipynb - GRAPE optimization tutorial
+# - 08_end_to_end_workflow.ipynb - Complete workflow example
 ```
 
 ---
@@ -68,14 +90,22 @@ pytest tests/ -v --cov=src
 QubitPulseOpt/
 ├── src/                  # Core simulation modules
 │   ├── hamiltonian/      # System definitions (H₀ + Hc)
-│   ├── pulses/           # Waveform generators (Gaussian, DRAG, etc.)
-│   ├── optimization/     # GRAPE/CRAB implementations
-│   └── noise/            # Decoherence models (Lindblad)
-├── notebooks/            # Interactive demos (ReAct loop outputs)
-├── tests/                # Pytest suite (physics validation)
-├── docs/                 # SOW + design notes
-├── data/                 # Simulation outputs (CSV/plots)
-└── agent_logs/           # AI decision traceability (JSON)
+│   ├── pulses/           # Waveform generators (Gaussian, DRAG, composite)
+│   ├── optimization/     # GRAPE/CRAB/filtering implementations
+│   ├── noise/            # Decoherence models (Lindblad)
+│   ├── benchmarking/     # Randomized benchmarking, filter functions
+│   ├── visualization/    # Dashboards, animations, reports
+│   ├── io/               # Export/import utilities
+│   └── config.py         # Configuration management
+├── notebooks/            # Interactive demos (8 complete tutorials)
+├── tests/                # Pytest suite (573+ tests)
+│   ├── unit/             # Fast unit tests
+│   └── integration/      # Integration tests (if present)
+├── docs/                 # Comprehensive documentation
+├── examples/             # Standalone example scripts
+├── config/               # Configuration files
+├── data/                 # Simulation outputs
+└── .github/workflows/    # CI/CD pipelines
 ```
 
 ---
@@ -103,11 +133,44 @@ cp quantum_control_theory.pdf ../
 
 ---
 
-## Milestones (4-Week Plan)
-- **Week 1:** Drift dynamics + unitary evolution validated
-- **Week 2:** GRAPE optimizer converges for X-gate (F>0.99)
-- **Week 3:** Noise robustness + ML hyperparameter search
-- **Week 4:** Final report + Git tag `v1.0-shippable`
+## Features
+
+### Core Capabilities
+- **Pulse Design:** Gaussian, DRAG, composite pulses, adiabatic techniques
+- **Optimization:** GRAPE, CRAB algorithms with customizable cost functions
+- **Noise Modeling:** T1/T2 decoherence, filter function analysis
+- **Benchmarking:** Randomized benchmarking, sensitivity analysis
+- **Visualization:** Interactive dashboards, Bloch sphere animations, publication-quality reports
+- **Export:** JSON, NPZ, hardware-compatible formats
+
+### Advanced Features
+- **Robustness Analysis:** Filter functions, uncertainty quantification
+- **Gate Library:** Optimized single-qubit gates (X, Y, Z, H, T, arbitrary rotations)
+- **Composite Pulses:** BB1, CORPSE, SK1 for error suppression
+- **Performance:** Parallel execution, profiled hotspots, optimized solvers
+
+## Documentation
+
+- **Notebooks:** 8 comprehensive tutorials covering all features
+- **API Documentation:** Detailed docstrings with examples
+- **Science Document:** LaTeX theory document with derivations
+- **Examples:** Standalone scripts demonstrating key workflows
+- **Status Tracking:** `docs/PHASE_3_STATUS.md` for project progress
+
+## Testing & Quality
+
+- **573+ Tests:** Comprehensive unit and integration test coverage
+- **CI/CD:** Automated testing on Python 3.9, 3.10, 3.11
+- **Code Quality:** Linting with flake8, formatting with black
+- **Nightly Builds:** Slow optimization tests run on schedule
+- **Notebook Validation:** All notebooks tested for execution
+
+## Milestones (Complete)
+- ✅ **Phase 1:** Drift dynamics + unitary evolution validated
+- ✅ **Phase 2:** GRAPE optimizer converges for X-gate (F>0.999)
+- ✅ **Phase 3:** Advanced features - robustness, benchmarking, visualization
+- ✅ **Phase 4:** Complete documentation, notebooks, and examples
+- 🔄 **Phase 5 (Current):** Production polish, CI/CD, performance optimization
 
 ---
 

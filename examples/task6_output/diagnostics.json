@@ -1,0 +1,21 @@
+{
+  "name": "task6_demo",
+  "timestamp": "2025-10-23T16:21:14.218235Z",
+  "records": {
+    "matrix_size": 500,
+    "computation_time": 0.0335538387298584,
+    "memory_estimate_mb": 1.9073486328125
+  },
+  "events": [
+    {
+      "timestamp": "2025-10-23T16:21:14.218267Z",
+      "event": "computation_started",
+      "method": "numpy"
+    },
+    {
+      "timestamp": "2025-10-23T16:21:14.218281Z",
+      "event": "computation_completed",
+      "status": "success"
+    }
+  ]
+}
