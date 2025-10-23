@@ -1,57 +1,85 @@
-\contentsline {section}{\numberline {1}Introduction}{3}{section.1}%
-\contentsline {subsection}{\numberline {1.1}Motivation and Scope}{3}{subsection.1.1}%
-\contentsline {subsection}{\numberline {1.2}Mathematical Conventions}{3}{subsection.1.2}%
-\contentsline {section}{\numberline {2}Phase 1.1: Computational Infrastructure and Reproducibility}{3}{section.2}%
-\contentsline {subsection}{\numberline {2.1}Overview}{3}{subsection.2.1}%
-\contentsline {subsection}{\numberline {2.2}Environment Design Philosophy}{4}{subsection.2.2}%
-\contentsline {subsubsection}{\numberline {2.2.1}Reproducibility Requirements}{4}{subsubsection.2.2.1}%
-\contentsline {subsubsection}{\numberline {2.2.2}Virtual Environment vs. Conda}{4}{subsubsection.2.2.2}%
-\contentsline {subsection}{\numberline {2.3}Core Dependencies}{4}{subsection.2.3}%
-\contentsline {subsubsection}{\numberline {2.3.1}QuTiP Installation Notes}{4}{subsubsection.2.3.1}%
-\contentsline {subsection}{\numberline {2.4}Repository Structure}{5}{subsection.2.4}%
-\contentsline {subsection}{\numberline {2.5}Validation Protocol}{6}{subsection.2.5}%
-\contentsline {subsection}{\numberline {2.6}Git Workflow and Version Control}{6}{subsection.2.6}%
-\contentsline {subsection}{\numberline {2.7}Summary of Phase 1.1 Deliverables}{7}{subsection.2.7}%
-\contentsline {section}{\numberline {3}Phase 1.2: Drift Hamiltonian and Free Evolution}{7}{section.3}%
-\contentsline {subsection}{\numberline {3.1}Overview}{7}{subsection.3.1}%
-\contentsline {subsection}{\numberline {3.2}Two-Level Systems and the Qubit Hilbert Space}{7}{subsection.3.2}%
-\contentsline {subsection}{\numberline {3.3}Physical Derivation of the Drift Hamiltonian}{7}{subsection.3.3}%
-\contentsline {subsection}{\numberline {3.4}Spectral Properties of the Drift Hamiltonian}{8}{subsection.3.4}%
-\contentsline {subsection}{\numberline {3.5}Analytical Solution for Time Evolution}{8}{subsection.3.5}%
-\contentsline {subsubsection}{\numberline {3.5.1}Time Evolution Operator}{8}{subsubsection.3.5.1}%
-\contentsline {subsubsection}{\numberline {3.5.2}Evolution of Basis States}{9}{subsubsection.3.5.2}%
-\contentsline {subsection}{\numberline {3.6}Bloch Sphere Representation}{9}{subsection.3.6}%
-\contentsline {subsubsection}{\numberline {3.6.1}Bloch Vector Mapping}{9}{subsubsection.3.6.1}%
-\contentsline {subsubsection}{\numberline {3.6.2}Drift Dynamics on the Bloch Sphere}{9}{subsubsection.3.6.2}%
-\contentsline {subsection}{\numberline {3.7}Numerical Implementation}{10}{subsection.3.7}%
-\contentsline {subsubsection}{\numberline {3.7.1}DriftHamiltonian Class}{10}{subsubsection.3.7.1}%
-\contentsline {subsubsection}{\numberline {3.7.2}TimeEvolution Engine}{10}{subsubsection.3.7.2}%
-\contentsline {subsection}{\numberline {3.8}Validation and Testing}{12}{subsection.3.8}%
-\contentsline {subsubsection}{\numberline {3.8.1}Unit Test Coverage}{12}{subsubsection.3.8.1}%
-\contentsline {subsubsection}{\numberline {3.8.2}Analytical vs. Numerical Comparison}{12}{subsubsection.3.8.2}%
-\contentsline {subsection}{\numberline {3.9}Demonstration Notebook}{12}{subsection.3.9}%
-\contentsline {subsection}{\numberline {3.10}Summary of Phase 1.2 Deliverables}{13}{subsection.3.10}%
-\contentsline {section}{\numberline {4}Phase 1.3: Control Hamiltonian and Pulse Shaping}{13}{section.4}%
-\contentsline {subsection}{\numberline {4.1}Overview}{13}{subsection.4.1}%
-\contentsline {subsection}{\numberline {4.2}Control Hamiltonian in the Lab Frame}{13}{subsection.4.2}%
-\contentsline {subsection}{\numberline {4.3}Rotating Frame and Rotating-Wave Approximation}{14}{subsection.4.3}%
-\contentsline {subsection}{\numberline {4.4}Rabi Oscillations}{14}{subsection.4.4}%
-\contentsline {subsubsection}{\numberline {4.4.1}Constant Driving}{14}{subsubsection.4.4.1}%
-\contentsline {subsubsection}{\numberline {4.4.2}Quantum Gate Synthesis}{14}{subsubsection.4.4.2}%
-\contentsline {subsection}{\numberline {4.5}Pulse Shapes}{15}{subsection.4.5}%
-\contentsline {subsubsection}{\numberline {4.5.1}Gaussian Pulse}{15}{subsubsection.4.5.1}%
-\contentsline {subsubsection}{\numberline {4.5.2}DRAG Pulses}{15}{subsubsection.4.5.2}%
-\contentsline {subsection}{\numberline {4.6}Detuning Effects}{15}{subsection.4.6}%
-\contentsline {subsection}{\numberline {4.7}Implementation}{15}{subsection.4.7}%
-\contentsline {subsubsection}{\numberline {4.7.1}ControlHamiltonian Class}{15}{subsubsection.4.7.1}%
-\contentsline {subsubsection}{\numberline {4.7.2}Pulse Shape Generators}{16}{subsubsection.4.7.2}%
-\contentsline {subsection}{\numberline {4.8}Validation and Testing}{16}{subsection.4.8}%
-\contentsline {subsubsection}{\numberline {4.8.1}Test Coverage}{16}{subsubsection.4.8.1}%
-\contentsline {subsubsection}{\numberline {4.8.2}Rabi Oscillation Validation}{17}{subsubsection.4.8.2}%
-\contentsline {subsection}{\numberline {4.9}Demonstration Notebook}{17}{subsection.4.9}%
-\contentsline {subsection}{\numberline {4.10}Summary of Phase 1.3 Deliverables}{17}{subsection.4.10}%
-\contentsline {section}{\numberline {5}Future Phases (Planned)}{18}{section.5}%
-\contentsline {subsection}{\numberline {5.1}Phase 2: Optimal Control Theory}{18}{subsection.5.1}%
-\contentsline {section}{\numberline {6}Conclusion}{18}{section.6}%
-\contentsline {section}{References}{18}{section*.2}%
-\contentsline {section}{\numberline {A}Appendix: QuTiP API Reference}{19}{appendix.A}%
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Motivation and Scope}{4}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Mathematical Conventions}{4}{subsection.1.2}%
+\contentsline {section}{\numberline {2}Phase 1.1: Computational Infrastructure and Reproducibility}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Overview}{4}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Environment Design Philosophy}{5}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}Reproducibility Requirements}{5}{subsubsection.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.2.2}Virtual Environment vs. Conda}{5}{subsubsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.3}Core Dependencies}{5}{subsection.2.3}%
+\contentsline {subsubsection}{\numberline {2.3.1}QuTiP Installation Notes}{5}{subsubsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.4}Repository Structure}{6}{subsection.2.4}%
+\contentsline {subsection}{\numberline {2.5}Validation Protocol}{7}{subsection.2.5}%
+\contentsline {subsection}{\numberline {2.6}Git Workflow and Version Control}{7}{subsection.2.6}%
+\contentsline {subsection}{\numberline {2.7}Summary of Phase 1.1 Deliverables}{8}{subsection.2.7}%
+\contentsline {section}{\numberline {3}Phase 1.2: Drift Hamiltonian and Free Evolution}{8}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Overview}{8}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Two-Level Systems and the Qubit Hilbert Space}{8}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Physical Derivation of the Drift Hamiltonian}{8}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Spectral Properties of the Drift Hamiltonian}{9}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Analytical Solution for Time Evolution}{9}{subsection.3.5}%
+\contentsline {subsubsection}{\numberline {3.5.1}Time Evolution Operator}{9}{subsubsection.3.5.1}%
+\contentsline {subsubsection}{\numberline {3.5.2}Evolution of Basis States}{10}{subsubsection.3.5.2}%
+\contentsline {subsection}{\numberline {3.6}Bloch Sphere Representation}{10}{subsection.3.6}%
+\contentsline {subsubsection}{\numberline {3.6.1}Bloch Vector Mapping}{10}{subsubsection.3.6.1}%
+\contentsline {subsubsection}{\numberline {3.6.2}Drift Dynamics on the Bloch Sphere}{10}{subsubsection.3.6.2}%
+\contentsline {subsection}{\numberline {3.7}Numerical Implementation}{11}{subsection.3.7}%
+\contentsline {subsubsection}{\numberline {3.7.1}DriftHamiltonian Class}{11}{subsubsection.3.7.1}%
+\contentsline {subsubsection}{\numberline {3.7.2}TimeEvolution Engine}{11}{subsubsection.3.7.2}%
+\contentsline {subsection}{\numberline {3.8}Validation and Testing}{13}{subsection.3.8}%
+\contentsline {subsubsection}{\numberline {3.8.1}Unit Test Coverage}{13}{subsubsection.3.8.1}%
+\contentsline {subsubsection}{\numberline {3.8.2}Analytical vs. Numerical Comparison}{13}{subsubsection.3.8.2}%
+\contentsline {subsection}{\numberline {3.9}Demonstration Notebook}{13}{subsection.3.9}%
+\contentsline {subsection}{\numberline {3.10}Summary of Phase 1.2 Deliverables}{14}{subsection.3.10}%
+\contentsline {section}{\numberline {4}Phase 1.3: Control Hamiltonian and Pulse Shaping}{14}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Overview}{14}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Control Hamiltonian in the Lab Frame}{14}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Rotating Frame and Rotating-Wave Approximation}{15}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}Rabi Oscillations}{15}{subsection.4.4}%
+\contentsline {subsubsection}{\numberline {4.4.1}Constant Driving}{15}{subsubsection.4.4.1}%
+\contentsline {subsubsection}{\numberline {4.4.2}Quantum Gate Synthesis}{15}{subsubsection.4.4.2}%
+\contentsline {subsection}{\numberline {4.5}Pulse Shapes}{16}{subsection.4.5}%
+\contentsline {subsubsection}{\numberline {4.5.1}Gaussian Pulse}{16}{subsubsection.4.5.1}%
+\contentsline {subsubsection}{\numberline {4.5.2}DRAG Pulses}{16}{subsubsection.4.5.2}%
+\contentsline {subsection}{\numberline {4.6}Detuning Effects}{16}{subsection.4.6}%
+\contentsline {subsection}{\numberline {4.7}Implementation}{16}{subsection.4.7}%
+\contentsline {subsubsection}{\numberline {4.7.1}ControlHamiltonian Class}{16}{subsubsection.4.7.1}%
+\contentsline {subsubsection}{\numberline {4.7.2}Pulse Shape Generators}{17}{subsubsection.4.7.2}%
+\contentsline {subsection}{\numberline {4.8}Validation and Testing}{17}{subsection.4.8}%
+\contentsline {subsubsection}{\numberline {4.8.1}Test Coverage}{17}{subsubsection.4.8.1}%
+\contentsline {subsubsection}{\numberline {4.8.2}Rabi Oscillation Validation}{18}{subsubsection.4.8.2}%
+\contentsline {subsection}{\numberline {4.9}Demonstration Notebook}{18}{subsection.4.9}%
+\contentsline {subsection}{\numberline {4.10}Summary of Phase 1.3 Deliverables}{18}{subsection.4.10}%
+\contentsline {section}{\numberline {5}Phase 2: Optimal Control Theory}{19}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Overview}{19}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Optimal Control Problem Formulation}{19}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Fidelity Metrics}{19}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}Constrained Optimization}{19}{subsubsection.5.2.2}%
+\contentsline {subsection}{\numberline {5.3}GRAPE Algorithm}{19}{subsection.5.3}%
+\contentsline {subsubsection}{\numberline {5.3.1}Gradient Computation}{19}{subsubsection.5.3.1}%
+\contentsline {subsubsection}{\numberline {5.3.2}Update Rule}{19}{subsubsection.5.3.2}%
+\contentsline {subsection}{\numberline {5.4}Krotov's Method}{20}{subsection.5.4}%
+\contentsline {subsection}{\numberline {5.5}Robustness Analysis}{20}{subsection.5.5}%
+\contentsline {subsubsection}{\numberline {5.5.1}Parameter Sensitivity}{20}{subsubsection.5.5.1}%
+\contentsline {subsubsection}{\numberline {5.5.2}Noise Robustness}{20}{subsubsection.5.5.2}%
+\contentsline {subsection}{\numberline {5.6}Implementation}{20}{subsection.5.6}%
+\contentsline {section}{\numberline {6}Phase 3: Advanced Pulse Shaping and Benchmarking}{21}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Overview}{21}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Task 1: Advanced Pulse Shaping}{21}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}DRAG Pulses}{21}{subsubsection.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Composite Pulses}{21}{subsubsection.6.2.2}%
+\contentsline {subsubsection}{\numberline {6.2.3}Adiabatic Techniques}{21}{subsubsection.6.2.3}%
+\contentsline {subsection}{\numberline {6.3}Task 2: Gate Library and Compilation}{22}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Universal Single-Qubit Gates}{22}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Euler Decomposition}{22}{subsubsection.6.3.2}%
+\contentsline {subsubsection}{\numberline {6.3.3}Gate Compilation}{22}{subsubsection.6.3.3}%
+\contentsline {subsection}{\numberline {6.4}Task 3: Enhanced Robustness and Benchmarking}{22}{subsection.6.4}%
+\contentsline {subsubsection}{\numberline {6.4.1}Filter Functions}{22}{subsubsection.6.4.1}%
+\contentsline {subsubsection}{\numberline {6.4.2}Randomized Benchmarking}{23}{subsubsection.6.4.2}%
+\contentsline {subsubsection}{\numberline {6.4.3}Fisher Information}{23}{subsubsection.6.4.3}%
+\contentsline {subsection}{\numberline {6.5}Implementation Summary}{23}{subsection.6.5}%
+\contentsline {section}{\numberline {7}Future Work}{24}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Planned Extensions}{24}{subsection.7.1}%
+\contentsline {section}{\numberline {8}Conclusion}{24}{section.8}%
+\contentsline {section}{References}{25}{section*.2}%
+\contentsline {section}{\numberline {A}Appendix: QuTiP API Reference}{25}{appendix.A}%

@@ -23,7 +23,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \rhead{Quantum Control Theory: QubitPulseOpt}
-\lhead{Phase 1.1--1.2}
+\lhead{Phases 1--3}
 \rfoot{Page \thepage}
 
 % Hyperref setup
@@ -94,7 +94,7 @@ Optimal Quantum Control of Two-Level Systems}
 \maketitle
 
 \begin{abstract}
-This document provides a comprehensive theoretical foundation and implementation guide for the QubitPulseOpt quantum control simulation framework. We develop the mathematical formalism for controlling two-level quantum systems (qubits) using time-dependent electromagnetic pulses, building from first principles to advanced optimal control techniques. The treatment is organized by project phases, with each phase introducing new theoretical concepts alongside their computational implementations. Phase 1.1 establishes the computational environment and reproducibility infrastructure. Phase 1.2 develops the drift Hamiltonian formalism, analytical solutions for free evolution, and validation methodology. Subsequent phases will address control Hamiltonians, pulse shaping, optimal control algorithms, and relaxation/decoherence effects. This document serves as the authoritative reference for all physics, mathematics, and implementation decisions in the QubitPulseOpt framework.
+This document provides a comprehensive theoretical foundation and implementation guide for the QubitPulseOpt quantum control simulation framework. We develop the mathematical formalism for controlling two-level quantum systems (qubits) using time-dependent electromagnetic pulses, building from first principles to advanced optimal control techniques. The treatment is organized by project phases, with each phase introducing new theoretical concepts alongside their computational implementations. Phase 1 establishes the computational environment, drift Hamiltonian formalism, and control Hamiltonians. Phase 2 implements optimal control algorithms (GRAPE, Krotov) with comprehensive robustness testing. Phase 3 develops advanced pulse shaping techniques, gate compilation, and benchmarking protocols. This document serves as the authoritative reference for all physics, mathematics, and implementation decisions in the QubitPulseOpt framework.
 \end{abstract}
 
 \tableofcontents
@@ -897,31 +897,338 @@ Constant driving (3 periods) & Periodic return to $\ket{0}$ & $F > 0.99$ \\
 \end{itemize}
 
 %==============================================================================
-\section{Future Phases (Planned)}
+\section{Phase 2: Optimal Control Theory}
+\label{sec:phase2}
 %==============================================================================
 
-\subsection{Phase 2: Optimal Control Theory}
+\subsection{Overview}
 
-Advanced phases will cover:
+Phase 2 implements gradient-based optimal control algorithms for designing high-fidelity quantum gates. The goal is to find control pulse shapes $\Omega(t)$ that maximize the fidelity between the implemented operation and a target unitary $U_{\text{target}}$, while respecting physical constraints (amplitude limits, bandwidth, total time).
 
+\subsection{Optimal Control Problem Formulation}
+
+\subsubsection{Fidelity Metrics}
+
+For quantum gate optimization, we consider two primary fidelity measures:
+
+\begin{definition}[State Fidelity]
+For an initial state $\ket{\psi_0}$ evolving to $\ket{\psi(T)}$ under control Hamiltonian, the state fidelity is:
+\begin{equation}
+F_{\text{state}} = |\braket{\psi_{\text{target}}}{\psi(T)}|^2
+\end{equation}
+\end{definition}
+
+\begin{definition}[Unitary Fidelity]
+For gate operations, the average gate fidelity over all input states is:
+\begin{equation}
+F_{\text{gate}} = \frac{1}{d^2}|\Tr(U_{\text{target}}^\dagger U(T))|^2
+\end{equation}
+where $d$ is the Hilbert space dimension (for qubits, $d=2$).
+\end{definition}
+
+\subsubsection{Constrained Optimization}
+
+The optimal control problem is formulated as:
+\begin{equation}
+\begin{aligned}
+\max_{\{\Omega_k\}} \quad & F(\{\Omega_k\}) \\
+\text{subject to} \quad & |\Omega_k| \leq \Omega_{\text{max}} \quad \forall k \\
+& \sum_k \Delta t = T
+\end{aligned}
+\end{equation}
+where $\{\Omega_k\}$ are piecewise-constant control amplitudes over time slices.
+
+\subsection{GRAPE Algorithm}
+
+\subsubsection{Gradient Computation}
+
+GRAPE (GRadient Ascent Pulse Engineering) uses analytical gradients of fidelity with respect to control parameters. For state transfer with Hamiltonian $H(t) = H_0 + \sum_j u_j(t) H_j$, the gradient is:
+\begin{equation}
+\frac{\partial F}{\partial u_j(t_k)} = 2\Re\left[\bra{\chi(t_k)} H_j \ket{\psi(t_k)}\right]
+\end{equation}
+where $\ket{\chi(t)}$ is the backward-propagated state from $\ket{\psi_{\text{target}}}$.
+
+\subsubsection{Update Rule}
+
+The GRAPE algorithm iterates:
+\begin{enumerate}
+    \item Forward propagate: $\ket{\psi(t_{k+1})} = e^{-iH(t_k)\Delta t}\ket{\psi(t_k)}$
+    \item Backward propagate: $\ket{\chi(t_k)} = e^{-iH(t_k)\Delta t}\ket{\chi(t_{k+1})}$
+    \item Compute gradients: $\nabla_{u_j(t_k)} F$
+    \item Update controls: $u_j(t_k) \leftarrow u_j(t_k) + \epsilon \nabla_{u_j(t_k)} F$
+    \item Project to constraints: $u_j(t_k) \leftarrow \min(\max(u_j(t_k), -\Omega_{\text{max}}), \Omega_{\text{max}})$
+\end{enumerate}
+
+\subsection{Krotov's Method}
+
+Krotov's method provides monotonic convergence guarantees through a penalty-based update:
+\begin{equation}
+u_j^{(n+1)}(t) = u_j^{(n)}(t) + \frac{1}{\lambda} \Im\left[\bra{\chi^{(n)}(t)} H_j \ket{\psi^{(n)}(t)}\right]
+\end{equation}
+where $\lambda > 0$ is a step-size parameter controlling convergence rate.
+
+\textbf{Advantages over GRAPE:}
 \begin{itemize}
-    \item \textbf{GRAPE (GRadient Ascent Pulse Engineering):} Gradient-based optimization of piecewise-constant control fields to maximize fidelity $F = |\braket{\psi_{\text{target}}}{\psi(T)}|^2$.
-    \item \textbf{Krotov's Method:} Monotonically convergent optimal control algorithm.
-    \item \textbf{Lindblad Master Equation:} Open quantum system dynamics with relaxation ($T_1$) and dephasing ($T_2$).
-    \item \textbf{Robustness Analysis:} Sensitivity to pulse errors, detuning, and noise.
+    \item Monotonic convergence: $F^{(n+1)} \geq F^{(n)}$
+    \item No line search required
+    \item Smooth pulse updates
 \end{itemize}
 
-Each phase will extend this document with new sections, derivations, code mappings, and validation results.
+\subsection{Robustness Analysis}
+
+\subsubsection{Parameter Sensitivity}
+
+For practical implementation, control pulses must be robust against:
+\begin{itemize}
+    \item \textbf{Detuning errors}: $\omega_{\text{drive}} \neq \omega_0$
+    \item \textbf{Amplitude errors}: $\Omega_{\text{actual}} = (1+\epsilon)\Omega_{\text{nominal}}$
+    \item \textbf{Timing jitter}: $t \rightarrow t + \delta t$
+\end{itemize}
+
+The sensitivity is quantified by:
+\begin{equation}
+S_\theta = \left|\frac{\partial F}{\partial \theta}\right|
+\end{equation}
+for parameter $\theta$ (detuning, amplitude, etc.).
+
+\subsubsection{Noise Robustness}
+
+For Gaussian amplitude noise $\delta\Omega(t) \sim \mathcal{N}(0, \sigma^2)$, the average fidelity is:
+\begin{equation}
+\langle F \rangle = \int F(\Omega + \delta\Omega) P(\delta\Omega) d\delta\Omega
+\end{equation}
+
+\subsection{Implementation}
+
+\textbf{Code Mapping:}
+\begin{itemize}
+    \item \texttt{src/optimization/grape.py} — GRAPE optimizer class (315 lines)
+    \item \texttt{src/optimization/krotov.py} — Krotov optimizer class (298 lines)
+    \item \texttt{src/optimization/robustness.py} — Robustness testing framework (932 lines)
+    \item \texttt{tests/unit/test\_grape.py} — GRAPE algorithm tests (37 tests)
+    \item \texttt{tests/unit/test\_krotov.py} — Krotov algorithm tests (36 tests)
+    \item \texttt{tests/unit/test\_robustness.py} — Robustness tests (15 tests)
+\end{itemize}
+
+\textbf{Validation Results:}
+\begin{itemize}
+    \item X-gate fidelity: $F > 0.9999$ (500 iterations)
+    \item Hadamard gate: $F > 0.999$ (300 iterations)
+    \item Robustness: $\langle F \rangle > 0.95$ for 10\% amplitude noise
+\end{itemize}
+
+%==============================================================================
+\section{Phase 3: Advanced Pulse Shaping and Benchmarking}
+\label{sec:phase3}
+%==============================================================================
+
+\subsection{Overview}
+
+Phase 3 extends the control framework with advanced pulse shaping techniques, gate compilation, and comprehensive benchmarking protocols. These methods address leakage suppression, composite pulse robustness, adiabatic passage, and hardware-independent gate characterization.
+
+\subsection{Task 1: Advanced Pulse Shaping}
+
+\subsubsection{DRAG Pulses}
+
+Derivative Removal by Adiabatic Gate (DRAG) suppresses leakage to non-computational states in weakly anharmonic systems. For a qubit with leakage level $\ket{2}$, the DRAG Hamiltonian is:
+\begin{equation}
+H_{\text{DRAG}}(t) = \Omega(t)\cos(\omega t)\sigma_x - \beta\dot{\Omega}(t)\sin(\omega t)\sigma_y
+\end{equation}
+where $\beta = 1/\delta$ with $\delta$ the anharmonicity.
+
+\textbf{Theoretical Basis:} The $\sigma_y$ term cancels the leading-order leakage error:
+\begin{equation}
+\epsilon_{\text{leakage}} \propto \frac{\Omega^2}{\delta^2} \rightarrow 0 \text{ with DRAG}
+\end{equation}
+
+\subsubsection{Composite Pulses}
+
+Composite pulses achieve robustness through sequences of imperfect operations that cancel systematic errors. For example, the BB1 (Broadband 1) sequence:
+\begin{equation}
+U_{\text{BB1}} = X_{\phi_3} X_{\phi_2} X_{\phi_1} X_{\phi_0}
+\end{equation}
+with phases $\phi = [\pi, 3\pi, 3\pi, \pi]$ compensates for pulse amplitude errors to second order.
+
+\textbf{Key Composite Sequences:}
+\begin{itemize}
+    \item \textbf{BB1}: Broadband, compensates amplitude and detuning errors
+    \item \textbf{CORPSE}: Compensation for Off-Resonance with Pulse Sequence
+    \item \textbf{SCROFULOUS}: Short Composite Rotation For Undoing Length Over- and Under-Shoot
+\end{itemize}
+
+\subsubsection{Adiabatic Techniques}
+
+\textbf{Adiabatic Theorem:} A system in eigenstate $\ket{n(0)}$ remains in the instantaneous eigenstate $\ket{n(t)}$ if the Hamiltonian changes sufficiently slowly:
+\begin{equation}
+\left|\frac{\bra{m(t)}\dot{H}(t)\ket{n(t)}}{(E_n - E_m)^2}\right| \ll 1
+\end{equation}
+
+\textbf{STIRAP (Stimulated Raman Adiabatic Passage):} Robust population transfer using two time-delayed pulses in counterintuitive order:
+\begin{equation}
+H_{\text{STIRAP}}(t) = \Omega_p(t)\ket{1}\bra{0} + \Omega_s(t)\ket{2}\bra{1} + \text{h.c.}
+\end{equation}
+with Stokes pulse $\Omega_s$ before pump $\Omega_p$.
+
+\subsection{Task 2: Gate Library and Compilation}
+
+\subsubsection{Universal Single-Qubit Gates}
+
+Any single-qubit unitary can be decomposed as:
+\begin{equation}
+U = e^{i\alpha}R_z(\beta)R_y(\gamma)R_z(\delta)
+\end{equation}
+where $R_j(\theta) = e^{-i\theta\sigma_j/2}$ are rotation operators.
+
+\textbf{Implemented Gates:}
+\begin{itemize}
+    \item Identity: $I$
+    \item Pauli gates: $X, Y, Z$
+    \item Hadamard: $H = \frac{1}{\sqrt{2}}(X + Z)$
+    \item Phase gates: $S = \sqrt{Z}, T = \sqrt{S}$
+    \item Arbitrary rotations: $R_{\hat{n}}(\theta)$
+\end{itemize}
+
+\subsubsection{Euler Decomposition}
+
+The ZYZ decomposition extracts rotation angles:
+\begin{equation}
+U = \begin{pmatrix} u_{00} & u_{01} \\ u_{10} & u_{11} \end{pmatrix} = e^{i\alpha}R_z(\beta)R_y(\gamma)R_z(\delta)
+\end{equation}
+with:
+\begin{align}
+\gamma &= 2\arccos(|u_{00}|) \\
+\beta &= \arg(u_{00}) - \arg(u_{01}) \\
+\delta &= \arg(u_{00}) + \arg(u_{01})
+\end{align}
+
+\subsubsection{Gate Compilation}
+
+\textbf{Compilation Strategies:}
+\begin{enumerate}
+    \item \textbf{Sequential}: Optimize each gate independently, concatenate
+    \item \textbf{Joint}: Optimize entire gate sequence simultaneously
+    \item \textbf{Hybrid}: Sequential with joint refinement
+\end{enumerate}
+
+\subsection{Task 3: Enhanced Robustness and Benchmarking}
+
+\subsubsection{Filter Functions}
+
+Filter functions characterize pulse sensitivity to noise at different frequencies:
+\begin{equation}
+F(\omega) = \left|\int_0^T y(t)e^{i\omega t}dt\right|^2
+\end{equation}
+where $y(t)$ is the control modulation.
+
+\textbf{Noise Infidelity:}
+\begin{equation}
+\chi = \frac{1}{2\pi}\int F(\omega)S(\omega)d\omega
+\end{equation}
+for noise power spectral density $S(\omega)$.
+
+\textbf{Common Noise Models:}
+\begin{itemize}
+    \item White noise: $S(\omega) = S_0$
+    \item $1/f$ noise: $S(\omega) = A/|\omega|^\alpha$
+    \item Lorentzian: $S(\omega) = A/(1 + (\omega/\omega_c)^2)$
+\end{itemize}
+
+\subsubsection{Randomized Benchmarking}
+
+Randomized Benchmarking (RB) extracts average gate fidelity via decay of survival probability:
+\begin{equation}
+F_{\text{seq}}(m) = A p^m + B
+\end{equation}
+for sequence length $m$, with depolarizing parameter $p$ related to average gate fidelity:
+\begin{equation}
+F_{\text{avg}} = 1 - \frac{(1-p)(d-1)}{d}
+\end{equation}
+
+\textbf{Clifford Group:} The 24-element single-qubit Clifford group is generated by Hadamard $H$ and phase gate $S = \text{diag}(1, i)$.
+
+\textbf{Interleaved RB:} Characterizes specific gate $G$ by interleaving it between random Cliffords:
+\begin{equation}
+F_G = 1 - \frac{(1 - p_{\text{int}}/p_{\text{std}})(d-1)}{d}
+\end{equation}
+
+\subsubsection{Fisher Information}
+
+Quantum Fisher information quantifies parameter estimation precision:
+\begin{equation}
+F(\theta) = \Tr[\rho L^2]
+\end{equation}
+where $L$ is the symmetric logarithmic derivative satisfying:
+\begin{equation}
+\frac{\partial\rho}{\partial\theta} = \frac{1}{2}(L\rho + \rho L)
+\end{equation}
+
+\textbf{Cramér-Rao Bound:} The variance of any unbiased estimator satisfies:
+\begin{equation}
+\text{Var}(\hat{\theta}) \geq \frac{1}{NF(\theta)}
+\end{equation}
+for $N$ measurements.
+
+\subsection{Implementation Summary}
+
+\textbf{Phase 3 Modules:}
+\begin{itemize}
+    \item \texttt{src/pulses/drag.py} — DRAG pulse implementation (347 lines)
+    \item \texttt{src/pulses/composite.py} — Composite pulse sequences (419 lines)
+    \item \texttt{src/pulses/adiabatic.py} — Adiabatic passage techniques (508 lines)
+    \item \texttt{src/optimization/gates.py} — Universal gate library (502 lines)
+    \item \texttt{src/optimization/compilation.py} — Gate compilation (481 lines)
+    \item \texttt{src/optimization/filter\_functions.py} — Filter function analysis (673 lines)
+    \item \texttt{src/optimization/benchmarking.py} — Randomized benchmarking (679 lines)
+\end{itemize}
+
+\textbf{Test Coverage:}
+\begin{itemize}
+    \item DRAG pulses: 49 tests
+    \item Composite pulses: 40 tests
+    \item Adiabatic techniques: 44 tests
+    \item Gate optimization: 50 tests
+    \item Gate compilation: 45 tests
+    \item Filter functions: 42 tests
+    \item Randomized benchmarking: 41 tests
+    \item \textbf{Total Phase 3 tests: 311} (all passing)
+\end{itemize}
+
+\textbf{Documentation:}
+\begin{itemize}
+    \item \texttt{docs/TASK\_1\_SUMMARY.md} — Advanced pulse shaping
+    \item \texttt{docs/TASK\_2\_SUMMARY.md} — Gate library and compilation
+    \item \texttt{docs/TASK\_3\_SUMMARY.md} — Robustness and benchmarking
+    \item \texttt{examples/task3\_demo.py} — Demonstration script
+\end{itemize}
+
+%==============================================================================
+\section{Future Work}
+%==============================================================================
+
+\subsection{Planned Extensions}
+
+Future development phases will address:
+
+\begin{itemize}
+    \item \textbf{Two-Qubit Gates:} CNOT, CZ, iSWAP optimization with entangling Hamiltonians
+    \item \textbf{Open System Dynamics:} Lindblad master equation with $T_1$, $T_2$ decoherence
+    \item \textbf{Visualization Tools:} Interactive dashboards, Bloch sphere animations
+    \item \textbf{GPU Acceleration:} JAX implementation for gradient computations
+    \item \textbf{Hardware Integration:} Export to experimental pulse compiler formats
+    \item \textbf{Quantum Error Correction:} Logical gate optimization for stabilizer codes
+\end{itemize}
+
+Each extension will follow the established pattern: theoretical derivation, implementation with comprehensive testing, and validation against analytical or published results.
 
 %==============================================================================
 \section{Conclusion}
 %==============================================================================
 
-This document establishes the theoretical and computational foundations for the QubitPulseOpt quantum control simulation framework. Phase 1.1 ensures reproducibility and robust environment management. Phase 1.2 develops the drift Hamiltonian formalism, analytical and numerical evolution methods, and validates their equivalence to machine precision.
+This document establishes the comprehensive theoretical and computational foundations for the QubitPulseOpt quantum control simulation framework. Phase 1 develops the computational infrastructure, drift Hamiltonian formalism, and control Hamiltonians with analytical validation. Phase 2 implements optimal control algorithms (GRAPE, Krotov) with extensive robustness testing. Phase 3 provides advanced pulse shaping techniques (DRAG, composite pulses, adiabatic passage), universal gate compilation, and comprehensive benchmarking protocols (filter functions, randomized benchmarking, Fisher information).
 
-All implementations are thoroughly tested (39/39 unit tests passing), documented in code, and demonstrated in interactive notebooks. Future phases will build on this foundation to implement advanced control techniques (pulse shaping, optimal control algorithms) and open-system dynamics (decoherence, relaxation).
+The framework comprises over 4,500 lines of production code with 450+ unit tests (all passing), extensive documentation, and demonstration scripts. All implementations are validated against analytical results or published literature, ensuring scientific rigor and reproducibility.
 
-This document will be continuously updated as the project progresses, maintaining a unified, authoritative reference for all physics, mathematics, and implementation decisions.
+This document serves as the authoritative reference for all physics, mathematics, and implementation decisions, and will continue to be updated as new capabilities are added.
 
 %==============================================================================
 \section*{References}
@@ -935,6 +1242,12 @@ This document will be continuously updated as the project progresses, maintainin
     \item D.~M. Reich, M.~Ndong, and C.~P. Koch, ``Monotonically convergent optimization in quantum control using Krotov's method,'' \emph{The Journal of Chemical Physics} \textbf{136}, 104103 (2012).
     \item F.~Motzoi, J.~M. Gambetta, P.~Rebentrost, and F.~K. Wilhelm, ``Simple pulses for elimination of leakage in weakly nonlinear qubits,'' \emph{Physical Review Letters} \textbf{103}, 110501 (2009).
     \item S.~Machnes, U.~Sander, S.~J. Glaser, P.~de Fouquières, A.~Gruslys, S.~Schirmer, and T.~Schulte-Herbr\"uggen, ``Comparing, optimizing, and benchmarking quantum-control algorithms in a unifying programming framework,'' \emph{Physical Review A} \textbf{84}, 022305 (2011).
+    \item T.~J. Green, J.~Sastrawan, H.~Uys, and M.~J. Biercuk, ``Arbitrary quantum control of qubits in the presence of universal noise,'' \emph{New Journal of Physics} \textbf{15}, 095004 (2013).
+    \item E.~Knill et al., ``Randomized benchmarking of quantum gates,'' \emph{Physical Review A} \textbf{77}, 012307 (2008).
+    \item E.~Magesan, J.~M. Gambetta, and J.~Emerson, ``Scalable and robust randomized benchmarking of quantum processes,'' \emph{Physical Review Letters} \textbf{109}, 080505 (2012).
+    \item K.~Bergmann, H.~Theuer, and B.~W. Shore, ``Coherent population transfer among quantum states of atoms and molecules,'' \emph{Reviews of Modern Physics} \textbf{70}, 1003 (1998).
+    \item H.~K. Cummins, G.~Llewellyn, and J.~A. Jones, ``Tackling systematic errors in quantum logic gates with composite rotations,'' \emph{Physical Review A} \textbf{67}, 042308 (2003).
+    \item S.~L. Braunstein and C.~M. Caves, ``Statistical distance and the geometry of quantum states,'' \emph{Physical Review Letters} \textbf{72}, 3439 (1994).
 \end{enumerate}
 
 %==============================================================================
