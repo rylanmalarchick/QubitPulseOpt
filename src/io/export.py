@@ -22,6 +22,9 @@ from typing import Dict, List, Optional, Union, Any, Tuple
 from datetime import datetime
 import warnings
 
+# Power of 10 compliance: Import loop bounds
+from ..constants import MAX_DICT_ITEMS
+
 
 class PulseExporter:
     """
@@ -258,22 +261,44 @@ class PulseExporter:
         else:
             raise ValueError(f"Unsupported format: {format}")
 
+    def _convert_value_for_json(self, value: Any) -> Any:
+        """
+        Convert a single value for JSON serialization.
+
+        Rule 4: Helper method to reduce nesting depth.
+        Rule 5: Add type assertion.
+
+        Args:
+            value: Value to convert
+
+        Returns:
+            JSON-serializable value
+        """
+        if isinstance(value, np.ndarray):
+            return self._to_list(value)
+        elif isinstance(value, (np.integer, np.floating)):
+            return float(value)
+        elif isinstance(value, dict):
+            return self._convert_for_json(value)
+        else:
+            return value
+
     def _export_optimization_json(self, filepath: Path, result: Dict[str, Any]) -> Path:
         """Export optimization result to JSON."""
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
         # Convert arrays to lists for JSON serialization
         json_result = {}
-        for key, value in result.items():
-            if isinstance(value, np.ndarray):
-                json_result[key] = self._to_list(value)
-            elif isinstance(value, (np.integer, np.floating)):
-                json_result[key] = float(value)
-            elif isinstance(value, dict):
-                # Recursively convert nested dicts
-                json_result[key] = self._convert_for_json(value)
-            else:
-                json_result[key] = value
+        # Rule 2: Add explicit bound with assertion
+        assert len(result) <= MAX_DICT_ITEMS, (
+            f"Result dict has {len(result)} items, exceeds {MAX_DICT_ITEMS}"
+        )
+
+        for i, (key, value) in enumerate(result.items()):
+            assert i < MAX_DICT_ITEMS, f"Exceeded {MAX_DICT_ITEMS} items"
+
+            # Rule 1: Flatten nesting with helper function
+            json_result[key] = self._convert_value_for_json(value)
 
         # Add metadata
         json_result["_metadata"] = {
@@ -300,7 +325,13 @@ class PulseExporter:
             "schema_version": self.VERSION,
         }
 
-        for key, value in result.items():
+        # Rule 2: Add explicit bound with assertion
+        assert len(result) <= MAX_DICT_ITEMS, (
+            f"Result dict has {len(result)} items, exceeds {MAX_DICT_ITEMS}"
+        )
+
+        for i, (key, value) in enumerate(result.items()):
+            assert i < MAX_DICT_ITEMS, f"Exceeded {MAX_DICT_ITEMS} items"
             if isinstance(value, np.ndarray):
                 arrays[key] = value
             else:
@@ -509,14 +540,28 @@ class PulseLoader:
         if has_header:
             data = np.genfromtxt(filepath, delimiter=delimiter, names=True)
             # Extract column names and data
-            result = {name: data[name] for name in data.dtype.names}
+            # Rule 2: Add explicit bound with assertion
+            assert len(data.dtype.names) <= MAX_DICT_ITEMS, (
+                f"CSV has {len(data.dtype.names)} columns, exceeds {MAX_DICT_ITEMS}"
+            )
+            result = {}
+            for i, name in enumerate(data.dtype.names):
+                assert i < MAX_DICT_ITEMS, f"Exceeded {MAX_DICT_ITEMS} columns"
+                result[name] = data[name]
         else:
             data = np.loadtxt(filepath, delimiter=delimiter)
             # Default column names
             if data.ndim == 1:
                 result = {"column_0": data}
             else:
-                result = {f"column_{i}": data[:, i] for i in range(data.shape[1])}
+                n_cols = data.shape[1]
+                assert n_cols <= MAX_DICT_ITEMS, (
+                    f"CSV has {n_cols} columns, exceeds {MAX_DICT_ITEMS}"
+                )
+                result = {}
+                for i in range(n_cols):
+                    assert i < MAX_DICT_ITEMS, f"Exceeded {MAX_DICT_ITEMS} columns"
+                    result[f"column_{i}"] = data[:, i]
 
         return result
 
