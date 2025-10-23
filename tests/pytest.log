@@ -1,0 +1,6 @@
+2025-10-23 12:19:35 [   DEBUG] matplotlib: matplotlib data path: /home/rylan/Documents/school/projects/quantumControls/venv/lib/python3.12/site-packages/matplotlib/mpl-data
+2025-10-23 12:19:35 [   DEBUG] matplotlib: CONFIGDIR=/home/rylan/.config/matplotlib
+2025-10-23 12:19:35 [   DEBUG] matplotlib: interactive is False
+2025-10-23 12:19:35 [   DEBUG] matplotlib: platform is linux
+2025-10-23 12:19:36 [   DEBUG] matplotlib: CACHEDIR=/home/rylan/.cache/matplotlib
+2025-10-23 12:19:36 [   DEBUG] matplotlib.font_manager: Using fontManager instance from /home/rylan/.cache/matplotlib/fontlist-v390.json

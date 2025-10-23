@@ -1,0 +1,319 @@
+# Default Configuration for QubitPulseOpt
+# Quantum Control Pulse Optimization Framework
+# Version: 1.0.0
+# Date: 2025-01-28
+
+# =============================================================================
+# SYSTEM PARAMETERS
+# =============================================================================
+system:
+  # Qubit parameters
+  qubit:
+    frequency: 5.0e9          # Qubit transition frequency (Hz)
+    anharmonicity: -300.0e6   # Anharmonicity (Hz)
+
+  # Decoherence times
+  decoherence:
+    T1: 50.0e-6              # Relaxation time (s)
+    T2: 100.0e-6             # Dephasing time (s)
+    T2_echo: 80.0e-6         # Echo dephasing time (s)
+
+  # Control parameters
+  control:
+    max_amplitude: 1.0       # Maximum control amplitude (normalized)
+    rabi_frequency: 10.0e6   # Rabi frequency at max amplitude (Hz)
+
+  # Environmental noise
+  noise:
+    include_decoherence: true
+    include_amplitude_noise: false
+    amplitude_noise_std: 0.01
+    include_frequency_noise: false
+    frequency_noise_std: 1.0e3
+
+# =============================================================================
+# PULSE PARAMETERS
+# =============================================================================
+pulse:
+  # Default pulse settings
+  default:
+    duration: 100.0e-9       # Pulse duration (s)
+    sample_rate: 1.0e9       # Sampling rate (Hz)
+    num_samples: 100         # Number of time steps
+
+  # Pulse shapes
+  shapes:
+    gaussian:
+      sigma: 20.0e-9         # Standard deviation (s)
+      truncation: 4.0        # Number of sigmas to truncate
+
+    drag:
+      alpha: 0.5             # DRAG coefficient
+      beta: 0.0              # Second-order DRAG
+
+    blackman:
+      window_type: "blackman"
+
+    adiabatic:
+      sweep_range: 500.0e6   # Frequency sweep range (Hz)
+      adiabaticity: 10.0     # Adiabaticity parameter
+
+  # Composite pulses
+  composite:
+    bb1_phases: [0.0, 3.14159, 6.28318, 3.14159]  # BB1 phases (radians)
+    corpse_phases: [0.0, 1.57079, 0.0]            # CORPSE phases
+    sk1_angles: [1.57079, 3.14159, 1.57079]       # SK1 rotation angles
+
+# =============================================================================
+# OPTIMIZATION PARAMETERS
+# =============================================================================
+optimization:
+  # GRAPE settings
+  grape:
+    max_iterations: 200
+    tolerance: 1.0e-6
+    learning_rate: 0.01
+    gradient_method: "finite_difference"
+    finite_diff_step: 1.0e-8
+    line_search: true
+    convergence_window: 10
+    early_stopping: true
+    min_fidelity: 0.999
+
+  # CRAB settings
+  crab:
+    num_coefficients: 10
+    max_iterations: 500
+    basis_function: "fourier"
+    optimization_method: "Nelder-Mead"
+    tolerance: 1.0e-5
+
+  # Cost function
+  cost:
+    type: "infidelity"       # Options: infidelity, trace_distance, energy
+    penalty_amplitude: 0.0   # Amplitude penalty weight
+    penalty_derivative: 0.0  # Smoothness penalty weight
+    penalty_bandwidth: 0.0   # Bandwidth penalty weight
+
+  # Constraints
+  constraints:
+    enforce_max_amplitude: true
+    max_amplitude: 1.0
+    enforce_bandwidth: false
+    max_bandwidth: 100.0e6
+    enforce_smoothness: false
+    max_derivative: 10.0
+
+# =============================================================================
+# GATE LIBRARY
+# =============================================================================
+gates:
+  # Single-qubit gates
+  pauli_x:
+    target_unitary: "pauli_x"
+    initial_pulse: "gaussian"
+    optimize: true
+
+  pauli_y:
+    target_unitary: "pauli_y"
+    initial_pulse: "gaussian"
+    optimize: true
+
+  pauli_z:
+    target_unitary: "pauli_z"
+    initial_pulse: "gaussian"
+    optimize: false          # Z gate often virtual
+
+  hadamard:
+    target_unitary: "hadamard"
+    initial_pulse: "composite_xy"
+    optimize: true
+
+  t_gate:
+    target_unitary: "t_gate"
+    initial_pulse: "gaussian"
+    optimize: false          # Often implemented virtually
+
+  # Arbitrary rotations
+  rotation:
+    default_axis: [0, 0, 1]  # Default rotation axis (Bloch sphere)
+    default_angle: 1.57079   # Default rotation angle (radians)
+
+# =============================================================================
+# BENCHMARKING & ANALYSIS
+# =============================================================================
+benchmarking:
+  # Randomized benchmarking
+  randomized_benchmarking:
+    num_sequences: 50
+    sequence_lengths: [1, 2, 5, 10, 20, 50, 100]
+    num_repetitions: 100
+    gate_set: ["I", "X", "Y", "X/2", "Y/2"]
+
+  # Filter function analysis
+  filter_functions:
+    num_samples: 1000
+    frequency_range: [0, 100.0e6]
+    noise_types: ["amplitude", "dephasing"]
+
+  # Sensitivity analysis
+  sensitivity:
+    parameter_variations: 0.1  # 10% variation
+    num_samples: 100
+    parameters: ["T1", "T2", "frequency", "amplitude"]
+
+# =============================================================================
+# VISUALIZATION
+# =============================================================================
+visualization:
+  # Plot settings
+  plots:
+    dpi: 150
+    figure_size: [10, 6]
+    style: "default"         # matplotlib style
+    save_format: "png"       # Options: png, pdf, svg
+
+  # Bloch sphere
+  bloch:
+    sphere_alpha: 0.2
+    vector_color: "red"
+    point_size: 50
+    animation_fps: 30
+
+  # Dashboard
+  dashboard:
+    refresh_rate: 1.0        # Update interval (s)
+    show_convergence: true
+    show_fidelity: true
+    show_pulse: true
+
+  # Reports
+  reports:
+    include_metadata: true
+    include_statistics: true
+    latex_format: true
+    publication_quality: true
+
+# =============================================================================
+# I/O & EXPORT
+# =============================================================================
+io:
+  # Export settings
+  export:
+    default_format: "json"   # Options: json, npz, csv
+    include_metadata: true
+    compress_arrays: true
+    precision: 8             # Number of decimal places
+
+  # Paths
+  paths:
+    data_dir: "data"
+    results_dir: "results"
+    figures_dir: "figures"
+    logs_dir: "logs"
+
+  # Hardware export
+  hardware:
+    platform: "generic"      # Options: generic, qiskit, qua, artiq
+    time_unit: "ns"          # Time unit for hardware
+    amplitude_unit: "normalized"
+
+# =============================================================================
+# LOGGING & DIAGNOSTICS
+# =============================================================================
+logging:
+  # General settings
+  level: "INFO"              # Options: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+  # File logging
+  log_to_file: true
+  log_file: "logs/qubitpulseopt.log"
+  max_file_size: 10485760    # 10 MB
+  backup_count: 5
+
+  # Console logging
+  log_to_console: true
+  console_level: "INFO"
+
+  # Specific loggers
+  loggers:
+    optimization: "INFO"
+    simulation: "INFO"
+    visualization: "WARNING"
+    io: "INFO"
+
+# =============================================================================
+# PERFORMANCE & COMPUTATION
+# =============================================================================
+performance:
+  # Parallelization
+  parallel:
+    enable: false
+    num_workers: 4
+    backend: "threading"     # Options: threading, multiprocessing
+
+  # Memory management
+  memory:
+    cache_size: 1000         # Number of cached results
+    clear_cache_on_complete: true
+
+  # Numerical precision
+  numerical:
+    dtype: "complex128"
+    rtol: 1.0e-9
+    atol: 1.0e-12
+
+# =============================================================================
+# REPRODUCIBILITY
+# =============================================================================
+reproducibility:
+  # Random seed
+  random_seed: 42
+  numpy_seed: 42
+
+  # Version tracking
+  track_versions: true
+  save_environment: true
+
+  # Git integration
+  track_git_commit: false
+  save_diff: false
+
+# =============================================================================
+# EXPERIMENT METADATA
+# =============================================================================
+metadata:
+  # Project information
+  project_name: "QubitPulseOpt"
+  experiment_id: null        # Set at runtime
+  author: null               # Set by user
+  description: null          # Set by user
+
+  # Tags
+  tags: []
+
+  # Custom fields
+  custom: {}
+
+# =============================================================================
+# ADVANCED FEATURES
+# =============================================================================
+advanced:
+  # Two-qubit gates (future extension)
+  two_qubit:
+    enabled: false
+    coupling_strength: 10.0e6
+
+  # Machine learning optimization
+  ml_optimization:
+    enabled: false
+    framework: "optuna"
+    num_trials: 100
+
+  # Adaptive protocols
+  adaptive:
+    enabled: false
+    update_frequency: 10
+    adaptation_rate: 0.1

@@ -1,0 +1,18 @@
+{
+  "name": "grape_optimization",
+  "timestamp": "2025-10-23T16:21:14.218956Z",
+  "records": {},
+  "events": [
+    {
+      "timestamp": "2025-10-23T16:21:14.219173Z",
+      "event": "optimization_started",
+      "target": "X_gate",
+      "max_iterations": 50
+    },
+    {
+      "timestamp": "2025-10-23T16:21:14.219319Z",
+      "event": "optimization_failed",
+      "error": "GRAPEOptimizer.__init__() got an unexpected keyword argument 'target_unitary'"
+    }
+  ]
+}
