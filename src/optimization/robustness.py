@@ -564,6 +564,377 @@ class RobustnessTester:
         sensitivity = np.abs((F_pert - F0) / delta)
         return sensitivity
 
+    def compute_fisher_information(
+        self,
+        parameter_name: str,
+        delta: float = 1e-5,
+    ) -> float:
+        """
+        Compute Fisher information for parameter estimation.
+
+        Fisher information quantifies the amount of information about a parameter
+        that can be extracted from measurements. Higher Fisher information means
+        the parameter can be estimated more precisely.
+
+        For a quantum state ρ(θ), the quantum Fisher information is:
+            F(θ) = Tr[ρ(θ) L²] where L is the symmetric logarithmic derivative.
+
+        We approximate this via numerical differentiation of the state.
+
+        Parameters
+        ----------
+        parameter_name : str
+            Parameter to compute Fisher information for:
+            - 'detuning': Frequency error
+            - 'amplitude': Amplitude error
+        delta : float, optional
+            Finite difference step size. Default: 1e-5.
+
+        Returns
+        -------
+        float
+            Fisher information F(θ).
+
+        Examples
+        --------
+        >>> fisher = tester.compute_fisher_information('detuning')
+        >>> print(f"Fisher information: {fisher:.6e}")
+
+        References
+        ----------
+        - Braunstein & Caves, PRL 72, 3439 (1994)
+        - Paris, Int. J. Quantum Inf. 7, 125 (2009)
+        """
+        # Compute states at θ and θ+δ
+        rho_0 = self._evolve_state(self.H_drift, self.pulse_amplitudes)
+
+        if parameter_name == "detuning":
+            H_pert = self.H_drift + 0.5 * delta * qt.sigmaz()
+            rho_delta = self._evolve_state(H_pert, self.pulse_amplitudes)
+        elif parameter_name == "amplitude":
+            pulse_pert = self.pulse_amplitudes * (1.0 + delta)
+            rho_delta = self._evolve_state(self.H_drift, pulse_pert)
+        else:
+            raise ValueError(f"Unknown parameter: {parameter_name}")
+
+        # Numerical derivative of state
+        drho_dtheta = (rho_delta - rho_0) / delta
+
+        # Classical Fisher information approximation:
+        # F ≈ 4 * Tr[(∂ρ/∂θ)²]
+        fisher = 4 * np.real((drho_dtheta.dag() * drho_dtheta).tr())
+
+        return fisher
+
+    def _evolve_state(
+        self,
+        H_drift: qt.Qobj,
+        pulse_amplitudes: np.ndarray,
+        initial_state: Optional[qt.Qobj] = None,
+    ) -> qt.Qobj:
+        """
+        Evolve state under Hamiltonian and return final density matrix.
+
+        Parameters
+        ----------
+        H_drift : qt.Qobj
+            Drift Hamiltonian.
+        pulse_amplitudes : np.ndarray
+            Control pulse amplitudes.
+        initial_state : qt.Qobj, optional
+            Initial state (default: ground state).
+
+        Returns
+        -------
+        qt.Qobj
+            Final state (density matrix).
+        """
+        if initial_state is None:
+            initial_state = qt.basis(2, 0)
+
+        # Convert to density matrix if ket
+        if initial_state.type == "ket":
+            rho_0 = qt.ket2dm(initial_state)
+        else:
+            rho_0 = initial_state
+
+        # Build Hamiltonian list
+        times = np.linspace(0, self.total_time, self.n_timeslices + 1)
+        H_list = [H_drift]
+        for j in range(self.n_controls):
+            # Create time-dependent coefficient function
+            def coeff_func(t, args=None, ctrl_idx=j):
+                idx = int(t / self.dt)
+                idx = min(idx, pulse_amplitudes.shape[1] - 1)
+                return pulse_amplitudes[ctrl_idx, idx]
+
+            H_list.append([self.H_controls[j], coeff_func])
+
+        # Evolve
+        result = qt.mesolve(H_list, rho_0, times, [], [])
+
+        return result.states[-1]
+
+    def find_worst_case_parameters(
+        self,
+        param_ranges: Dict[str, Tuple[float, float]],
+        n_samples: int = 20,
+        method: str = "grid",
+    ) -> Dict:
+        """
+        Find worst-case parameter combination that minimizes fidelity.
+
+        This is useful for robust optimization: design pulses that maximize
+        the worst-case fidelity over parameter uncertainties.
+
+        Parameters
+        ----------
+        param_ranges : dict
+            Dict mapping parameter names to (min, max) ranges.
+            Supported: 'detuning', 'amplitude_error'.
+        n_samples : int, optional
+            Number of samples per parameter (for grid search). Default: 20.
+        method : str, optional
+            Search method: 'grid' or 'random'. Default: 'grid'.
+
+        Returns
+        -------
+        dict
+            Dictionary with:
+            - 'worst_case_params': Dict of parameter values at worst case
+            - 'worst_case_fidelity': Minimum fidelity found
+            - 'all_fidelities': Array of all fidelities tested
+            - 'all_params': List of all parameter combinations tested
+
+        Examples
+        --------
+        >>> param_ranges = {
+        ...     'detuning': (-0.1, 0.1),
+        ...     'amplitude_error': (-0.05, 0.05)
+        ... }
+        >>> result = tester.find_worst_case_parameters(param_ranges)
+        >>> print(f"Worst-case fidelity: {result['worst_case_fidelity']:.6f}")
+
+        References
+        ----------
+        - Vandersypen & Chuang, Rev. Mod. Phys. 76, 1037 (2005)
+        - Motzoi et al., PRL 103, 110501 (2009)
+        """
+        if method == "grid":
+            return self._worst_case_grid_search(param_ranges, n_samples)
+        elif method == "random":
+            return self._worst_case_random_search(param_ranges, n_samples)
+        else:
+            raise ValueError(f"Unknown method: {method}")
+
+    def _worst_case_grid_search(
+        self, param_ranges: Dict[str, Tuple[float, float]], n_samples: int
+    ) -> Dict:
+        """Grid search for worst-case parameters."""
+        param_names = list(param_ranges.keys())
+        param_grids = [
+            np.linspace(param_ranges[name][0], param_ranges[name][1], n_samples)
+            for name in param_names
+        ]
+
+        # Create meshgrid
+        if len(param_names) == 1:
+            grids = [param_grids[0]]
+            param_combinations = [(p,) for p in grids[0]]
+        elif len(param_names) == 2:
+            grids = np.meshgrid(*param_grids)
+            param_combinations = [
+                (grids[0].flat[i], grids[1].flat[i]) for i in range(grids[0].size)
+            ]
+        else:
+            # For >2 parameters, use itertools
+            import itertools
+
+            param_combinations = list(itertools.product(*param_grids))
+
+        # Evaluate fidelity at each combination
+        fidelities = []
+        all_params = []
+
+        for param_vals in param_combinations:
+            # Build parameter dict
+            params = {name: val for name, val in zip(param_names, param_vals)}
+            all_params.append(params)
+
+            # Modify Hamiltonian and pulse
+            H_drift_mod = self.H_drift
+            pulse_mod = self.pulse_amplitudes.copy()
+
+            if "detuning" in params:
+                H_drift_mod = H_drift_mod + 0.5 * params["detuning"] * qt.sigmaz()
+
+            if "amplitude_error" in params:
+                pulse_mod = pulse_mod * (1.0 + params["amplitude_error"])
+
+            # Compute fidelity
+            fid = self._compute_fidelity(H_drift_mod, pulse_mod)
+            fidelities.append(fid)
+
+        fidelities = np.array(fidelities)
+        worst_idx = np.argmin(fidelities)
+
+        return {
+            "worst_case_params": all_params[worst_idx],
+            "worst_case_fidelity": fidelities[worst_idx],
+            "all_fidelities": fidelities,
+            "all_params": all_params,
+        }
+
+    def _worst_case_random_search(
+        self, param_ranges: Dict[str, Tuple[float, float]], n_samples: int
+    ) -> Dict:
+        """Random search for worst-case parameters."""
+        param_names = list(param_ranges.keys())
+        fidelities = []
+        all_params = []
+
+        for _ in range(n_samples):
+            # Random sample from ranges
+            params = {}
+            for name in param_names:
+                low, high = param_ranges[name]
+                params[name] = np.random.uniform(low, high)
+
+            all_params.append(params)
+
+            # Modify Hamiltonian and pulse
+            H_drift_mod = self.H_drift
+            pulse_mod = self.pulse_amplitudes.copy()
+
+            if "detuning" in params:
+                H_drift_mod = H_drift_mod + 0.5 * params["detuning"] * qt.sigmaz()
+
+            if "amplitude_error" in params:
+                pulse_mod = pulse_mod * (1.0 + params["amplitude_error"])
+
+            # Compute fidelity
+            fid = self._compute_fidelity(H_drift_mod, pulse_mod)
+            fidelities.append(fid)
+
+        fidelities = np.array(fidelities)
+        worst_idx = np.argmin(fidelities)
+
+        return {
+            "worst_case_params": all_params[worst_idx],
+            "worst_case_fidelity": fidelities[worst_idx],
+            "all_fidelities": fidelities,
+            "all_params": all_params,
+        }
+
+    def compute_robustness_landscape(
+        self,
+        param_ranges: Dict[str, Tuple[float, float]],
+        n_points: int = 30,
+    ) -> Dict:
+        """
+        Compute full fidelity landscape over parameter space.
+
+        This provides a comprehensive view of how fidelity varies across
+        the parameter space, useful for understanding robustness regions.
+
+        Parameters
+        ----------
+        param_ranges : dict
+            Dict mapping parameter names to (min, max) ranges.
+            Currently supports up to 2 parameters for visualization.
+        n_points : int, optional
+            Number of points per parameter axis. Default: 30.
+
+        Returns
+        -------
+        dict
+            Dictionary with landscape data suitable for plotting:
+            - 'param_names': List of parameter names
+            - 'param_grids': List of parameter arrays
+            - 'fidelity_grid': Array of fidelity values
+            - 'mean_fidelity': Mean over landscape
+            - 'std_fidelity': Std deviation over landscape
+            - 'min_fidelity': Minimum (worst-case) fidelity
+
+        Examples
+        --------
+        >>> param_ranges = {'detuning': (-0.2, 0.2), 'amplitude_error': (-0.1, 0.1)}
+        >>> landscape = tester.compute_robustness_landscape(param_ranges, n_points=50)
+        >>> print(f"Mean fidelity: {landscape['mean_fidelity']:.6f}")
+        >>> print(f"Worst-case: {landscape['min_fidelity']:.6f}")
+        """
+        if len(param_ranges) > 2:
+            raise ValueError("Landscape computation supports up to 2 parameters")
+
+        param_names = list(param_ranges.keys())
+
+        if len(param_names) == 1:
+            # 1D landscape
+            name = param_names[0]
+            low, high = param_ranges[name]
+            param_values = np.linspace(low, high, n_points)
+
+            fidelities = []
+            for val in param_values:
+                H_drift_mod = self.H_drift
+                pulse_mod = self.pulse_amplitudes.copy()
+
+                if name == "detuning":
+                    H_drift_mod = H_drift_mod + 0.5 * val * qt.sigmaz()
+                elif name == "amplitude_error":
+                    pulse_mod = pulse_mod * (1.0 + val)
+
+                fid = self._compute_fidelity(H_drift_mod, pulse_mod)
+                fidelities.append(fid)
+
+            fidelities = np.array(fidelities)
+
+            return {
+                "param_names": param_names,
+                "param_grids": [param_values],
+                "fidelity_grid": fidelities,
+                "mean_fidelity": np.mean(fidelities),
+                "std_fidelity": np.std(fidelities),
+                "min_fidelity": np.min(fidelities),
+            }
+
+        else:
+            # 2D landscape
+            name1, name2 = param_names
+            low1, high1 = param_ranges[name1]
+            low2, high2 = param_ranges[name2]
+
+            param1_values = np.linspace(low1, high1, n_points)
+            param2_values = np.linspace(low2, high2, n_points)
+
+            fidelity_grid = np.zeros((n_points, n_points))
+
+            for i, val1 in enumerate(param1_values):
+                for j, val2 in enumerate(param2_values):
+                    H_drift_mod = self.H_drift
+                    pulse_mod = self.pulse_amplitudes.copy()
+
+                    if name1 == "detuning":
+                        H_drift_mod = H_drift_mod + 0.5 * val1 * qt.sigmaz()
+                    elif name1 == "amplitude_error":
+                        pulse_mod = pulse_mod * (1.0 + val1)
+
+                    if name2 == "detuning":
+                        H_drift_mod = H_drift_mod + 0.5 * val2 * qt.sigmaz()
+                    elif name2 == "amplitude_error":
+                        pulse_mod = pulse_mod * (1.0 + val2)
+
+                    fidelity_grid[i, j] = self._compute_fidelity(H_drift_mod, pulse_mod)
+
+            return {
+                "param_names": param_names,
+                "param_grids": [param1_values, param2_values],
+                "fidelity_grid": fidelity_grid,
+                "mean_fidelity": np.mean(fidelity_grid),
+                "std_fidelity": np.std(fidelity_grid),
+                "min_fidelity": np.min(fidelity_grid),
+            }
+
     def __repr__(self) -> str:
         """String representation."""
         return (

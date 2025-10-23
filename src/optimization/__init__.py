@@ -42,6 +42,33 @@ SOW Reference: Phase 2 - Optimal Control Theory
 from .grape import GRAPEOptimizer, GRAPEResult
 from .krotov import KrotovOptimizer, KrotovResult
 from .robustness import RobustnessTester, RobustnessResult, compare_pulse_robustness
+from .gates import (
+    UniversalGates,
+    GateResult,
+    euler_angles_from_unitary,
+    rotation_from_euler_angles,
+)
+from .compilation import GateCompiler, CompiledCircuit, EulerDecomposition
+from .filter_functions import (
+    FilterFunctionCalculator,
+    FilterFunctionResult,
+    NoisePSD,
+    NoiseInfidelityCalculator,
+    NoiseTailoredOptimizer,
+    visualize_filter_function,
+    compute_filter_function_sum_rule,
+    analyze_pulse_noise_sensitivity,
+)
+from .benchmarking import (
+    CliffordGroup,
+    RBSequenceGenerator,
+    RBExperiment,
+    InterleavedRB,
+    RBResult,
+    depolarizing_noise,
+    amplitude_damping_noise,
+    visualize_rb_decay,
+)
 
 __all__ = [
     "GRAPEOptimizer",
@@ -51,4 +78,27 @@ __all__ = [
     "RobustnessTester",
     "RobustnessResult",
     "compare_pulse_robustness",
+    "UniversalGates",
+    "GateResult",
+    "euler_angles_from_unitary",
+    "rotation_from_euler_angles",
+    "GateCompiler",
+    "CompiledCircuit",
+    "EulerDecomposition",
+    "FilterFunctionCalculator",
+    "FilterFunctionResult",
+    "NoisePSD",
+    "NoiseInfidelityCalculator",
+    "NoiseTailoredOptimizer",
+    "visualize_filter_function",
+    "compute_filter_function_sum_rule",
+    "analyze_pulse_noise_sensitivity",
+    "CliffordGroup",
+    "RBSequenceGenerator",
+    "RBExperiment",
+    "InterleavedRB",
+    "RBResult",
+    "depolarizing_noise",
+    "amplitude_damping_noise",
+    "visualize_rb_decay",
 ]
