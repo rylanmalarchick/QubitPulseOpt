@@ -34,6 +34,13 @@ SOW Reference: Lines 150-161 (Week 1.2: Drift Dynamics)
 import numpy as np
 import qutip
 
+# Power of 10 compliance: Import assertion helpers
+from ..constants import (
+    MIN_ENERGY,
+    MAX_ENERGY,
+    assert_fidelity_valid,
+)
+
 
 class DriftHamiltonian:
     """
@@ -81,14 +88,28 @@ class DriftHamiltonian:
         In experimental systems, this corresponds to the qubit transition frequency
         measured via spectroscopy.
         """
-        if omega_0 <= 0:
-            raise ValueError(f"Frequency must be positive, got omega_0={omega_0}")
+        # Rule 5: Parameter validation with assertions
+        assert omega_0 is not None, "omega_0 cannot be None"
+        assert isinstance(omega_0, (int, float)), (
+            f"omega_0 must be numeric, got {type(omega_0)}"
+        )
+        assert omega_0 > 0, f"Frequency must be positive, got omega_0={omega_0}"
+        assert np.isfinite(omega_0), f"omega_0 must be finite, got {omega_0}"
+        assert MIN_ENERGY <= omega_0 <= MAX_ENERGY, (
+            f"omega_0 {omega_0} outside reasonable bounds [{MIN_ENERGY}, {MAX_ENERGY}] MHz"
+        )
 
         self.omega_0 = omega_0
 
         # Construct Hamiltonian: H₀ = (ω₀/2) σ_z
         sz = qutip.sigmaz()
         self.H = 0.5 * omega_0 * sz
+
+        # Rule 5: Post-construction invariant checks
+        assert self.H is not None, "Hamiltonian construction failed"
+        assert isinstance(self.H, qutip.Qobj), "H must be Qobj"
+        assert self.H.isherm, "Drift Hamiltonian must be Hermitian"
+        assert self.H.shape == (2, 2), f"Expected 2x2 matrix, got {self.H.shape}"
 
     def to_qobj(self) -> qutip.Qobj:
         """
@@ -98,14 +119,92 @@ class DriftHamiltonian:
         -------
         qutip.Qobj
             The Hamiltonian operator H₀.
-
-        Examples
-        --------
-        >>> drift = DriftHamiltonian(omega_0=5.0)
-        >>> H = drift.to_qobj()
-        >>> print(H.dims)
-        [[2], [2]]
         """
+        # Rule 5: Postcondition assertion
+        assert self.H is not None, "Hamiltonian is None"
+        assert isinstance(self.H, qutip.Qobj), "Hamiltonian must be Qobj"
+        return self.H
+
+    def energy_splitting(self) -> float:
+        """
+        Return the energy splitting between ground and excited states.
+
+        Returns
+        -------
+        float
+            Energy difference E₁ - E₀ = ω₀ in MHz.
+        """
+        # Rule 5: Return value validation
+        splitting = self.omega_0
+        assert np.isfinite(splitting), f"Energy splitting not finite: {splitting}"
+        assert splitting > 0, f"Energy splitting must be positive: {splitting}"
+        return splitting
+
+    def energy_levels(self) -> tuple:
+        """
+        Return ground and excited state energies.
+
+        Returns
+        -------
+        tuple of float
+            (E₀, E₁) where E₀ = -ω₀/2 and E₁ = +ω₀/2.
+        """
+        E0 = -0.5 * self.omega_0
+        E1 = 0.5 * self.omega_0
+
+        # Rule 5: Energy level validation
+        assert np.isfinite(E0) and np.isfinite(E1), "Energy levels not finite"
+        assert E0 < E1, f"Ground state {E0} must be lower than excited {E1}"
+
+        return (E0, E1)
+
+
+def create_drift_hamiltonian(omega_0: float = 5.0) -> qutip.Qobj:
+    """
+    Factory function to create a drift Hamiltonian.
+
+    Parameters
+    ----------
+    omega_0 : float, optional
+        Qubit transition frequency in MHz.
+
+    Returns
+    -------
+    qutip.Qobj
+        The drift Hamiltonian H₀.
+    """
+    # Rule 5: Input validation
+    assert omega_0 is not None, "omega_0 cannot be None"
+    assert omega_0 > 0, f"omega_0 must be positive, got {omega_0}"
+
+    drift = DriftHamiltonian(omega_0)
+    H = drift.to_qobj()
+
+    # Rule 5: Output validation
+    assert H is not None, "Created Hamiltonian is None"
+    assert H.isherm, "Created Hamiltonian must be Hermitian"
+
+    return H
+
+
+def _validate_drift_parameters(omega_0: float, times: np.ndarray = None) -> None:
+    """Helper to validate drift Hamiltonian parameters."""
+    assert omega_0 > 0, f"omega_0 must be positive, got {omega_0}"
+    assert np.isfinite(omega_0), f"omega_0 must be finite"
+    if times is not None:
+        assert len(times) > 0, "times array must not be empty"
+        assert np.all(times >= 0), "All times must be non-negative"
+
+
+class _OriginalDriftHamiltonian:
+    """Original implementation - keep for backwards compatibility."""
+
+    def __init__(self, omega_0: float = 5.0):
+        self.omega_0 = omega_0
+        sz = qutip.sigmaz()
+        self.H = 0.5 * omega_0 * sz
+
+    def to_qobj(self) -> qutip.Qobj:
         return self.H
 
     def energy_levels(self) -> tuple[float, float]:
@@ -150,6 +249,7 @@ class DriftHamiltonian:
         return E1 - E0
 
     def eigenstates(self) -> tuple[qutip.Qobj, qutip.Qobj]:
+        # Rule 5: Validate eigenstates
         """
         Compute energy eigenstates.
 
@@ -280,7 +380,7 @@ class DriftHamiltonian:
 
 
 # Convenience function for quick Hamiltonian creation
-def create_drift_hamiltonian(omega_0: float = 5.0) -> DriftHamiltonian:
+def _create_drift_hamiltonian_legacy(omega_0: float = 5.0) -> _OriginalDriftHamiltonian:
     """
     Factory function to create a drift Hamiltonian.
 

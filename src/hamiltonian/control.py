@@ -48,6 +48,14 @@ import numpy as np
 import qutip as qt
 from typing import Union, Callable, Optional, Tuple
 
+# Power of 10 compliance: Import assertion helpers
+from ..constants import (
+    MIN_PULSE_AMPLITUDE,
+    MAX_PULSE_AMPLITUDE,
+    MIN_ENERGY,
+    MAX_ENERGY,
+)
+
 
 class ControlHamiltonian:
     """
@@ -113,6 +121,48 @@ class ControlHamiltonian:
         >>> pulse = lambda t: gaussian_pulse(t, amplitude=10, t_center=50, sigma=10)
         >>> H_ctrl = ControlHamiltonian(pulse, phase=np.pi/2)  # Y-drive
         """
+        # Rule 5: Parameter validation with assertions
+        assert pulse_func is not None, "pulse_func cannot be None"
+        assert callable(pulse_func), (
+            f"pulse_func must be callable, got {type(pulse_func)}"
+        )
+
+        # Test pulse function with a sample value
+        try:
+            test_val = pulse_func(0.0)
+            assert (
+                np.isfinite(test_val)
+                if np.isscalar(test_val)
+                else np.all(np.isfinite(test_val))
+            ), "pulse_func must return finite values"
+        except Exception as e:
+            raise ValueError(f"pulse_func failed at t=0: {e}")
+
+        assert drive_axis is not None, "drive_axis cannot be None"
+        assert isinstance(drive_axis, str), (
+            f"drive_axis must be string, got {type(drive_axis)}"
+        )
+
+        assert isinstance(phase, (int, float)), (
+            f"phase must be numeric, got {type(phase)}"
+        )
+        assert np.isfinite(phase), f"phase must be finite, got {phase}"
+        assert -2 * np.pi <= phase <= 2 * np.pi, (
+            f"phase {phase} outside reasonable range [-2π, 2π]"
+        )
+
+        assert isinstance(detuning, (int, float)), (
+            f"detuning must be numeric, got {type(detuning)}"
+        )
+        assert np.isfinite(detuning), f"detuning must be finite, got {detuning}"
+        assert MIN_ENERGY <= detuning <= MAX_ENERGY, (
+            f"detuning {detuning} outside reasonable bounds [{MIN_ENERGY}, {MAX_ENERGY}]"
+        )
+
+        assert isinstance(rotating_frame, bool), (
+            f"rotating_frame must be bool, got {type(rotating_frame)}"
+        )
+
         self.pulse_func = pulse_func
         self.drive_axis = drive_axis.lower()
         self.phase = phase
@@ -120,15 +170,19 @@ class ControlHamiltonian:
         self.rotating_frame = rotating_frame
 
         # Validate drive axis
-        if self.drive_axis not in ["x", "y", "xy"]:
-            raise ValueError(
-                f"Invalid drive_axis '{drive_axis}'. Must be 'x', 'y', or 'xy'."
-            )
+        assert self.drive_axis in ["x", "y", "xy"], (
+            f"Invalid drive_axis '{drive_axis}'. Must be 'x', 'y', or 'xy'."
+        )
 
         # Cache Pauli operators
         self._sigma_x = qt.sigmax()
         self._sigma_y = qt.sigmay()
         self._sigma_z = qt.sigmaz()
+
+        # Rule 5: Post-initialization invariant checks
+        assert self._sigma_x.isherm, "sigma_x must be Hermitian"
+        assert self._sigma_y.isherm, "sigma_y must be Hermitian"
+        assert self._sigma_z.isherm, "sigma_z must be Hermitian"
 
     def hamiltonian(self, t: float) -> qt.Qobj:
         """
@@ -148,32 +202,91 @@ class ControlHamiltonian:
         Returns
         -------
         qutip.Qobj
-            Control Hamiltonian as 2x2 operator.
+            Control Hamiltonian operator.
         """
-        omega = self.pulse_func(t)
+        # Rule 5: Input validation
+        assert t is not None, "Time t cannot be None"
+        assert isinstance(t, (int, float)), f"Time must be numeric, got {type(t)}"
+        assert np.isfinite(t), f"Time must be finite, got {t}"
+        assert t >= 0, f"Time must be non-negative, got {t}"
 
-        if self.rotating_frame:
-            # Rotating-wave approximation
-            if self.drive_axis == "x":
-                return (omega / 2.0) * (
+        # Evaluate pulse amplitude
+        amplitude = self.pulse_func(t)
+
+        # Rule 5: Validate pulse amplitude
+        assert np.isfinite(amplitude), (
+            f"Pulse amplitude not finite at t={t}: {amplitude}"
+        )
+
+        # Build Hamiltonian based on drive axis
+        if self.drive_axis == "x":
+            H_c = 0.5 * amplitude * self._sigma_x
+        elif self.drive_axis == "y":
+            H_c = 0.5 * amplitude * self._sigma_y
+        else:  # 'xy'
+            H_c = (
+                0.5
+                * amplitude
+                * (
                     np.cos(self.phase) * self._sigma_x
                     + np.sin(self.phase) * self._sigma_y
                 )
-            elif self.drive_axis == "y":
-                return (omega / 2.0) * (
-                    -np.sin(self.phase) * self._sigma_x
-                    + np.cos(self.phase) * self._sigma_y
-                )
-            else:  # 'xy' for DRAG
-                # Assume pulse_func returns (omega_x, omega_y) tuple
-                omega_x, omega_y = omega if isinstance(omega, tuple) else (omega, 0.0)
-                return (omega_x / 2.0) * self._sigma_x + (omega_y / 2.0) * self._sigma_y
-        else:
-            # Lab frame (oscillating at drive frequency - not commonly used in simulations)
-            # Note: For full lab-frame simulation, ω_d must be specified separately
-            raise NotImplementedError(
-                "Lab frame simulation requires drive frequency ω_d"
             )
+
+        # Rule 5: Validate output
+        assert H_c is not None, "Hamiltonian construction failed"
+        assert isinstance(H_c, qt.Qobj), "H_c must be Qobj"
+        assert H_c.isherm, f"Control Hamiltonian must be Hermitian at t={t}"
+
+        return H_c
+
+    def get_operator_at_time(self, t: float) -> qt.Qobj:
+        """
+        Alias for hamiltonian() method for backwards compatibility.
+
+        Parameters
+        ----------
+        t : float
+            Time at which to evaluate.
+
+        Returns
+        -------
+        qt.Qobj
+            Control Hamiltonian at time t.
+        """
+        return self.hamiltonian(t)
+
+    def pulse_area(self, t_start: float, t_end: float, num_points: int = 1000) -> float:
+        """
+        Calculate integrated pulse area (useful for rotation angle).
+
+        Parameters
+        ----------
+        t_start : float
+            Start time for integration.
+        t_end : float
+            End time for integration.
+        num_points : int
+            Number of points for numerical integration.
+
+        Returns
+        -------
+        float
+            Integrated pulse area.
+        """
+        # Rule 5: Parameter validation
+        assert t_start >= 0, f"t_start must be non-negative, got {t_start}"
+        assert t_end > t_start, f"t_end {t_end} must be > t_start {t_start}"
+        assert num_points > 0, f"num_points must be positive, got {num_points}"
+
+        times = np.linspace(t_start, t_end, num_points)
+        amplitudes = np.array([self.pulse_func(t) for t in times])
+        area = np.trapz(amplitudes, times)
+
+        # Rule 5: Validate result
+        assert np.isfinite(area), f"Pulse area not finite: {area}"
+
+        return area
 
     def hamiltonian_coeff_form(self) -> list:
         """

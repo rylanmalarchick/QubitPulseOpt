@@ -36,6 +36,14 @@ References:
 import numpy as np
 from typing import Union, Optional, Tuple
 
+# Power of 10 compliance: Import bounds and assertion helpers
+from ..constants import (
+    MIN_PULSE_AMPLITUDE,
+    MAX_PULSE_AMPLITUDE,
+    MIN_TIME,
+    MAX_TIME,
+)
+
 
 def gaussian_pulse(
     times: np.ndarray,
@@ -91,9 +99,43 @@ def gaussian_pulse(
     For a Gaussian pulse, this gives:
         A * σ * √(2π) ≈ π  →  A ≈ √(π/(2σ²))
     """
+    # Rule 5: Parameter validation assertions
+    assert times is not None, "times array cannot be None"
+    assert isinstance(times, np.ndarray), f"times must be ndarray, got {type(times)}"
+    assert len(times) > 0, "times array must not be empty"
+    assert np.all(np.isfinite(times)), "times must contain only finite values"
+    assert np.all(times >= 0), "All times must be non-negative"
+
+    assert isinstance(amplitude, (int, float)), (
+        f"amplitude must be numeric, got {type(amplitude)}"
+    )
+    assert np.isfinite(amplitude), f"amplitude must be finite, got {amplitude}"
+    assert MIN_PULSE_AMPLITUDE <= amplitude <= MAX_PULSE_AMPLITUDE, (
+        f"amplitude {amplitude} outside bounds [{MIN_PULSE_AMPLITUDE}, {MAX_PULSE_AMPLITUDE}]"
+    )
+
+    assert isinstance(t_center, (int, float)), (
+        f"t_center must be numeric, got {type(t_center)}"
+    )
+    assert np.isfinite(t_center), f"t_center must be finite, got {t_center}"
+    assert t_center >= 0, f"t_center must be non-negative, got {t_center}"
+
+    assert isinstance(sigma, (int, float)), f"sigma must be numeric, got {type(sigma)}"
+    assert sigma > 0, f"sigma must be positive, got {sigma}"
+    assert np.isfinite(sigma), f"sigma must be finite, got {sigma}"
+
+    assert truncation > 0, f"truncation must be positive, got {truncation}"
+
     pulse = np.zeros_like(times)
     mask = np.abs(times - t_center) <= truncation * sigma
     pulse[mask] = amplitude * np.exp(-((times[mask] - t_center) ** 2) / (2 * sigma**2))
+
+    # Rule 5: Postcondition assertions
+    assert np.all(np.isfinite(pulse)), "Pulse contains non-finite values"
+    assert pulse.shape == times.shape, (
+        f"Output shape {pulse.shape} != input shape {times.shape}"
+    )
+
     return pulse
 
 
@@ -120,22 +162,89 @@ def square_pulse(
     Parameters
     ----------
     times : np.ndarray
-        Array of time points at which to evaluate the pulse.
+        Array of time points.
     amplitude : float
-        Constant amplitude during the pulse (Rabi frequency).
+        Pulse amplitude during the 'on' period.
     t_start : float
         Start time of the pulse.
     t_end : float
         End time of the pulse.
     rise_time : float, optional
-        Duration of smooth rise and fall edges (cosine smoothing).
-        If 0 (default), pulse has sharp on/off transitions.
-        If > 0, edges are smoothed over this duration.
+        Rise/fall time for smooth edges (default: 0.0 for hard edges).
 
     Returns
     -------
     np.ndarray
-        Pulse amplitude as a function of time.
+        Pulse amplitude array.
+    """
+    # Rule 5: Parameter validation assertions
+    assert times is not None, "times array cannot be None"
+    assert isinstance(times, np.ndarray), f"times must be ndarray, got {type(times)}"
+    assert len(times) > 0, "times array must not be empty"
+    assert np.all(np.isfinite(times)), "times must contain only finite values"
+
+    assert isinstance(amplitude, (int, float)), (
+        f"amplitude must be numeric, got {type(amplitude)}"
+    )
+    assert np.isfinite(amplitude), f"amplitude must be finite, got {amplitude}"
+
+    assert isinstance(t_start, (int, float)), (
+        f"t_start must be numeric, got {type(t_start)}"
+    )
+    assert isinstance(t_end, (int, float)), f"t_end must be numeric, got {type(t_end)}"
+    assert t_start < t_end, f"t_start {t_start} must be less than t_end {t_end}"
+    assert np.isfinite(t_start) and np.isfinite(t_end), (
+        "t_start and t_end must be finite"
+    )
+
+    assert rise_time >= 0, f"rise_time must be non-negative, got {rise_time}"
+
+    pulse = np.zeros_like(times)
+    if rise_time > 0:
+        # Smooth rise and fall
+        for i, t in enumerate(times):
+            if t_start <= t <= t_start + rise_time:
+                pulse[i] = amplitude * (t - t_start) / rise_time
+            elif t_start + rise_time < t < t_end - rise_time:
+                pulse[i] = amplitude
+            elif t_end - rise_time <= t <= t_end:
+                pulse[i] = amplitude * (t_end - t) / rise_time
+    else:
+        # Hard edges
+        mask = (times >= t_start) & (times <= t_end)
+        pulse[mask] = amplitude
+
+    # Rule 5: Postcondition assertions
+    assert np.all(np.isfinite(pulse)), "Pulse contains non-finite values"
+    assert pulse.shape == times.shape, f"Output shape mismatch"
+
+    return pulse
+
+
+def blackman_pulse(
+    times: np.ndarray,
+    amplitude: float,
+    t_center: float,
+    duration: float,
+) -> np.ndarray:
+    """
+    Generate a Blackman window pulse envelope.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        Array of time points.
+    amplitude : float
+        Peak pulse amplitude.
+    t_center : float
+        Center time of the pulse.
+    duration : float
+        Total duration of the pulse.
+
+    Returns
+    -------
+    np.ndarray
+        Pulse amplitude array.
 
     Examples
     --------
