@@ -1,6 +1,6 @@
 # Fdb version 4
-["pdflatex"] 1761017750.32812 "/home/rylan/Documents/school/projects/quantumControls/docs/science/quantum_control_theory.tex" "quantum_control_theory.pdf" "quantum_control_theory" 1761017752.30457 0
-  "/home/rylan/Documents/school/projects/quantumControls/docs/science/quantum_control_theory.tex" 1761017748.19205 46061 7d2e1babe3c78843a97eb657487e1245 ""
+["pdflatex"] 1761231038.88334 "/home/rylan/Documents/school/projects/quantumControls/docs/science/quantum_control_theory.tex" "quantum_control_theory.pdf" "quantum_control_theory" 1761231040.91945 0
+  "/home/rylan/Documents/school/projects/quantumControls/docs/science/quantum_control_theory.tex" 1761231034.52335 59387 3bfdf7db737ce02cfc9e624dd279f1ec ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc" 1136849721 2971 def0b6c1f0b107b3b936def894055589 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc" 1136849721 2900 1537cc8184ad1792082cd229ecc269f4 ""
   "/usr/local/texlive/2024/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
@@ -202,10 +202,10 @@
   "/usr/local/texlive/2024/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1736713793 5465169 84f99b436d55b199b676d29fadb92a6c ""
   "/usr/local/texlive/2024/texmf-var/web2c/pdftex/pdflatex.fmt" 1736713881 3352336 37ab697b3ad620457230df0a5536fd11 ""
   "/usr/local/texlive/2024/texmf.cnf" 1736713789.55317 455 5b996dcaa0eb4ef14a83b026bc0a008c ""
-  "quantum_control_theory.aux" 1761017752.05708 11538 0324da814c7e18174cd5382676a83012 "pdflatex"
-  "quantum_control_theory.out" 1761017752.05908 10921 22b1b7cad33cb9ea41e3fff630ce664a "pdflatex"
-  "quantum_control_theory.tex" 1761017748.19205 46061 7d2e1babe3c78843a97eb657487e1245 ""
-  "quantum_control_theory.toc" 1761017752.05908 5326 a0ec8a071620241cbe9c87ce089839ba "pdflatex"
+  "quantum_control_theory.aux" 1761231040.67133 15581 590eb826e9e03a3036c6d0843c97c8ec "pdflatex"
+  "quantum_control_theory.out" 1761231040.67333 15665 29c7d342cf81863e4cf02fe8e8716432 "pdflatex"
+  "quantum_control_theory.tex" 1761231034.52335 59387 3bfdf7db737ce02cfc9e624dd279f1ec ""
+  "quantum_control_theory.toc" 1761231040.67433 7911 4c54a032af462db31277ad85a3726d2e "pdflatex"
   (generated)
   "quantum_control_theory.aux"
   "quantum_control_theory.log"
