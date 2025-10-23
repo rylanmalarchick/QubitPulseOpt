@@ -141,6 +141,141 @@ This SOW integrates **2025-state-of-the-art AI agent paradigms** to maximize eff
 - **Workflow Commands:** Custom Zed keybinds: Ctrl+Shift+R (Run ReAct loop), Ctrl+Shift+E (Eval fidelity).
 - **Versioning:** Auto-commit on milestones via Zed's Git panel; branch protection in repo settings.
 
+### Coding Standards: Power of 10 Rules (Adapted for Python/Quantum Control)
+
+To ensure reliability, verifiability, and maintainability of mission-critical quantum control code, all agent-generated and human-reviewed code **MUST** adhere to the following 10 rules, adapted from NASA/JPL's Power of 10 for safety-critical systems:
+
+#### Rule 1: Simple Control Flow
+**Restrict all code to very simple control flow constructs.**
+- **Python Adaptation:**
+  - No recursion (direct or indirect). Use iteration with explicit loop bounds instead.
+  - No complex nested control structures >3 levels deep.
+  - Avoid `goto`-like constructs (Python lacks goto, but avoid `exec`, `eval`, and similar dynamic control).
+  - Exception handling must be explicit and local (no broad `except:` clauses without specific handling).
+- **Rationale:** Simpler control flow enables better static analysis, clearer reasoning about quantum pulse sequences, and easier verification of temporal bounds critical for coherence times.
+- **Agent Directive:** When generating optimization loops or pulse evolution code, use explicit iteration with clear termination conditions. Flag any function call graph that could exhibit recursion.
+
+#### Rule 2: Bounded Loops
+**Give all loops a fixed upper bound that is statically verifiable.**
+- **Python Adaptation:**
+  - Every `for` loop must iterate over a finite, pre-determined range or collection.
+  - Every `while` loop must have an explicit maximum iteration counter with assertion on overflow.
+  - Example: `for i in range(MAX_ITERATIONS):` or `while condition and iter_count < MAX_ITER:`.
+  - Loops traversing data structures (lists, arrays) must have length checks before iteration.
+- **Rationale:** Prevents runaway optimization loops, ensures pulse simulation completes within predictable time (critical for T1/T2 coherence budget), and enables static verification of computational complexity.
+- **Agent Directive:** For GRAPE/CRAB optimization loops, always specify `max_iterations` parameter. Add assertions to catch infinite loops in Lindblad evolution or parameter sweeps.
+
+#### Rule 3: No Dynamic Memory After Initialization
+**Avoid dynamic memory allocation after initialization phase.**
+- **Python Adaptation:**
+  - Pre-allocate all NumPy arrays for pulse sequences, state vectors, and evolution results during setup.
+  - Avoid creating new large objects inside tight loops (e.g., optimization iterations).
+  - Use fixed-size data structures or pre-sized lists: `results = [None] * num_steps` instead of `results = []` with appends.
+  - For QuTiP Qobj creation in loops, consider object pooling or reuse.
+- **Rationale:** Eliminates garbage collection pauses during time-critical simulations, makes memory usage predictable and verifiable, prevents memory fragmentation in long-running optimization sessions.
+- **Agent Directive:** When generating simulation code, pre-allocate arrays for time grids, Hamiltonian matrices, and result storage. Flag any code that allocates inside optimization loops.
+
+#### Rule 4: Function Length Limit
+**No function should exceed 60 lines of code (printable on one page).**
+- **Python Adaptation:**
+  - Maximum 60 lines per function, excluding docstrings and blank lines.
+  - If a function exceeds this, decompose into smaller logical units.
+  - Applies to class methods as well.
+  - Docstrings don't count toward limit, but should be concise (20 lines max).
+- **Rationale:** Each function represents a verifiable logical unit. Quantum control code involves complex physics—smaller functions make it easier to validate Hamiltonian correctness, pulse constraints, and numerical stability.
+- **Agent Directive:** When implementing GRAPE optimizer or Lindblad solver wrappers, break into: setup, iteration step, convergence check, result packaging. Auto-flag functions >60 lines for refactoring.
+
+#### Rule 5: Assertion Density
+**Maintain minimum two assertions per function for defensive programming.**
+- **Python Adaptation:**
+  - Use `assert` statements to verify preconditions, postconditions, and invariants.
+  - Check physical constraints: unitarity preservation, trace conservation, Hermiticity of Hamiltonians.
+  - Validate input parameters: `assert T1 > 0, "Relaxation time must be positive"`.
+  - Check array shapes and bounds before operations.
+  - Assertions should be side-effect free (no mutations in assert conditions).
+  - On assertion failure, log diagnostic info and return error status (don't just crash).
+- **Rationale:** Quantum simulations are numerically sensitive—assertions catch errors early (e.g., non-physical parameters, numerical overflow). Statistics show 1 defect per 10-100 lines; assertions intercept these.
+- **Agent Directive:** For every physics function (Hamiltonian eval, pulse application, fidelity calc), include assertions on matrix dimensions, parameter ranges, and conservation laws. Minimum 2 per function, average 1 per 10 lines.
+
+#### Rule 6: Minimal Scope
+**Declare all data objects at the smallest possible scope.**
+- **Python Adaptation:**
+  - Use local variables within functions rather than module-level globals.
+  - Leverage function parameters and return values for data flow.
+  - For configuration, use immutable `NamedTuple` or `dataclass(frozen=True)` passed as parameters.
+  - Avoid mutable global state (e.g., shared lists modified by multiple functions).
+  - Class attributes only when truly representing object state; prefer local computation.
+- **Rationale:** Reduces coupling, makes data flow explicit (critical for understanding pulse propagation through quantum system), simplifies debugging of incorrect fidelity results.
+- **Agent Directive:** When generating code, default to local variables. If a variable is used in multiple functions, pass it explicitly. Flag any module-level mutable state.
+
+#### Rule 7: Check Return Values and Validate Parameters
+**Every function must validate all input parameters; every caller must check non-void return values.**
+- **Python Adaptation:**
+  - All functions accepting parameters must validate them (type, range, shape for arrays).
+  - Use type hints: `def evolve_pulse(H0: qt.Qobj, times: np.ndarray, ...) -> SimResult:`.
+  - Return `Optional[T]` or `Result[T, Error]` for operations that can fail; caller must check.
+  - For critical functions, raise exceptions with detailed messages on invalid input.
+  - Check return values from QuTiP functions (e.g., `mesolve` result objects).
+  - Use mypy or pyright for static type checking (enforced in CI).
+- **Rationale:** Quantum simulations fail silently if parameters are wrong (e.g., wrong units, swapped axes). Explicit validation prevents subtle bugs like T1/T2 confusion or Hamiltonian sign errors.
+- **Agent Directive:** Every function must start with parameter validation. Every call to a function returning a result must check for success/failure. Explicitly handle QuTiP solver convergence failures.
+
+#### Rule 8: Minimal Metaprogramming
+**Limit use of Python's dynamic features and metaprogramming.**
+- **Python Adaptation:**
+  - Avoid `exec`, `eval`, `compile` entirely in production code.
+  - Limit use of `__getattr__`, `__setattr__` dynamic attribute access.
+  - No dynamic function generation or decorator stacking >2 levels.
+  - Avoid `**kwargs` abuse—use explicit named parameters or typed dictionaries.
+  - Imports must be at module top; no dynamic imports inside functions.
+- **Rationale:** Python's dynamic nature can obscure control flow and data dependencies. For quantum control, we need to trace how parameters affect pulses—metaprogramming makes this opaque to both humans and static analyzers.
+- **Agent Directive:** Generate straightforward, explicit code. If configuration flexibility is needed, use typed config classes. No runtime code generation for pulse shapes—use factory functions instead.
+
+#### Rule 9: Restricted Indirection (Pointer/Reference Analog)
+**Minimize indirection levels in data structures and function calls.**
+- **Python Adaptation:**
+  - Avoid nested data structures >2 levels deep (e.g., `dict[str, list[dict[str, array]]]` is too complex).
+  - No function pointers stored in data structures (callback registries are acceptable only for event handling, not core logic).
+  - Prefer direct function calls over dynamic dispatch via `getattr(obj, method_name)()`.
+  - For pulse sequences, use simple NumPy arrays or flat dataclasses, not nested objects.
+  - Avoid metaclasses and complex inheritance hierarchies.
+- **Rationale:** Quantum control code needs clear data flow from Hamiltonian → evolution → fidelity. Multiple indirection levels make it hard to verify unitarity preservation or debug phase errors.
+- **Agent Directive:** Use flat data structures. Represent pulses as 1D/2D NumPy arrays, not nested objects. Direct function calls for all physics calculations.
+
+#### Rule 10: Zero Warnings, Daily Static Analysis
+**All code must compile/run with zero warnings; use static analysis daily.**
+- **Python Adaptation:**
+  - Enable all linter warnings: `pylint`, `flake8`, `mypy --strict`.
+  - Fix all warnings before commit—no suppression without documented justification.
+  - Use type hints throughout; pass `mypy --strict` with zero errors.
+  - Run static analyzers on every commit (pre-commit hooks or CI).
+  - Code formatting with `black` (enforced, not optional).
+  - Security scanning with `bandit` for unsafe patterns.
+  - GitHub Actions CI must include: pytest (zero failures), mypy (zero errors), pylint (score >9.5), black (check only).
+- **Rationale:** Quantum simulations are numerically fragile. Type errors, uninitialized variables, or wrong units cause silent failures. Static analysis catches these before runtime. Zero tolerance policy ensures code quality from day one.
+- **Agent Directive:** After generating any code block, run `mypy` and `pylint` checks. If warnings appear, refactor immediately—never commit code with warnings. CI must fail builds with any static analysis errors.
+
+#### Compliance Verification
+
+**Agent Responsibilities:**
+1. **Code Generation:** Apply all 10 rules by default. Reference rule number in comments for critical sections.
+2. **Self-Review:** After generating code, run checklist: "Does this violate any Power of 10 rules?" If yes, refactor.
+3. **Testing:** Write tests that verify rule compliance (e.g., test that loops terminate within bounds, functions are <60 lines).
+4. **Documentation:** In module docstrings, note which rules are particularly relevant (e.g., "Rule 3: Pre-allocated arrays for pulse storage").
+
+**Human Review Checkpoints:**
+- Weekly code review specifically checking Power of 10 compliance.
+- Any rule violation must be explicitly justified in comments and approved.
+- CI dashboard should show compliance metrics (average function length, assertion density, static analysis score).
+
+**Tooling:**
+- Custom `pylint` plugin to enforce function length (Rule 4) and assertion density (Rule 5).
+- Pre-commit hooks for `black`, `mypy`, `pylint`.
+- GitHub Actions workflow: `.github/workflows/power_of_10_compliance.yml` running all checks.
+
+**Why This Matters for Quantum Control:**
+Quantum systems are unforgiving—a wrong sign in the Hamiltonian, a runaway optimization loop, or a memory allocation spike during pulse evolution can silently destroy fidelity. These rules aren't academic—they're your safety net for demonstrating >99% gate fidelity and building Google-worthy quantum control software. Treat them as sacred.
+
 ***
 
 ## Milestones \& Timeline
@@ -242,7 +377,38 @@ This SOW integrates **2025-state-of-the-art AI agent paradigms** to maximize eff
 
 ## Appendices
 
-### A: Sample Agent Prompt Template (ReAct for Zed Copilot)
+### A: Power of 10 Compliance Checklist for Agents
+
+**Pre-Code Generation (Every Function/Module):**
+- [ ] Rule 1: No recursion planned? Control flow <3 levels deep?
+- [ ] Rule 2: All loops have explicit `max_iter` or finite range?
+- [ ] Rule 3: Pre-allocate arrays? No allocations in tight loops?
+- [ ] Rule 4: Function will be <60 lines (excluding docstring)?
+- [ ] Rule 5: Planned ≥2 assertions (preconditions, postconditions)?
+- [ ] Rule 6: All variables local or passed as parameters?
+- [ ] Rule 7: Parameter validation at function start? Return value checks?
+- [ ] Rule 8: No `exec`/`eval`? Explicit imports?
+- [ ] Rule 9: Data structures <2 levels deep? Direct function calls?
+- [ ] Rule 10: Ready to pass `mypy --strict` and `pylint`?
+
+**Post-Code Generation (Every Commit):**
+```bash
+# Run compliance checks
+black --check src/ tests/
+mypy --strict src/
+pylint src/ --fail-under=9.5
+pytest tests/ -v --cov=src --cov-fail-under=80
+```
+
+**Agent Self-Reflection Prompt:**
+> "I have generated code for [module/function]. Reviewing against Power of 10:
+> - **Rule violations detected:** [list any, or 'None']
+> - **Justifications:** [if violations, explain why unavoidable and document]
+> - **Refactoring needed:** [specific changes to comply]
+> - **Test coverage for rules:** [which rules are verified by tests?]
+> Ready for human review: Yes/No"
+
+### B: Sample Agent Prompt Template (ReAct for Zed Copilot)
 
 ```
 [Role: Executor] Task: Implement baseline sim per SOW Sec 1.3.
@@ -254,14 +420,14 @@ Human Check: Approve? Y/N.
 ```
 
 
-### B: Success KPIs
+### C: Success KPIs
 
 - Fidelity: Mean >99% (std <0.5%) over 50 runs.
 - Code Quality: PEP8 compliant (black formatter); >80% test coverage.
 - Documentation: 100% functions docstringed; Report cites 5+ sources.
 
 
-### C: Phase 2 Teaser (Post-v1)
+### D: Phase 2 Teaser (Post-v1)
 
 - Multi-qubit iSWAP sim with crosstalk.
 - RL agent (Stable Baselines3) for closed-loop pulse correction.
