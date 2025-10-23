@@ -337,15 +337,29 @@ def log_config(config: Dict[str, Any], logger: Optional[logging.Logger] = None) 
     logger.info("Configuration:")
     logger.info("-" * 60)
 
-    def _log_dict(d, indent=0):
-        for key, value in d.items():
-            if isinstance(value, dict):
-                logger.info("  " * indent + f"{key}:")
-                _log_dict(value, indent + 1)
-            else:
-                logger.info("  " * indent + f"{key}: {value}")
+    # Rule 1: Replace recursion with iterative stack-based approach
+    # Stack contains tuples of (dict, indent_level, prefix)
+    stack = [(config, 0, "")]
+    MAX_DEPTH = 10  # Rule 2: Explicit depth bound
 
-    _log_dict(config)
+    while stack:
+        current_dict, indent, prefix = stack.pop()
+
+        # Rule 5: Assertion for depth bound
+        assert indent < MAX_DEPTH, (
+            f"Config nesting depth {indent} exceeds maximum {MAX_DEPTH}"
+        )
+
+        # Process items in reverse order so they appear in correct order when popped
+        items = list(current_dict.items())
+        for key, value in reversed(items):
+            if isinstance(value, dict):
+                logger.info("  " * indent + f"{prefix}{key}:")
+                # Push nested dict onto stack for processing
+                stack.append((value, indent + 1, ""))
+            else:
+                logger.info("  " * indent + f"{prefix}{key}: {value}")
+
     logger.info("-" * 60)
 
 
