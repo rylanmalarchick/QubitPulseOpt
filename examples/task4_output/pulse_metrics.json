@@ -1,0 +1,17 @@
+{
+  "pulse_label": "Optimized Pulse",
+  "target_gate": "Hadamard",
+  "optimization_method": "GRAPE",
+  "characteristics": {
+    "duration": 10.0,
+    "peak_amplitude": 1.2253961401331186,
+    "rms_amplitude": 0.5291544008471903,
+    "energy": 2.814114371215567,
+    "bandwidth": 0.39799999999999996,
+    "smoothness": 0.0025218069844011592,
+    "fidelity": 0.995,
+    "robustness_metric": null,
+    "custom_metrics": null
+  },
+  "timestamp": "2025-10-23T11:35:07.805862"
+}
