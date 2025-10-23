@@ -211,6 +211,25 @@ class KrotovOptimizer:
 
         return states
 
+    def _log_convergence(
+        self, iteration: int, fidelity: float, delta_fid: float
+    ) -> None:
+        """
+        Log convergence information.
+
+        Rule 4: Helper method to reduce nesting depth in optimize_state.
+
+        Args:
+            iteration: Current iteration number
+            fidelity: Current fidelity value
+            delta_fid: Change in fidelity
+        """
+        if self.verbose:
+            print(
+                f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
+                f"ΔF = {delta_fid:.2e} [CONVERGED]"
+            )
+
     def _backward_propagation(self, chi_final: qt.Qobj, u: np.ndarray) -> List[qt.Qobj]:
         """
         Backward propagate co-state (Lagrange multiplier).
@@ -378,14 +397,11 @@ class KrotovOptimizer:
                 delta_fid = fidelity - fidelity_history[-2]
                 delta_fidelity_history.append(delta_fid)
 
+                # Rule 1: Flatten nesting with early exit
                 if np.abs(delta_fid) < self.convergence_threshold:
                     converged = True
                     message = "Converged (fidelity change below threshold)"
-                    if self.verbose:
-                        print(
-                            f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                            f"ΔF = {delta_fid:.2e} [CONVERGED]"
-                        )
+                    self._log_convergence(iteration, fidelity, delta_fid)
                     break
             else:
                 delta_fidelity_history.append(0.0)

@@ -38,6 +38,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 import warnings
 
+# Power of 10 compliance: Import loop bounds
+from .constants import MAX_CONFIG_DEPTH, MAX_DICT_ITEMS, MAX_ENV_VARS
+
 
 class ConfigError(Exception):
     """Exception raised for configuration errors."""
@@ -114,8 +117,14 @@ class Config:
         keys = key.split(".")
         d = self.data
 
+        # Rule 2: Assert key depth is bounded
+        assert len(keys) <= MAX_CONFIG_DEPTH, (
+            f"Config key depth {len(keys)} exceeds maximum {MAX_CONFIG_DEPTH}"
+        )
+
         # Navigate to the parent dictionary
-        for k in keys[:-1]:
+        for i, k in enumerate(keys[:-1]):
+            assert i < MAX_CONFIG_DEPTH, f"Exceeded max depth {MAX_CONFIG_DEPTH}"
             if k not in d:
                 d[k] = {}
             d = d[k]
@@ -134,7 +143,13 @@ class Config:
         Example:
             >>> config.update({"T1": 100e-6, "T2": 200e-6}, prefix="system.decoherence")
         """
-        for key, value in updates.items():
+        # Rule 2: Add explicit bound with assertion
+        assert len(updates) <= MAX_DICT_ITEMS, (
+            f"Update dict has {len(updates)} items, exceeds {MAX_DICT_ITEMS}"
+        )
+
+        for i, (key, value) in enumerate(updates.items()):
+            assert i < MAX_DICT_ITEMS, f"Exceeded {MAX_DICT_ITEMS} items"
             full_key = f"{prefix}.{key}" if prefix else key
             self.set(full_key, value)
 
@@ -253,24 +268,50 @@ class Config:
         Args:
             prefix: Environment variable prefix
         """
-        for key, value in os.environ.items():
-            if key.startswith(prefix):
-                # Remove prefix and convert __ to .
-                config_key = key[len(prefix) :].lower().replace("__", ".")
+        # Rule 1: Flatten nesting with early continue
+        # Rule 2: Explicit loop bound from constants module
+        for i, (key, value) in enumerate(os.environ.items()):
+            assert i < MAX_ENV_VARS, (
+                f"Environment variable count exceeds {MAX_ENV_VARS}"
+            )
 
-                # Try to parse value as number
-                try:
-                    if "e" in value.lower():
-                        parsed_value = float(value)
-                    elif "." in value:
-                        parsed_value = float(value)
-                    else:
-                        parsed_value = int(value)
-                except ValueError:
-                    # Keep as string
-                    parsed_value = value
+            # Guard clause - skip non-matching keys
+            if not key.startswith(prefix):
+                continue
 
-                self.set(config_key, parsed_value)
+            # Remove prefix and convert __ to .
+            config_key = key[len(prefix) :].lower().replace("__", ".")
+
+            # Parse value with helper function (flattens nesting)
+            parsed_value = self._parse_env_value(value)
+            self.set(config_key, parsed_value)
+
+    def _parse_env_value(self, value: str) -> Union[int, float, str]:
+        """
+        Parse environment variable value to appropriate type.
+
+        Rule 4: Extract helper to reduce function length and nesting.
+        Rule 5: Assertions for defensive programming.
+
+        Args:
+            value: String value from environment variable
+
+        Returns:
+            Parsed value as int, float, or string
+        """
+        assert isinstance(value, str), f"Expected string, got {type(value)}"
+
+        # Try to parse as number
+        try:
+            if "e" in value.lower():
+                return float(value)
+            elif "." in value:
+                return float(value)
+            else:
+                return int(value)
+        except ValueError:
+            # Keep as string
+            return value
 
     def __repr__(self) -> str:
         """String representation."""
