@@ -60,6 +60,17 @@ import qutip as qt
 from typing import Union, Callable, Optional, List, Tuple, Dict
 from dataclasses import dataclass
 
+# Power of 10 compliance: Import loop bounds and assertion helpers
+from ..constants import (
+    MAX_ITERATIONS,
+    MAX_PARAMS,
+    MAX_CONTROL_HAMILTONIANS,
+    MAX_TIMESLICES,
+    MAX_HILBERT_DIM,
+    assert_system_size,
+    assert_fidelity_valid,
+)
+
 
 @dataclass
 class KrotovResult:
@@ -154,6 +165,81 @@ class KrotovOptimizer:
         verbose: bool = True,
     ):
         """Initialize Krotov optimizer."""
+        # Rule 5: Comprehensive parameter validation with assertions
+
+        # Control Hamiltonians validation
+        assert H_controls is not None, "H_controls cannot be None"
+        assert len(H_controls) > 0, "Must provide at least one control Hamiltonian"
+        assert len(H_controls) <= MAX_CONTROL_HAMILTONIANS, (
+            f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
+        )
+
+        # Drift Hamiltonian validation
+        assert H_drift is not None, "Drift Hamiltonian cannot be None"
+        assert isinstance(H_drift, qt.Qobj), (
+            f"H_drift must be Qobj, got {type(H_drift)}"
+        )
+        assert H_drift.isherm, "Drift Hamiltonian must be Hermitian"
+        assert H_drift.shape[0] == H_drift.shape[1], (
+            f"Drift Hamiltonian must be square, got shape {H_drift.shape}"
+        )
+        assert_system_size(H_drift.shape[0], MAX_HILBERT_DIM)
+
+        # Control Hamiltonians validation
+        for i, H_c in enumerate(H_controls):
+            assert H_c is not None, f"Control Hamiltonian {i} cannot be None"
+            assert isinstance(H_c, qt.Qobj), (
+                f"H_controls[{i}] must be Qobj, got {type(H_c)}"
+            )
+            assert H_c.isherm, f"Control Hamiltonian {i} must be Hermitian"
+            assert H_c.shape == H_drift.shape, (
+                f"Control Hamiltonian {i} shape {H_c.shape} != drift shape {H_drift.shape}"
+            )
+
+        # Time discretization validation
+        assert n_timeslices > 0, f"n_timeslices must be positive, got {n_timeslices}"
+        assert n_timeslices <= MAX_TIMESLICES, (
+            f"n_timeslices {n_timeslices} exceeds maximum {MAX_TIMESLICES}"
+        )
+        assert total_time > 0, f"total_time must be positive, got {total_time}"
+        assert np.isfinite(total_time), f"total_time must be finite, got {total_time}"
+
+        # Penalty parameter validation
+        assert penalty_lambda > 0, (
+            f"penalty_lambda must be positive, got {penalty_lambda}"
+        )
+        assert np.isfinite(penalty_lambda), f"penalty_lambda must be finite"
+
+        # Control limits validation
+        assert u_limits is not None, "u_limits cannot be None"
+        assert len(u_limits) == 2, (
+            f"u_limits must be (min, max), got {len(u_limits)} elements"
+        )
+        assert u_limits[0] < u_limits[1], (
+            f"u_limits[0] ({u_limits[0]}) must be < u_limits[1] ({u_limits[1]})"
+        )
+        assert np.isfinite(u_limits[0]) and np.isfinite(u_limits[1]), (
+            "u_limits must be finite"
+        )
+
+        # Optimization parameters validation
+        assert convergence_threshold > 0, (
+            f"convergence_threshold must be positive, got {convergence_threshold}"
+        )
+        assert max_iterations > 0, (
+            f"max_iterations must be positive, got {max_iterations}"
+        )
+        assert max_iterations <= MAX_ITERATIONS, (
+            f"max_iterations {max_iterations} exceeds maximum {MAX_ITERATIONS}"
+        )
+
+        # Total parameters validation
+        total_params = len(H_controls) * n_timeslices
+        assert total_params <= MAX_PARAMS, (
+            f"Total parameters {total_params} = {len(H_controls)} controls × "
+            f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
+        )
+
         self.H_drift = H_drift
         self.H_controls = H_controls
         self.n_controls = len(H_controls)
@@ -166,18 +252,12 @@ class KrotovOptimizer:
         self.u_limits = u_limits
         self.verbose = verbose
 
-        # Validate inputs
-        if self.n_controls == 0:
-            raise ValueError("Must provide at least one control Hamiltonian")
-        if self.n_timeslices <= 0:
-            raise ValueError("Number of timeslices must be positive")
-        if self.total_time <= 0:
-            raise ValueError("Total time must be positive")
-        if self.penalty_lambda <= 0:
-            raise ValueError("Penalty lambda must be positive")
-
         # Get Hilbert space dimension
         self.dim = H_drift.shape[0]
+
+        # Rule 5: Post-initialization invariant checks
+        assert self.dt > 0, f"Computed dt must be positive, got {self.dt}"
+        assert np.isfinite(self.dt), f"Computed dt must be finite, got {self.dt}"
 
     def _forward_propagation(self, psi_init: qt.Qobj, u: np.ndarray) -> List[qt.Qobj]:
         """
@@ -486,6 +566,51 @@ class KrotovOptimizer:
         >>> psi_target = qt.basis(2, 1)  # |1⟩
         >>> result = optimizer.optimize_state(psi_init, psi_target)
         """
+        # Rule 5: Parameter validation assertions
+        assert psi_init is not None, "Initial state cannot be None"
+        assert psi_target is not None, "Target state cannot be None"
+        assert isinstance(psi_init, qt.Qobj), (
+            f"psi_init must be Qobj, got {type(psi_init)}"
+        )
+        assert isinstance(psi_target, qt.Qobj), (
+            f"psi_target must be Qobj, got {type(psi_target)}"
+        )
+
+        # Check state dimensions
+        assert psi_init.shape[0] == self.dim, (
+            f"Initial state dimension {psi_init.shape[0]} != system dimension {self.dim}"
+        )
+        assert psi_target.shape[0] == self.dim, (
+            f"Target state dimension {psi_target.shape[0]} != system dimension {self.dim}"
+        )
+        assert psi_init.shape[1] == 1, (
+            f"Initial state must be ket (column vector), got shape {psi_init.shape}"
+        )
+        assert psi_target.shape[1] == 1, (
+            f"Target state must be ket (column vector), got shape {psi_target.shape}"
+        )
+
+        # Check state normalization
+        psi_init_norm = psi_init.norm()
+        psi_target_norm = psi_target.norm()
+        assert 0.99 <= psi_init_norm <= 1.01, (
+            f"Initial state not normalized: ||psi_init|| = {psi_init_norm}"
+        )
+        assert 0.99 <= psi_target_norm <= 1.01, (
+            f"Target state not normalized: ||psi_target|| = {psi_target_norm}"
+        )
+
+        # Validate optional parameters
+        if u_init is not None:
+            assert isinstance(u_init, np.ndarray), (
+                f"u_init must be ndarray, got {type(u_init)}"
+            )
+            assert u_init.shape == (self.n_controls, self.n_timeslices), (
+                f"u_init shape {u_init.shape} != expected "
+                f"({self.n_controls}, {self.n_timeslices})"
+            )
+            assert np.all(np.isfinite(u_init)), "u_init contains non-finite values"
+
         # Initialize controls
         if u_init is None:
             u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
@@ -502,12 +627,23 @@ class KrotovOptimizer:
         message = "Max iterations reached"
 
         for iteration in range(self.max_iterations):
+            # Rule 5: Iteration bound assertion
+            assert iteration < MAX_ITERATIONS, (
+                f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
+            )
+
             # Forward propagation
             forward_states = self._forward_propagation(psi_init, u)
             psi_final = forward_states[-1]
 
             # Compute fidelity
             fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
+
+            # Rule 5: Validate fidelity
+            assert_fidelity_valid(fidelity)
+            assert np.isfinite(fidelity), (
+                f"Fidelity is not finite at iteration {iteration}"
+            )
             fidelity = np.real(fidelity)
             fidelity_history.append(fidelity)
 
@@ -555,6 +691,23 @@ class KrotovOptimizer:
         final_fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
         final_fidelity = np.real(final_fidelity)
         fidelity_history.append(final_fidelity)
+
+        # Rule 5: Postcondition assertions - validate optimization results
+        assert_fidelity_valid(final_fidelity)
+        assert 0 <= final_fidelity <= 1.0, (
+            f"Final fidelity {final_fidelity} out of bounds [0, 1]"
+        )
+        assert np.isfinite(final_fidelity), (
+            f"Final fidelity is not finite: {final_fidelity}"
+        )
+        assert np.all(np.isfinite(u)), "Optimized pulses contain non-finite values"
+        assert u.shape == (self.n_controls, self.n_timeslices), (
+            f"Optimized pulse shape {u.shape} != expected shape"
+        )
+        assert len(fidelity_history) > 0, "Fidelity history is empty"
+        assert iteration + 1 <= MAX_ITERATIONS, (
+            f"Iteration count {iteration + 1} exceeds maximum {MAX_ITERATIONS}"
+        )
 
         if self.verbose:
             print(f"\nOptimization complete: {message}")
