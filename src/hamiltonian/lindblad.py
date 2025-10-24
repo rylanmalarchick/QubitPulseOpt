@@ -67,6 +67,7 @@ import numpy as np
 import qutip as qt
 from typing import Union, Callable, Optional, List, Tuple
 from dataclasses import dataclass
+import warnings
 
 
 @dataclass
@@ -330,7 +331,10 @@ class LindbladEvolution:
             result_lindblad.states, result_unitary.states
         ):
             # Fidelity between density matrices
-            fid = qt.fidelity(rho_lindblad, rho_unitary)
+            # Suppress LinAlgWarning from singular matrices in fidelity calculation
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=Warning)
+                fid = qt.fidelity(rho_lindblad, rho_unitary)
             fidelities.append(fid)
 
             # Purity: Tr(ρ²)

@@ -179,76 +179,93 @@ class GRAPEOptimizer:
         momentum : float, optional
             Momentum coefficient (0 = no momentum, 0.9 = high momentum). Default: 0.0.
         """
-        # Rule 5: Comprehensive parameter validation with assertions
+        # Rule 5: Comprehensive parameter validation with proper exceptions
 
         # Control Hamiltonians validation
-        assert H_controls is not None, "H_controls cannot be None"
-        assert len(H_controls) > 0, "Must provide at least one control Hamiltonian"
-        assert len(H_controls) <= MAX_CONTROL_HAMILTONIANS, (
-            f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
-        )
+        if H_controls is None:
+            raise ValueError("H_controls cannot be None")
+        if len(H_controls) == 0:
+            raise ValueError("Must provide at least one control Hamiltonian")
+        if len(H_controls) > MAX_CONTROL_HAMILTONIANS:
+            raise ValueError(
+                f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
+            )
 
         # Drift Hamiltonian validation
-        assert H_drift is not None, "Drift Hamiltonian cannot be None"
-        assert isinstance(H_drift, qt.Qobj), (
-            f"H_drift must be Qobj, got {type(H_drift)}"
-        )
-        assert H_drift.isherm, "Drift Hamiltonian must be Hermitian"
-        assert H_drift.shape[0] == H_drift.shape[1], (
-            f"Drift Hamiltonian must be square, got shape {H_drift.shape}"
-        )
+        if H_drift is None:
+            raise ValueError("Drift Hamiltonian cannot be None")
+        if not isinstance(H_drift, qt.Qobj):
+            raise ValueError(f"H_drift must be Qobj, got {type(H_drift)}")
+        if not H_drift.isherm:
+            raise ValueError("Drift Hamiltonian must be Hermitian")
+        if H_drift.shape[0] != H_drift.shape[1]:
+            raise ValueError(
+                f"Drift Hamiltonian must be square, got shape {H_drift.shape}"
+            )
         assert_system_size(H_drift.shape[0], MAX_HILBERT_DIM)
 
         # Control Hamiltonians validation
         for i, H_c in enumerate(H_controls):
-            assert H_c is not None, f"Control Hamiltonian {i} cannot be None"
-            assert isinstance(H_c, qt.Qobj), (
-                f"H_controls[{i}] must be Qobj, got {type(H_c)}"
-            )
-            assert H_c.isherm, f"Control Hamiltonian {i} must be Hermitian"
-            assert H_c.shape == H_drift.shape, (
-                f"Control Hamiltonian {i} shape {H_c.shape} != drift shape {H_drift.shape}"
-            )
+            if H_c is None:
+                raise ValueError(f"Control Hamiltonian {i} cannot be None")
+            if not isinstance(H_c, qt.Qobj):
+                raise ValueError(f"H_controls[{i}] must be Qobj, got {type(H_c)}")
+            if not H_c.isherm:
+                raise ValueError(f"Control Hamiltonian {i} must be Hermitian")
+            if H_c.shape != H_drift.shape:
+                raise ValueError(
+                    f"Control Hamiltonian {i} shape {H_c.shape} != drift shape {H_drift.shape}"
+                )
 
         # Time discretization validation
-        assert n_timeslices > 0, f"n_timeslices must be positive, got {n_timeslices}"
-        assert n_timeslices <= MAX_TIMESLICES, (
-            f"n_timeslices {n_timeslices} exceeds maximum {MAX_TIMESLICES}"
-        )
-        assert total_time > 0, f"total_time must be positive, got {total_time}"
-        assert np.isfinite(total_time), f"total_time must be finite, got {total_time}"
+        if n_timeslices <= 0:
+            raise ValueError(f"n_timeslices must be positive, got {n_timeslices}")
+        if n_timeslices > MAX_TIMESLICES:
+            raise ValueError(
+                f"n_timeslices {n_timeslices} exceeds maximum {MAX_TIMESLICES}"
+            )
+        if total_time <= 0:
+            raise ValueError(f"total_time must be positive, got {total_time}")
+        if not np.isfinite(total_time):
+            raise ValueError(f"total_time must be finite, got {total_time}")
 
         # Control limits validation
-        assert u_limits is not None, "u_limits cannot be None"
-        assert len(u_limits) == 2, (
-            f"u_limits must be (min, max), got {len(u_limits)} elements"
-        )
-        assert u_limits[0] < u_limits[1], (
-            f"u_limits[0] ({u_limits[0]}) must be < u_limits[1] ({u_limits[1]})"
-        )
-        assert np.isfinite(u_limits[0]) and np.isfinite(u_limits[1]), (
-            "u_limits must be finite"
-        )
+        if u_limits is None:
+            raise ValueError("u_limits cannot be None")
+        if len(u_limits) != 2:
+            raise ValueError(
+                f"u_limits must be (min, max), got {len(u_limits)} elements"
+            )
+        if u_limits[0] >= u_limits[1]:
+            raise ValueError(
+                f"u_limits[0] ({u_limits[0]}) must be < u_limits[1] ({u_limits[1]})"
+            )
+        if not (np.isfinite(u_limits[0]) and np.isfinite(u_limits[1])):
+            raise ValueError("u_limits must be finite")
 
         # Optimization parameters validation
-        assert convergence_threshold > 0, (
-            f"convergence_threshold must be positive, got {convergence_threshold}"
-        )
-        assert max_iterations > 0, (
-            f"max_iterations must be positive, got {max_iterations}"
-        )
-        assert max_iterations <= MAX_ITERATIONS, (
-            f"max_iterations {max_iterations} exceeds maximum {MAX_ITERATIONS}"
-        )
-        assert learning_rate > 0, f"learning_rate must be positive, got {learning_rate}"
-        assert 0 <= momentum < 1, f"momentum must be in [0, 1), got {momentum}"
+        if convergence_threshold <= 0:
+            raise ValueError(
+                f"convergence_threshold must be positive, got {convergence_threshold}"
+            )
+        if max_iterations <= 0:
+            raise ValueError(f"max_iterations must be positive, got {max_iterations}")
+        if max_iterations > MAX_ITERATIONS:
+            raise ValueError(
+                f"max_iterations {max_iterations} exceeds maximum {MAX_ITERATIONS}"
+            )
+        if learning_rate <= 0:
+            raise ValueError(f"learning_rate must be positive, got {learning_rate}")
+        if not (0 <= momentum < 1):
+            raise ValueError(f"momentum must be in [0, 1), got {momentum}")
 
         # Total parameters validation
         total_params = len(H_controls) * n_timeslices
-        assert total_params <= MAX_PARAMS, (
-            f"Total parameters {total_params} = {len(H_controls)} controls × "
-            f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
-        )
+        if total_params > MAX_PARAMS:
+            raise ValueError(
+                f"Total parameters {total_params} = {len(H_controls)} controls × "
+                f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
+            )
 
         self.H_drift = H_drift
         self.H_controls = H_controls
@@ -576,7 +593,8 @@ class GRAPEOptimizer:
         >>> print(f"Fidelity: {result.final_fidelity:.6f}")
         """
         # Rule 5: Parameter validation assertions
-        assert U_target is not None, "Target unitary cannot be None"
+        if U_target is None:
+            raise ValueError("Target unitary cannot be None")
         assert isinstance(U_target, qt.Qobj), (
             f"U_target must be Qobj, got {type(U_target)}"
         )
@@ -604,7 +622,8 @@ class GRAPEOptimizer:
             )
             assert np.all(np.isfinite(u_init)), "u_init contains non-finite values"
 
-        assert 0 < step_decay <= 1, f"step_decay must be in (0, 1], got {step_decay}"
+        if not (0 < step_decay <= 1):
+            raise ValueError(f"step_decay must be in (0, 1], got {step_decay}")
 
         # Initialize controls
         if u_init is None:
@@ -798,8 +817,10 @@ class GRAPEOptimizer:
             Optimization result.
 
         # Rule 5: Parameter validation assertions
-        assert psi_init is not None, "Initial state cannot be None"
-        assert psi_target is not None, "Target state cannot be None"
+        if psi_init is None:
+            raise ValueError("Initial state cannot be None")
+        if psi_target is None:
+            raise ValueError("Target state cannot be None")
         assert isinstance(psi_init, qt.Qobj), (
             f"psi_init must be Qobj, got {type(psi_init)}"
         )
@@ -842,7 +863,8 @@ class GRAPEOptimizer:
             )
             assert np.all(np.isfinite(u_init)), "u_init contains non-finite values"
 
-        assert 0 < step_decay <= 1, f"step_decay must be in (0, 1], got {step_decay}"
+        if not (0 < step_decay <= 1):
+            raise ValueError(f"step_decay must be in (0, 1], got {step_decay}")
 
         Notes
         -----

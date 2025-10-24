@@ -15,6 +15,7 @@ import qutip as qt
 from typing import Optional, List, Dict, Tuple, Callable, Any
 from dataclasses import dataclass
 import time
+import warnings
 
 
 @dataclass
@@ -557,7 +558,12 @@ class PulseComparisonViewer:
             ax_metrics.legend()
             ax_metrics.grid(True, alpha=0.3, axis="y")
 
-        plt.tight_layout()
+        # Suppress tight_layout warning for axes that might not be compatible
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*tight_layout.*", category=UserWarning
+            )
+            plt.tight_layout()
         return fig
 
 
@@ -648,7 +654,10 @@ class BlochViewer3D:
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
         ax.set_title("Bloch Sphere")
-        ax.legend()
+
+        # Only add legend if there are states to plot
+        if len(states) > 0:
+            ax.legend()
 
         # Set equal aspect ratio
         ax.set_box_aspect([1, 1, 1])
