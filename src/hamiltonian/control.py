@@ -121,11 +121,11 @@ class ControlHamiltonian:
         >>> pulse = lambda t: gaussian_pulse(t, amplitude=10, t_center=50, sigma=10)
         >>> H_ctrl = ControlHamiltonian(pulse, phase=np.pi/2)  # Y-drive
         """
-        # Rule 5: Parameter validation with assertions
-        assert pulse_func is not None, "pulse_func cannot be None"
-        assert callable(pulse_func), (
-            f"pulse_func must be callable, got {type(pulse_func)}"
-        )
+        # Rule 5: Parameter validation with proper exceptions
+        if pulse_func is None:
+            raise ValueError("pulse_func cannot be None")
+        if not callable(pulse_func):
+            raise TypeError(f"pulse_func must be callable, got {type(pulse_func)}")
 
         # Test pulse function with a sample value
         try:
@@ -138,30 +138,29 @@ class ControlHamiltonian:
         except Exception as e:
             raise ValueError(f"pulse_func failed at t=0: {e}")
 
-        assert drive_axis is not None, "drive_axis cannot be None"
-        assert isinstance(drive_axis, str), (
-            f"drive_axis must be string, got {type(drive_axis)}"
-        )
+        if drive_axis is None:
+            raise ValueError("drive_axis cannot be None")
+        if not isinstance(drive_axis, str):
+            raise TypeError(f"drive_axis must be string, got {type(drive_axis)}")
 
-        assert isinstance(phase, (int, float)), (
-            f"phase must be numeric, got {type(phase)}"
-        )
-        assert np.isfinite(phase), f"phase must be finite, got {phase}"
-        assert -2 * np.pi <= phase <= 2 * np.pi, (
-            f"phase {phase} outside reasonable range [-2π, 2π]"
-        )
+        if not isinstance(phase, (int, float)):
+            raise TypeError(f"phase must be numeric, got {type(phase)}")
+        if not np.isfinite(phase):
+            raise ValueError(f"phase must be finite, got {phase}")
+        if not (-2 * np.pi <= phase <= 2 * np.pi):
+            raise ValueError(f"phase {phase} outside reasonable range [-2π, 2π]")
 
-        assert isinstance(detuning, (int, float)), (
-            f"detuning must be numeric, got {type(detuning)}"
-        )
-        assert np.isfinite(detuning), f"detuning must be finite, got {detuning}"
-        assert MIN_ENERGY <= detuning <= MAX_ENERGY, (
-            f"detuning {detuning} outside reasonable bounds [{MIN_ENERGY}, {MAX_ENERGY}]"
-        )
+        if not isinstance(detuning, (int, float)):
+            raise TypeError(f"detuning must be numeric, got {type(detuning)}")
+        if not np.isfinite(detuning):
+            raise ValueError(f"detuning must be finite, got {detuning}")
+        if not (MIN_ENERGY <= detuning <= MAX_ENERGY):
+            raise ValueError(
+                f"detuning {detuning} outside reasonable bounds [{MIN_ENERGY}, {MAX_ENERGY}]"
+            )
 
-        assert isinstance(rotating_frame, bool), (
-            f"rotating_frame must be bool, got {type(rotating_frame)}"
-        )
+        if not isinstance(rotating_frame, bool):
+            raise TypeError(f"rotating_frame must be bool, got {type(rotating_frame)}")
 
         self.pulse_func = pulse_func
         self.drive_axis = drive_axis.lower()
@@ -170,9 +169,10 @@ class ControlHamiltonian:
         self.rotating_frame = rotating_frame
 
         # Validate drive axis
-        assert self.drive_axis in ["x", "y", "xy"], (
-            f"Invalid drive_axis '{drive_axis}'. Must be 'x', 'y', or 'xy'."
-        )
+        if self.drive_axis not in ["x", "y", "xy"]:
+            raise ValueError(
+                f"Invalid drive_axis '{drive_axis}'. Must be 'x', 'y', or 'xy'."
+            )
 
         # Cache Pauli operators
         self._sigma_x = qt.sigmax()
@@ -205,10 +205,14 @@ class ControlHamiltonian:
             Control Hamiltonian operator.
         """
         # Rule 5: Input validation
-        assert t is not None, "Time t cannot be None"
-        assert isinstance(t, (int, float)), f"Time must be numeric, got {type(t)}"
-        assert np.isfinite(t), f"Time must be finite, got {t}"
-        assert t >= 0, f"Time must be non-negative, got {t}"
+        if t is None:
+            raise ValueError("Time t cannot be None")
+        if not isinstance(t, (int, float)):
+            raise ValueError(f"Time must be numeric, got {type(t)}")
+        if not np.isfinite(t):
+            raise ValueError(f"Time must be finite, got {t}")
+        if t < 0:
+            raise ValueError(f"Time must be non-negative, got {t}")
 
         # Evaluate pulse amplitude
         amplitude = self.pulse_func(t)
@@ -219,11 +223,29 @@ class ControlHamiltonian:
         )
 
         # Build Hamiltonian based on drive axis
+        # Apply phase rotation: H = Ω(t)/2 * [cos(φ)σ_x + sin(φ)σ_y]
         if self.drive_axis == "x":
-            H_c = 0.5 * amplitude * self._sigma_x
+            # X-axis drive with phase rotation
+            H_c = (
+                0.5
+                * amplitude
+                * (
+                    np.cos(self.phase) * self._sigma_x
+                    + np.sin(self.phase) * self._sigma_y
+                )
+            )
         elif self.drive_axis == "y":
-            H_c = 0.5 * amplitude * self._sigma_y
+            # Y-axis drive with phase rotation (phase shifted by π/2)
+            H_c = (
+                0.5
+                * amplitude
+                * (
+                    -np.sin(self.phase) * self._sigma_x
+                    + np.cos(self.phase) * self._sigma_y
+                )
+            )
         else:  # 'xy'
+            # XY drive with phase rotation
             H_c = (
                 0.5
                 * amplitude
@@ -275,9 +297,12 @@ class ControlHamiltonian:
             Integrated pulse area.
         """
         # Rule 5: Parameter validation
-        assert t_start >= 0, f"t_start must be non-negative, got {t_start}"
-        assert t_end > t_start, f"t_end {t_end} must be > t_start {t_start}"
-        assert num_points > 0, f"num_points must be positive, got {num_points}"
+        if t_start < 0:
+            raise ValueError(f"t_start must be non-negative, got {t_start}")
+        if t_end <= t_start:
+            raise ValueError(f"t_end {t_end} must be > t_start {t_start}")
+        if num_points <= 0:
+            raise ValueError(f"num_points must be positive, got {num_points}")
 
         times = np.linspace(t_start, t_end, num_points)
         amplitudes = np.array([self.pulse_func(t) for t in times])

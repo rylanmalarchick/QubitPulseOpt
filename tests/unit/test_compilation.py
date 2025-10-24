@@ -93,7 +93,7 @@ class TestSequentialCompilation:
         assert isinstance(circuit, CompiledCircuit)
         assert circuit.gate_sequence == ["H"]
         assert circuit.compilation_method == "sequential"
-        assert circuit.final_fidelity > 0.0
+        assert circuit.total_fidelity > 0.0
         assert circuit.total_time > 0.0
         assert circuit.compiled_pulses.shape[0] == 2  # Two controls
 
@@ -105,7 +105,7 @@ class TestSequentialCompilation:
 
         assert circuit.gate_sequence == ["H", "S"]
         assert len(circuit.individual_gates) == 2
-        assert circuit.final_fidelity > 0.0
+        assert circuit.total_fidelity > 0.0
 
     def test_multiple_gate_compilation(self, compiler):
         """Test compiling multiple gates."""
@@ -196,7 +196,7 @@ class TestJointCompilation:
 
         assert circuit.compilation_method == "joint"
         assert circuit.individual_gates is None  # Joint doesn't track individual gates
-        assert circuit.final_fidelity > 0.0
+        assert circuit.total_fidelity > 0.0
 
     def test_joint_target_unitary_correct(self, compiler):
         """Test that joint compilation targets correct composite unitary."""
@@ -212,7 +212,7 @@ class TestJointCompilation:
         )
 
         # We can't directly check the target, but fidelity should be reasonable
-        assert circuit.final_fidelity > 0.0
+        assert circuit.total_fidelity > 0.0
 
     def test_joint_with_custom_gate_times(self, compiler):
         """Test joint compilation with custom gate times."""
@@ -259,7 +259,7 @@ class TestHybridCompilation:
         )
 
         assert circuit.compilation_method == "hybrid"
-        assert circuit.final_fidelity > 0.0
+        assert circuit.total_fidelity > 0.0
 
     def test_hybrid_includes_sequential_fidelity(self, compiler):
         """Test that hybrid includes sequential fidelity in metadata."""

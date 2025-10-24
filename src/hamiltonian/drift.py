@@ -313,15 +313,20 @@ class DriftHamiltonian:
         unitary evolution: |ψ(t)⟩ = exp(-iH₀t)|ψ(0)⟩.
         """
         # Rule 5: Input validation
-        assert psi0 is not None, "Initial state psi0 cannot be None"
-        assert isinstance(psi0, qutip.Qobj), f"psi0 must be Qobj, got {type(psi0)}"
-        assert psi0.isket, "psi0 must be a ket state"
-        assert times is not None, "times array cannot be None"
-        assert isinstance(times, np.ndarray), (
-            f"times must be ndarray, got {type(times)}"
-        )
-        assert len(times) > 0, "times array must not be empty"
-        assert np.all(times >= 0), "All times must be non-negative"
+        if psi0 is None:
+            raise ValueError("Initial state psi0 cannot be None")
+        if not isinstance(psi0, qutip.Qobj):
+            raise ValueError(f"psi0 must be Qobj, got {type(psi0)}")
+        if not psi0.isket:
+            raise ValueError("psi0 must be a ket state")
+        if times is None:
+            raise ValueError("times array cannot be None")
+        if not isinstance(times, np.ndarray):
+            raise ValueError(f"times must be ndarray, got {type(times)}")
+        if len(times) == 0:
+            raise ValueError("times array must not be empty")
+        if not np.all(times >= 0):
+            raise ValueError("All times must be non-negative")
 
         result = qutip.sesolve(self.H, psi0, times)
 
@@ -373,8 +378,10 @@ def create_drift_hamiltonian(omega_0: float = 5.0) -> DriftHamiltonian:
       Period: T = 1.0472 μs
     """
     # Rule 5: Input validation
-    assert omega_0 is not None, "omega_0 cannot be None"
-    assert omega_0 > 0, f"omega_0 must be positive, got {omega_0}"
+    if omega_0 is None:
+        raise ValueError("omega_0 cannot be None")
+    if omega_0 <= 0:
+        raise ValueError(f"omega_0 must be positive, got {omega_0}")
 
     drift = DriftHamiltonian(omega_0)
 
@@ -396,7 +403,8 @@ def _validate_drift_parameters(omega_0: float, times: np.ndarray = None) -> None
     times : np.ndarray, optional
         Time array for evolution.
     """
-    assert omega_0 > 0, f"omega_0 must be positive, got {omega_0}"
+    if omega_0 <= 0:
+        raise ValueError(f"omega_0 must be positive, got {omega_0}")
     assert np.isfinite(omega_0), f"omega_0 must be finite"
     if times is not None:
         assert len(times) > 0, "times array must not be empty"

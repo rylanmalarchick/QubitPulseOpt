@@ -14,6 +14,7 @@ from typing import Optional, List, Dict, Tuple, Any, Union
 from dataclasses import dataclass, asdict
 import json
 from datetime import datetime
+import warnings
 
 
 @dataclass
@@ -194,7 +195,12 @@ class PulseReport:
             title += f" [{self.optimization_method}]"
         fig.suptitle(title, fontsize=16, fontweight="bold")
 
-        plt.tight_layout()
+        # Suppress tight_layout warning for axes that might not be compatible
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message=".*tight_layout.*", category=UserWarning
+            )
+            plt.tight_layout()
 
         if filename:
             fig.savefig(filename, dpi=300, bbox_inches="tight")
@@ -725,7 +731,12 @@ def create_publication_figure(
     if labels:
         ax.legend(fontsize=12, framealpha=0.9)
 
-    plt.tight_layout()
+    # Suppress tight_layout warning for axes that might not be compatible
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*tight_layout.*", category=UserWarning
+        )
+        plt.tight_layout()
 
     if filename:
         # Use high DPI for publication

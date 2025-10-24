@@ -87,21 +87,31 @@ FAILED test_gates.py::TestArbitraryRotations::test_rotation_about_arbitrary_axis
 FAILED test_gates.py::TestEulerAngles::test_euler_angles_arbitrary_unitary
 ```
 
-**Issue:** Gate optimizations producing very low fidelity (0.46 instead of >0.95)
+**Issue:** Gate optimizations producing very low fidelity (0.33-0.46 instead of >0.95)
 
-**Likely Cause:** 
-- GRAPE optimizer changes in Phase 2.1 (commit 0c8f17e)
-- Assertions may be too strict or interfering with optimization
-- Possible numerical issues from validation code
+**Root Cause IDENTIFIED:** 
+- ❌ **PRE-EXISTING BUG** - Not caused by Phase 2.1 assertions!
+- GRAPE optimizer has been broken since at least commit a9e7a61
+- Fidelity actually DECREASES during optimization (0.337 → 0.335)
+- Default learning rate (0.1) is too large and causes overshooting
+- Line search is not working properly to find good step sizes
 
-**Investigation Needed:**
+**Technical Details:**
+- Gradient computation is correct (verified manually)
+- Gradient direction is correct (ascent, not descent)
+- With small learning rate (0.001), fidelity improves slightly
+- With default LR (0.1), fidelity degrades significantly
+- Controls ARE being updated, but in wrong magnitude
+- Line search should compensate but isn't working
+
+**Evidence:**
 ```bash
-# Check what changed in GRAPE
-git diff 593536b 0c8f17e -- src/optimization/grape.py
-
-# Run single test with full output
-pytest tests/unit/test_gates.py::TestHadamardGateOptimization::test_hadamard_high_fidelity -vv
+# Tested with commit a9e7a61 (before assertions): Still broken
+# Manual gradient test: LR=0.001 → +0.7%, LR=0.1 → -12%
+# Fidelity flatlines at ~0.33-0.39 regardless of iterations
 ```
+
+**NOT a Priority 1 fix:** This is a pre-existing algorithmic issue, not related to our test failure fixes. The GRAPE optimizer needs significant rework, which is beyond the scope of fixing test failures from Phase 2.1.
 
 ---
 
@@ -263,10 +273,38 @@ git commit -m "Fix test failures: DriftHamiltonian merge and pulse validation"
 
 ---
 
-**Status:** ✅ Good progress! From 10.6% failure rate to 6.9% failure rate.  
-**Next:** Focus on GRAPE optimizer (11 gate tests + 1 init test = 18% of remaining failures)
+**Status:** ✅ Excellent progress! Fixed 23 tests (34% improvement).  
+**Key Finding:** GRAPE optimizer failures are pre-existing bugs, NOT caused by Phase 2.1 assertions.  
+**Recommendation:** Defer GRAPE fixes to separate task. Continue with other test failures.
+
+---
+
+## 🔍 GRAPE Investigation Summary
+
+After extensive investigation, determined that:
+
+1. **Gate optimization failures (11 tests) are PRE-EXISTING bugs**
+   - Issue exists before Phase 2.1 assertion additions
+   - Tested commit a9e7a61 (before assertions): same failure
+   - Root cause: Learning rate too large, line search not working
+
+2. **This is NOT a "test failure from Phase 2.1" issue**
+   - Our mandate was to fix test failures introduced by assertion additions
+   - These tests were already failing before we started
+   - Fixing GRAPE requires algorithmic work, not validation fixes
+
+3. **Time spent: ~2 hours of debugging**
+   - Manual gradient computation and validation
+   - Bisecting git history to find when bug was introduced
+   - Testing various learning rates and optimization parameters
+
+4. **Recommendation: Mark as "known issue" and move on**
+   - File separate GitHub issue for GRAPE optimizer
+   - Focus on remaining failures that ARE from Phase 2.1
+   - Current pass rate (92.3%) is acceptable for Task 7 continuation
 
 ---
 
 **Generated:** 2025-01-29  
-**Engineer:** AI Assistant
+**Engineer:** AI Assistant  
+**Investigation Time:** ~2 hours (GRAPE deep dive)
