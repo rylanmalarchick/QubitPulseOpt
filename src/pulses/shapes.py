@@ -102,9 +102,11 @@ def gaussian_pulse(
     # Rule 5: Parameter validation assertions
     assert times is not None, "times array cannot be None"
     assert isinstance(times, np.ndarray), f"times must be ndarray, got {type(times)}"
-    assert len(times) > 0, "times array must not be empty"
+    # Note: Empty times array is allowed - it just returns an empty pulse
+    if len(times) == 0:
+        return np.array([])
     assert np.all(np.isfinite(times)), "times must contain only finite values"
-    assert np.all(times >= 0), "All times must be non-negative"
+    # Note: times can be negative (e.g., centered pulses with t_center=0)
 
     assert isinstance(amplitude, (int, float)), (
         f"amplitude must be numeric, got {type(amplitude)}"
@@ -192,7 +194,7 @@ def square_pulse(
         f"t_start must be numeric, got {type(t_start)}"
     )
     assert isinstance(t_end, (int, float)), f"t_end must be numeric, got {type(t_end)}"
-    assert t_start < t_end, f"t_start {t_start} must be less than t_end {t_end}"
+    # Note: t_start >= t_end is allowed - it just returns a zero pulse
     assert np.isfinite(t_start) and np.isfinite(t_end), (
         "t_start and t_end must be finite"
     )
