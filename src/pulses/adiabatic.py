@@ -651,6 +651,101 @@ class AdiabaticChecker:
         return eigvals, eigvecs
 
     @staticmethod
+    def _compute_hamiltonian_derivative(
+        H_list: List[qt.Qobj], times: NDArray[np.float64], i: int
+    ) -> qt.Qobj:
+        """
+        Compute numerical time derivative of Hamiltonian.
+
+        Args:
+            H_list: List of Hamiltonian snapshots
+            times: Time array
+            i: Current time index
+
+        Returns:
+            dH/dt at time i
+        """
+        dt_back = times[i] - times[i - 1]
+        dt_fwd = times[i + 1] - times[i]
+        return (H_list[i + 1] - H_list[i - 1]) / (dt_back + dt_fwd)
+
+    @staticmethod
+    def _compute_transition_metrics(
+        eigvals: np.ndarray,
+        eigvecs: List[qt.Qobj],
+        dH_dt: qt.Qobj,
+        state_index: int,
+    ) -> tuple:
+        """
+        Compute transition rates and gaps for all states.
+
+        Args:
+            eigvals: Eigenvalues
+            eigvecs: Eigenvectors
+            dH_dt: Hamiltonian time derivative
+            state_index: Index of state to track
+
+        Returns:
+            gaps, transition_rates, adiabaticity_params
+        """
+        gaps = []
+        transition_rates = []
+        adiabaticity_params = []
+        n = state_index
+
+        for m in range(len(eigvals)):
+            if m == n:
+                continue
+
+            gap = abs(eigvals[m] - eigvals[n])
+            if gap < 1e-10:
+                continue
+
+            # Compute matrix element: ⟨m|dH/dt|n⟩
+            result = eigvecs[m].dag() * dH_dt * eigvecs[n]
+            matrix_element = abs(result.tr()) if hasattr(result, "tr") else abs(result)
+
+            transition_rate = matrix_element / gap
+
+            if matrix_element > 1e-15:
+                gamma = gap**2 / matrix_element
+                adiabaticity_params.append(gamma)
+
+            gaps.append(gap)
+            transition_rates.append(transition_rate)
+
+        return gaps, transition_rates, adiabaticity_params
+
+    @staticmethod
+    def _aggregate_adiabaticity_metrics(
+        gaps: list, transition_rates: list, adiabaticity_params: list
+    ) -> Dict[str, Any]:
+        """
+        Aggregate adiabaticity metrics into result dictionary.
+
+        Args:
+            gaps: Energy gaps
+            transition_rates: Transition rates
+            adiabaticity_params: Adiabaticity parameters
+
+        Returns:
+            Dictionary with metrics
+        """
+        return {
+            "min_gap": np.min(gaps) if gaps else 0.0,
+            "max_transition_rate": np.max(transition_rates)
+            if transition_rates
+            else 0.0,
+            "min_adiabaticity": np.min(adiabaticity_params)
+            if adiabaticity_params
+            else 0.0,
+            "adiabatic": np.min(adiabaticity_params) > 10.0
+            if adiabaticity_params
+            else False,
+            "n_violations": sum(1 for g in adiabaticity_params if g < 10.0),
+        }
+
+    @staticmethod
     def adiabatic_condition(
         H_list: List[qt.Qobj], times: NDArray[np.float64], state_index: int = 0
     ) -> Dict[str, Any]:
@@ -671,64 +766,29 @@ class AdiabaticChecker:
         if n_times < 3:
             raise ValueError("Need at least 3 time points")
 
-        gaps = []
-        transition_rates = []
-        adiabaticity_params = []
+        all_gaps = []
+        all_transition_rates = []
+        all_adiabaticity_params = []
 
         for i in range(1, n_times - 1):
             # Current eigendecomposition
             eigvals, eigvecs = H_list[i].eigenstates()
 
-            # Numerical time derivative of H
-            dt_back = times[i] - times[i - 1]
-            dt_fwd = times[i + 1] - times[i]
-            dH_dt = (H_list[i + 1] - H_list[i - 1]) / (dt_back + dt_fwd)
+            # Compute Hamiltonian derivative
+            dH_dt = AdiabaticChecker._compute_hamiltonian_derivative(H_list, times, i)
 
-            # Transition matrix element
-            n = state_index
+            # Compute transition metrics
+            gaps, rates, params = AdiabaticChecker._compute_transition_metrics(
+                eigvals, eigvecs, dH_dt, state_index
+            )
 
-            # Check all other states
-            for m in range(len(eigvals)):
-                if m == n:
-                    continue
+            all_gaps.extend(gaps)
+            all_transition_rates.extend(rates)
+            all_adiabaticity_params.extend(params)
 
-                gap = abs(eigvals[m] - eigvals[n])
-
-                if gap < 1e-10:
-                    # Degenerate or near-degenerate
-                    continue
-
-                # Compute matrix element: ⟨m|dH/dt|n⟩
-                result = eigvecs[m].dag() * dH_dt * eigvecs[n]
-                if hasattr(result, "tr"):
-                    matrix_element = abs(result.tr())
-                else:
-                    # Scalar result from inner product
-                    matrix_element = abs(result)
-
-                transition_rate = matrix_element / gap
-
-                # Adiabaticity parameter: gap² / |matrix_element|
-                if matrix_element > 1e-15:
-                    gamma = gap**2 / matrix_element
-                    adiabaticity_params.append(gamma)
-
-                gaps.append(gap)
-                transition_rates.append(transition_rate)
-
-        return {
-            "min_gap": np.min(gaps) if gaps else 0.0,
-            "max_transition_rate": np.max(transition_rates)
-            if transition_rates
-            else 0.0,
-            "min_adiabaticity": np.min(adiabaticity_params)
-            if adiabaticity_params
-            else 0.0,
-            "adiabatic": np.min(adiabaticity_params) > 10.0
-            if adiabaticity_params
-            else False,
-            "n_violations": sum(1 for g in adiabaticity_params if g < 10.0),
-        }
+        return AdiabaticChecker._aggregate_adiabaticity_metrics(
+            all_gaps, all_transition_rates, all_adiabaticity_params
+        )
 
     @staticmethod
     def optimize_sweep_time(

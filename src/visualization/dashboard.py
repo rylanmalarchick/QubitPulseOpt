@@ -304,6 +304,132 @@ class ParameterSweepViewer:
         """
         self.figsize = figsize
 
+    def _plot_heatmap_panel(
+        self,
+        ax: plt.Axes,
+        x_values: np.ndarray,
+        y_values: np.ndarray,
+        z_values: np.ndarray,
+        x_label: str,
+        y_label: str,
+        z_label: str,
+        title: str,
+        cmap: str,
+        vmin: Optional[float],
+        vmax: Optional[float],
+    ) -> None:
+        """
+        Plot heatmap panel.
+
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes
+        x_values, y_values : ndarray
+            Parameter values
+        z_values : ndarray
+            Metric values (2D)
+        x_label, y_label, z_label : str
+            Axis labels
+        title : str
+            Plot title
+        cmap : str
+            Colormap
+        vmin, vmax : float, optional
+            Color limits
+        """
+        im = ax.imshow(
+            z_values,
+            extent=[x_values[0], x_values[-1], y_values[0], y_values[-1]],
+            origin="lower",
+            aspect="auto",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(f"{title} - Heatmap")
+        plt.colorbar(im, ax=ax, label=z_label)
+
+    def _plot_contour_panel(
+        self,
+        ax: plt.Axes,
+        x_values: np.ndarray,
+        y_values: np.ndarray,
+        z_values: np.ndarray,
+        x_label: str,
+        y_label: str,
+        title: str,
+        cmap: str,
+    ) -> None:
+        """
+        Plot contour panel.
+
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes
+        x_values, y_values : ndarray
+            Parameter values
+        z_values : ndarray
+            Metric values (2D)
+        x_label, y_label : str
+            Axis labels
+        title : str
+            Plot title
+        cmap : str
+            Colormap
+        """
+        X, Y = np.meshgrid(x_values, y_values)
+        cs = ax.contour(X, Y, z_values, levels=10, cmap=cmap)
+        ax.clabel(cs, inline=True, fontsize=8)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(f"{title} - Contours")
+
+    def _plot_crosssection_panel(
+        self,
+        ax: plt.Axes,
+        x_values: np.ndarray,
+        y_values: np.ndarray,
+        z_values: np.ndarray,
+        x_label: str,
+        y_label: str,
+        z_label: str,
+        title: str,
+    ) -> None:
+        """
+        Plot cross-section panel.
+
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes
+        x_values, y_values : ndarray
+            Parameter values
+        z_values : ndarray
+            Metric values (2D)
+        x_label, y_label, z_label : str
+            Axis labels
+        title : str
+            Plot title
+        """
+        mid_x = len(x_values) // 2
+        mid_y = len(y_values) // 2
+
+        ax.plot(
+            x_values, z_values[mid_y, :], "b-", label=f"{y_label}={y_values[mid_y]:.2f}"
+        )
+        ax.plot(
+            y_values, z_values[:, mid_x], "r-", label=f"{x_label}={x_values[mid_x]:.2f}"
+        )
+        ax.set_xlabel("Parameter Value")
+        ax.set_ylabel(z_label)
+        ax.set_title(f"{title} - Cross-sections")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
     def plot_heatmap(
         self,
         x_values: np.ndarray,
@@ -344,44 +470,30 @@ class ParameterSweepViewer:
         """
         fig, axes = plt.subplots(1, 3, figsize=self.figsize)
 
-        # Heatmap
-        im = axes[0].imshow(
+        # Heatmap panel
+        self._plot_heatmap_panel(
+            axes[0],
+            x_values,
+            y_values,
             z_values,
-            extent=[x_values[0], x_values[-1], y_values[0], y_values[-1]],
-            origin="lower",
-            aspect="auto",
-            cmap=cmap,
-            vmin=vmin,
-            vmax=vmax,
+            x_label,
+            y_label,
+            z_label,
+            title,
+            cmap,
+            vmin,
+            vmax,
         )
-        axes[0].set_xlabel(x_label)
-        axes[0].set_ylabel(y_label)
-        axes[0].set_title(f"{title} - Heatmap")
-        plt.colorbar(im, ax=axes[0], label=z_label)
 
-        # Contour plot
-        X, Y = np.meshgrid(x_values, y_values)
-        cs = axes[1].contour(X, Y, z_values, levels=10, cmap=cmap)
-        axes[1].clabel(cs, inline=True, fontsize=8)
-        axes[1].set_xlabel(x_label)
-        axes[1].set_ylabel(y_label)
-        axes[1].set_title(f"{title} - Contours")
-
-        # Cross-sections at midpoints
-        mid_x = len(x_values) // 2
-        mid_y = len(y_values) // 2
-
-        axes[2].plot(
-            x_values, z_values[mid_y, :], "b-", label=f"{y_label}={y_values[mid_y]:.2f}"
+        # Contour panel
+        self._plot_contour_panel(
+            axes[1], x_values, y_values, z_values, x_label, y_label, title, cmap
         )
-        axes[2].plot(
-            y_values, z_values[:, mid_x], "r-", label=f"{x_label}={x_values[mid_x]:.2f}"
+
+        # Cross-section panel
+        self._plot_crosssection_panel(
+            axes[2], x_values, y_values, z_values, x_label, y_label, z_label, title
         )
-        axes[2].set_xlabel("Parameter Value")
-        axes[2].set_ylabel(z_label)
-        axes[2].set_title(f"{title} - Cross-sections")
-        axes[2].legend()
-        axes[2].grid(True, alpha=0.3)
 
         plt.tight_layout()
         return fig, axes
@@ -600,6 +712,77 @@ class BlochViewer3D:
         """Initialize 3D Bloch sphere viewer."""
         self.figsize = figsize
 
+    def _plot_state_vectors(
+        self,
+        ax: Axes3D,
+        states: List[qt.Qobj],
+        labels: Optional[List[str]],
+    ) -> None:
+        """
+        Plot state vectors on Bloch sphere.
+
+        Parameters
+        ----------
+        ax : Axes3D
+            3D axes
+        states : list of Qobj
+            Quantum states to plot
+        labels : list of str, optional
+            Labels for each state
+        """
+        colors = plt.cm.tab10(np.linspace(0, 1, len(states)))
+
+        for i, state in enumerate(states):
+            bloch_vec = self._state_to_bloch(state)
+
+            # Plot vector arrow
+            ax.quiver(
+                0,
+                0,
+                0,
+                bloch_vec[0],
+                bloch_vec[1],
+                bloch_vec[2],
+                color=colors[i],
+                arrow_length_ratio=0.15,
+                linewidth=2.5,
+            )
+
+            # Plot point at tip
+            ax.scatter(
+                bloch_vec[0],
+                bloch_vec[1],
+                bloch_vec[2],
+                color=colors[i],
+                s=100,
+                label=labels[i] if labels else f"State {i + 1}",
+            )
+
+    def _configure_bloch_axes(self, ax: Axes3D, has_states: bool) -> None:
+        """
+        Configure 3D axes for Bloch sphere.
+
+        Parameters
+        ----------
+        ax : Axes3D
+            3D axes
+        has_states : bool
+            Whether states were plotted
+        """
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+        ax.set_zlabel("Z")
+        ax.set_title("Bloch Sphere")
+
+        if has_states:
+            ax.legend()
+
+        # Set equal aspect ratio
+        ax.set_box_aspect([1, 1, 1])
+        ax.set_xlim([-1.1, 1.1])
+        ax.set_ylim([-1.1, 1.1])
+        ax.set_zlim([-1.1, 1.1])
+
     def plot_states(
         self,
         states: List[qt.Qobj],
@@ -632,52 +815,103 @@ class BlochViewer3D:
         if show_sphere:
             self._draw_bloch_sphere(ax, alpha=alpha_sphere)
 
-        # Convert states to Bloch vectors and plot
-        colors = plt.cm.tab10(np.linspace(0, 1, len(states)))
+        # Plot state vectors
+        self._plot_state_vectors(ax, states, labels)
 
-        for i, state in enumerate(states):
-            # Get Bloch vector
-            bloch_vec = self._state_to_bloch(state)
+        # Configure axes
+        self._configure_bloch_axes(ax, len(states) > 0)
 
-            # Plot vector
-            ax.quiver(
-                0,
-                0,
-                0,
-                bloch_vec[0],
-                bloch_vec[1],
-                bloch_vec[2],
+        return fig, ax
+
+    def _plot_colored_trajectory(
+        self,
+        ax: Axes3D,
+        bloch_vecs: np.ndarray,
+        colormap: str,
+    ) -> None:
+        """
+        Plot trajectory with color gradient.
+
+        Parameters
+        ----------
+        ax : Axes3D
+            3D axes
+        bloch_vecs : np.ndarray
+            Bloch vectors (N x 3)
+        colormap : str
+            Colormap name
+        """
+        n_points = len(bloch_vecs)
+        cmap = plt.colormaps.get_cmap(colormap)
+        colors = cmap(np.linspace(0, 1, n_points))
+
+        for i in range(n_points - 1):
+            ax.plot(
+                bloch_vecs[i : i + 2, 0],
+                bloch_vecs[i : i + 2, 1],
+                bloch_vecs[i : i + 2, 2],
                 color=colors[i],
-                arrow_length_ratio=0.15,
-                linewidth=2.5,
+                linewidth=2,
             )
 
-            # Plot point at tip
-            ax.scatter(
-                bloch_vec[0],
-                bloch_vec[1],
-                bloch_vec[2],
-                color=colors[i],
-                s=100,
-                label=labels[i] if labels else f"State {i + 1}",
-            )
+    def _mark_trajectory_endpoints(
+        self,
+        ax: Axes3D,
+        bloch_vecs: np.ndarray,
+    ) -> None:
+        """
+        Mark start and end points of trajectory.
 
+        Parameters
+        ----------
+        ax : Axes3D
+            3D axes
+        bloch_vecs : np.ndarray
+            Bloch vectors (N x 3)
+        """
+        # Mark start
+        ax.scatter(
+            bloch_vecs[0, 0],
+            bloch_vecs[0, 1],
+            bloch_vecs[0, 2],
+            color="green",
+            s=200,
+            marker="o",
+            label="Start",
+            edgecolors="black",
+        )
+        # Mark end
+        ax.scatter(
+            bloch_vecs[-1, 0],
+            bloch_vecs[-1, 1],
+            bloch_vecs[-1, 2],
+            color="red",
+            s=200,
+            marker="s",
+            label="End",
+            edgecolors="black",
+        )
+
+    def _configure_trajectory_axes(self, ax: Axes3D) -> None:
+        """
+        Configure 3D axes for trajectory plot.
+
+        Parameters
+        ----------
+        ax : Axes3D
+            3D axes
+        """
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
         ax.set_zlabel("Z")
-        ax.set_title("Bloch Sphere")
-
-        # Only add legend if there are states to plot
-        if len(states) > 0:
-            ax.legend()
+        ax.set_title("State Evolution on Bloch Sphere")
+        ax.legend()
 
         # Set equal aspect ratio
         ax.set_box_aspect([1, 1, 1])
         ax.set_xlim([-1.1, 1.1])
         ax.set_ylim([-1.1, 1.1])
         ax.set_zlim([-1.1, 1.1])
-
-        return fig, ax
 
     def plot_trajectory(
         self,
@@ -714,53 +948,14 @@ class BlochViewer3D:
         # Convert states to Bloch vectors
         bloch_vecs = np.array([self._state_to_bloch(state) for state in states])
 
-        # Plot trajectory with color gradient
-        n_points = len(bloch_vecs)
-        cmap = plt.colormaps.get_cmap(colormap)
-        colors = cmap(np.linspace(0, 1, n_points))
+        # Plot trajectory
+        self._plot_colored_trajectory(ax, bloch_vecs, colormap)
 
-        for i in range(n_points - 1):
-            ax.plot(
-                bloch_vecs[i : i + 2, 0],
-                bloch_vecs[i : i + 2, 1],
-                bloch_vecs[i : i + 2, 2],
-                color=colors[i],
-                linewidth=2,
-            )
+        # Mark endpoints
+        self._mark_trajectory_endpoints(ax, bloch_vecs)
 
-        # Mark start and end
-        ax.scatter(
-            bloch_vecs[0, 0],
-            bloch_vecs[0, 1],
-            bloch_vecs[0, 2],
-            color="green",
-            s=200,
-            marker="o",
-            label="Start",
-            edgecolors="black",
-        )
-        ax.scatter(
-            bloch_vecs[-1, 0],
-            bloch_vecs[-1, 1],
-            bloch_vecs[-1, 2],
-            color="red",
-            s=200,
-            marker="s",
-            label="End",
-            edgecolors="black",
-        )
-
-        ax.set_xlabel("X")
-        ax.set_ylabel("Y")
-        ax.set_zlabel("Z")
-        ax.set_title("State Evolution on Bloch Sphere")
-        ax.legend()
-
-        # Set equal aspect ratio
-        ax.set_box_aspect([1, 1, 1])
-        ax.set_xlim([-1.1, 1.1])
-        ax.set_ylim([-1.1, 1.1])
-        ax.set_zlim([-1.1, 1.1])
+        # Configure axes
+        self._configure_trajectory_axes(ax)
 
         return fig, ax
 

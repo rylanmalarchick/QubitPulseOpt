@@ -648,6 +648,112 @@ def generate_latex_table(
     return latex_str
 
 
+def _setup_publication_style(
+    style: str, figsize: Tuple[int, int]
+) -> Tuple[plt.Figure, plt.Axes]:
+    """
+    Set up figure with publication style.
+
+    Parameters
+    ----------
+    style : str
+        Matplotlib style to use
+    figsize : tuple
+        Figure size (width, height)
+
+    Returns
+    -------
+    fig : Figure
+        Matplotlib figure
+    ax : Axes
+        Matplotlib axes
+    """
+    if style != "default":
+        plt.style.use(style)
+    return plt.subplots(figsize=figsize)
+
+
+def _plot_publication_data(
+    ax: plt.Axes,
+    data: List[np.ndarray],
+    labels: Optional[List[str]],
+    **plot_kwargs,
+) -> None:
+    """
+    Plot data series on axes.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes
+    data : list of ndarray
+        Data series to plot
+    labels : list of str, optional
+        Legend labels
+    **plot_kwargs
+        Additional plot arguments
+    """
+    for i, d in enumerate(data):
+        label = labels[i] if labels and i < len(labels) else None
+        ax.plot(d, label=label, linewidth=2, **plot_kwargs)
+
+
+def _format_publication_axes(
+    ax: plt.Axes,
+    xlabel: str,
+    ylabel: str,
+    title: str,
+    has_labels: bool,
+) -> None:
+    """
+    Format axes for publication quality.
+
+    Parameters
+    ----------
+    ax : Axes
+        Matplotlib axes
+    xlabel, ylabel : str
+        Axis labels
+    title : str
+        Figure title
+    has_labels : bool
+        Whether legend labels are present
+    """
+    ax.set_xlabel(xlabel, fontsize=14)
+    ax.set_ylabel(ylabel, fontsize=14)
+    if title:
+        ax.set_title(title, fontsize=16, fontweight="bold")
+
+    ax.tick_params(labelsize=12)
+    ax.grid(True, alpha=0.3, linestyle="--")
+
+    if has_labels:
+        ax.legend(fontsize=12, framealpha=0.9)
+
+    # Suppress tight_layout warning for axes that might not be compatible
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*tight_layout.*", category=UserWarning
+        )
+        plt.tight_layout()
+
+
+def _save_publication_figure(fig: plt.Figure, filename: str) -> None:
+    """
+    Save figure with publication-quality settings.
+
+    Parameters
+    ----------
+    fig : Figure
+        Matplotlib figure
+    filename : str
+        Output filename
+    """
+    # Use high DPI for publication
+    dpi = 300 if filename.endswith((".png", ".jpg")) else None
+    fig.savefig(filename, dpi=dpi, bbox_inches="tight")
+
+
 def create_publication_figure(
     data: Union[np.ndarray, List[np.ndarray]],
     labels: Optional[List[str]] = None,
@@ -693,43 +799,20 @@ def create_publication_figure(
     >>> fig = create_publication_figure([y1, y2], labels=['sin', 'cos'],
     ...                                   filename='trig.pdf')
     """
-    # Set style
-    if style != "default":
-        plt.style.use(style)
-
-    fig, ax = plt.subplots(figsize=figsize)
+    # Setup figure with style
+    fig, ax = _setup_publication_style(style, figsize)
 
     # Normalize data to list
-    if isinstance(data, np.ndarray):
-        data = [data]
+    data_list = [data] if isinstance(data, np.ndarray) else data
 
-    # Plot data
-    for i, d in enumerate(data):
-        label = labels[i] if labels and i < len(labels) else None
-        ax.plot(d, label=label, linewidth=2, **plot_kwargs)
+    # Plot all data series
+    _plot_publication_data(ax, data_list, labels, **plot_kwargs)
 
-    # Formatting
-    ax.set_xlabel(xlabel, fontsize=14)
-    ax.set_ylabel(ylabel, fontsize=14)
-    if title:
-        ax.set_title(title, fontsize=16, fontweight="bold")
+    # Format axes
+    _format_publication_axes(ax, xlabel, ylabel, title, labels is not None)
 
-    ax.tick_params(labelsize=12)
-    ax.grid(True, alpha=0.3, linestyle="--")
-
-    if labels:
-        ax.legend(fontsize=12, framealpha=0.9)
-
-    # Suppress tight_layout warning for axes that might not be compatible
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message=".*tight_layout.*", category=UserWarning
-        )
-        plt.tight_layout()
-
+    # Save if requested
     if filename:
-        # Use high DPI for publication
-        dpi = 300 if filename.endswith((".png", ".jpg")) else None
-        fig.savefig(filename, dpi=dpi, bbox_inches="tight")
+        _save_publication_figure(fig, filename)
 
     return fig

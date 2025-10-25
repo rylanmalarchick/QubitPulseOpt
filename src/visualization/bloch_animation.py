@@ -111,6 +111,54 @@ class BlochAnimator:
                     "This may cause animation issues."
                 )
 
+    def _setup_animation_figure(self) -> None:
+        """
+        Setup figure and axes for animation.
+        """
+        self.fig = plt.figure(figsize=self.figsize)
+        self.fig.patch.set_facecolor(self.style.background_color)
+        self.ax = self.fig.add_subplot(111, projection="3d")
+        self.ax.set_facecolor(self.style.background_color)
+
+        # Draw static elements
+        if self.style.show_sphere:
+            self._draw_bloch_sphere()
+
+    def _initialize_artists(self) -> None:
+        """
+        Initialize artists for each trajectory.
+        """
+        cmap = plt.colormaps.get_cmap(self.style.colormap)
+        colors = cmap(np.linspace(0, 1, self.n_trajectories))
+
+        self.artists = []
+        for i in range(self.n_trajectories):
+            artist_dict = {
+                "color": colors[i],
+                "label": self.labels[i],
+                "trail": None,
+                "point": None,
+                "vector": None,
+            }
+            self.artists.append(artist_dict)
+
+    def _add_animation_legend(self) -> None:
+        """
+        Add legend to animation if multiple trajectories.
+        """
+        if self.n_trajectories > 1:
+            # Create dummy artists for legend
+            for i, artist in enumerate(self.artists):
+                self.ax.plot(
+                    [],
+                    [],
+                    "o",
+                    color=artist["color"],
+                    label=artist["label"],
+                    markersize=8,
+                )
+            self.ax.legend(loc="upper left")
+
     def create_animation(
         self,
         interval: int = 50,
@@ -136,44 +184,14 @@ class BlochAnimator:
         self.trail_length = trail_length
         self.show_trail = show_trail
 
-        # Setup figure
-        self.fig = plt.figure(figsize=self.figsize)
-        self.fig.patch.set_facecolor(self.style.background_color)
-        self.ax = self.fig.add_subplot(111, projection="3d")
-        self.ax.set_facecolor(self.style.background_color)
+        # Setup figure and axes
+        self._setup_animation_figure()
 
-        # Draw static elements
-        if self.style.show_sphere:
-            self._draw_bloch_sphere()
-
-        # Setup artists for each trajectory
-        cmap = plt.colormaps.get_cmap(self.style.colormap)
-        colors = cmap(np.linspace(0, 1, self.n_trajectories))
-
-        self.artists = []
-        for i in range(self.n_trajectories):
-            artist_dict = {
-                "color": colors[i],
-                "label": self.labels[i],
-                "trail": None,
-                "point": None,
-                "vector": None,
-            }
-            self.artists.append(artist_dict)
+        # Initialize artists
+        self._initialize_artists()
 
         # Add legend
-        if self.n_trajectories > 1:
-            # Create dummy artists for legend
-            for i, artist in enumerate(self.artists):
-                self.ax.plot(
-                    [],
-                    [],
-                    "o",
-                    color=artist["color"],
-                    label=artist["label"],
-                    markersize=8,
-                )
-            self.ax.legend(loc="upper left")
+        self._add_animation_legend()
 
         # Configure axes
         self._configure_axes()

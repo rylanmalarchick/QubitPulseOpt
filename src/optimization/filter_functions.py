@@ -535,6 +535,85 @@ class NoiseTailoredOptimizer:
         }
 
 
+def _plot_filter_function_data(
+    ax: object,
+    frequencies: np.ndarray,
+    ff: np.ndarray,
+    log_scale: bool,
+) -> None:
+    """
+    Plot filter function data on axes.
+
+    Args:
+        ax: Matplotlib axes
+        frequencies: Frequency array
+        ff: Filter function values
+        log_scale: Use log-log scale
+    """
+    freq_hz = frequencies / (2 * np.pi)
+    if log_scale:
+        ax.loglog(freq_hz, ff, "b-", linewidth=2, label="Filter Function F(ω)")
+    else:
+        ax.plot(freq_hz, ff, "b-", linewidth=2, label="Filter Function F(ω)")
+
+
+def _plot_noise_psd_overlay(
+    ax: object,
+    frequencies: np.ndarray,
+    noise_psd: Callable[[np.ndarray], np.ndarray],
+    log_scale: bool,
+) -> object:
+    """
+    Plot noise PSD on secondary y-axis.
+
+    Args:
+        ax: Primary matplotlib axes
+        frequencies: Frequency array
+        noise_psd: Noise PSD function
+        log_scale: Use log-log scale
+
+    Returns:
+        Secondary axes object
+    """
+    psd_values = noise_psd(frequencies)
+    ax2 = ax.twinx()
+    freq_hz = frequencies / (2 * np.pi)
+
+    if log_scale:
+        ax2.loglog(
+            freq_hz, psd_values, "r--", linewidth=2, alpha=0.7, label="Noise PSD S(ω)"
+        )
+    else:
+        ax2.plot(
+            freq_hz, psd_values, "r--", linewidth=2, alpha=0.7, label="Noise PSD S(ω)"
+        )
+
+    ax2.set_ylabel("Noise PSD S(ω)", color="r")
+    ax2.tick_params(axis="y", labelcolor="r")
+    ax2.legend(loc="upper right")
+    return ax2
+
+
+def _configure_filter_function_plot(
+    ax: object,
+    ff_result: FilterFunctionResult,
+) -> None:
+    """
+    Configure axes labels and formatting.
+
+    Args:
+        ax: Matplotlib axes
+        ff_result: Filter function result
+    """
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Filter Function F(ω)")
+    ax.set_title(
+        f"Filter Function Analysis\n({ff_result.noise_type} noise, T={ff_result.pulse_duration:.2e}s)"
+    )
+    ax.legend(loc="upper left")
+    ax.grid(True, alpha=0.3)
+
+
 def visualize_filter_function(
     ff_result: FilterFunctionResult,
     noise_psd: Optional[Callable[[np.ndarray], np.ndarray]] = None,
@@ -564,56 +643,14 @@ def visualize_filter_function(
     ff = ff_result.filter_function
 
     # Plot filter function
-    if log_scale:
-        ax.loglog(
-            frequencies / (2 * np.pi),
-            ff,
-            "b-",
-            linewidth=2,
-            label="Filter Function F(ω)",
-        )
-    else:
-        ax.plot(
-            frequencies / (2 * np.pi),
-            ff,
-            "b-",
-            linewidth=2,
-            label="Filter Function F(ω)",
-        )
+    _plot_filter_function_data(ax, frequencies, ff, log_scale)
 
     # Optionally overlay noise PSD
     if noise_psd is not None:
-        psd_values = noise_psd(frequencies)
-        ax2 = ax.twinx()
-        if log_scale:
-            ax2.loglog(
-                frequencies / (2 * np.pi),
-                psd_values,
-                "r--",
-                linewidth=2,
-                alpha=0.7,
-                label="Noise PSD S(ω)",
-            )
-        else:
-            ax2.plot(
-                frequencies / (2 * np.pi),
-                psd_values,
-                "r--",
-                linewidth=2,
-                alpha=0.7,
-                label="Noise PSD S(ω)",
-            )
-        ax2.set_ylabel("Noise PSD S(ω)", color="r")
-        ax2.tick_params(axis="y", labelcolor="r")
-        ax2.legend(loc="upper right")
+        _plot_noise_psd_overlay(ax, frequencies, noise_psd, log_scale)
 
-    ax.set_xlabel("Frequency (Hz)")
-    ax.set_ylabel("Filter Function F(ω)")
-    ax.set_title(
-        f"Filter Function Analysis\n({ff_result.noise_type} noise, T={ff_result.pulse_duration:.2e}s)"
-    )
-    ax.legend(loc="upper left")
-    ax.grid(True, alpha=0.3)
+    # Configure plot
+    _configure_filter_function_plot(ax, ff_result)
 
     return ax
 

@@ -253,6 +253,33 @@ class UniversalGates:
             **kwargs,
         )
 
+    def _get_phase_gate_name(self, phase: float) -> str:
+        """
+        Determine gate name from phase angle.
+
+        Parameters
+        ----------
+        phase : float
+            Phase angle in radians
+
+        Returns
+        -------
+        str
+            Gate name
+        """
+        if np.isclose(phase, np.pi / 2):
+            return "S"
+        elif np.isclose(phase, np.pi / 4):
+            return "T"
+        elif np.isclose(phase, np.pi):
+            return "Z"
+        elif np.isclose(phase, -np.pi / 2):
+            return "Sdg"
+        elif np.isclose(phase, -np.pi / 4):
+            return "Tdg"
+        else:
+            return f"P({phase:.4f})"
+
     def optimize_phase_gate(
         self,
         phase: float,
@@ -303,20 +330,7 @@ class UniversalGates:
         >>> t_result = gates.optimize_phase_gate(np.pi/4, gate_time=15.0)
         """
         target = qt.gates.phasegate(phase)
-
-        # Determine gate name
-        if np.isclose(phase, np.pi / 2):
-            gate_name = "S"
-        elif np.isclose(phase, np.pi / 4):
-            gate_name = "T"
-        elif np.isclose(phase, np.pi):
-            gate_name = "Z"
-        elif np.isclose(phase, -np.pi / 2):
-            gate_name = "Sdg"
-        elif np.isclose(phase, -np.pi / 4):
-            gate_name = "Tdg"
-        else:
-            gate_name = f"P({phase:.4f})"
+        gate_name = self._get_phase_gate_name(phase)
 
         return self._optimize_gate(
             gate_name=gate_name,
@@ -680,6 +694,87 @@ class UniversalGates:
         return self._standard_gates[name]
 
 
+def _normalize_to_su2(u: np.ndarray) -> np.ndarray:
+    """
+    Normalize matrix to SU(2).
+
+    Parameters
+    ----------
+    u : np.ndarray
+        2x2 complex matrix
+
+    Returns
+    -------
+    np.ndarray
+        Normalized matrix with det = 1
+    """
+    det_u = np.linalg.det(u)
+    return u / np.sqrt(det_u)
+
+
+def _extract_theta_angle(u: np.ndarray) -> float:
+    """
+    Extract theta angle from SU(2) matrix.
+
+    Parameters
+    ----------
+    u : np.ndarray
+        Normalized 2x2 SU(2) matrix
+
+    Returns
+    -------
+    float
+        Theta angle (radians)
+    """
+    # In ZYZ: U = Rz(φ1) Ry(θ) Rz(φ2)
+    # Matrix form: u[0,0] = cos(θ/2)e^(i(φ1+φ2)/2)
+    return 2 * np.arccos(np.clip(np.abs(u[0, 0]), 0, 1))
+
+
+def _extract_euler_phases(u: np.ndarray, theta: float) -> Tuple[float, float, float]:
+    """
+    Extract Euler angles from SU(2) matrix.
+
+    Parameters
+    ----------
+    u : np.ndarray
+        Normalized 2x2 SU(2) matrix
+    theta : float
+        Y-rotation angle
+
+    Returns
+    -------
+    phi1 : float
+        First Z-rotation
+    theta : float
+        Y-rotation (returned as-is)
+    phi2 : float
+        Second Z-rotation
+    """
+    # Handle special case: θ ≈ 0 (identity-like)
+    if abs(theta) < 1e-10:
+        phi1 = 0.0
+        phi2 = 2 * np.angle(u[0, 0])
+        return phi1, theta, phi2
+
+    # Handle special case: θ ≈ π (X-like)
+    if abs(theta - np.pi) < 1e-10:
+        phi1 = 0.0
+        phi2 = 2 * np.angle(u[1, 0])
+        return phi1, theta, phi2
+
+    # General case: extract phases
+    # u[1,0] = sin(θ/2)e^(i(φ1-φ2)/2)
+    # u[0,0] = cos(θ/2)e^(i(φ1+φ2)/2)
+    phase_plus = np.angle(u[0, 0])
+    phase_minus = np.angle(u[1, 0])
+
+    phi1 = phase_plus + phase_minus
+    phi2 = phase_plus - phase_minus
+
+    return phi1, theta, phi2
+
+
 def euler_angles_from_unitary(U: qt.Qobj) -> Tuple[float, float, float]:
     """
     Decompose arbitrary SU(2) unitary into Euler angles.
@@ -719,45 +814,15 @@ def euler_angles_from_unitary(U: qt.Qobj) -> Tuple[float, float, float]:
     if U.shape != (2, 2):
         raise ValueError(f"Expected 2×2 unitary, got shape {U.shape}")
 
-    # Extract matrix elements
+    # Extract and normalize matrix
     u = U.full()
+    u = _normalize_to_su2(u)
 
-    # Normalize by determinant to ensure det = 1 (SU(2))
-    det_u = np.linalg.det(u)
-    u = u / np.sqrt(det_u)
+    # Extract theta angle
+    theta = _extract_theta_angle(u)
 
-    # For simplicity, use the fact that any SU(2) can be decomposed
-    # For gates that differ only by global phase, we accept approximate equality
-
-    # Extract theta from matrix element magnitude
-    # In ZYZ: U = Rz(φ1) Ry(θ) Rz(φ2)
-    # Matrix form: u[0,0] = cos(θ/2)e^(i(φ1+φ2)/2)
-
-    theta = 2 * np.arccos(np.clip(np.abs(u[0, 0]), 0, 1))
-
-    # Handle special case: θ ≈ 0 (identity-like)
-    if abs(theta) < 1e-10:
-        phi1 = 0.0
-        phi2 = 2 * np.angle(u[0, 0])
-        return phi1, theta, phi2
-
-    # Handle special case: θ ≈ π (X-like)
-    if abs(theta - np.pi) < 1e-10:
-        phi1 = 0.0
-        phi2 = 2 * np.angle(u[1, 0])
-        return phi1, theta, phi2
-
-    # General case: extract phases
-    # u[1,0] = sin(θ/2)e^(i(φ1-φ2)/2)
-    # u[0,0] = cos(θ/2)e^(i(φ1+φ2)/2)
-
-    phase_plus = np.angle(u[0, 0])
-    phase_minus = np.angle(u[1, 0])
-
-    phi1 = phase_plus + phase_minus
-    phi2 = phase_plus - phase_minus
-
-    return phi1, theta, phi2
+    # Extract Euler phases
+    return _extract_euler_phases(u, theta)
 
 
 def rotation_from_euler_angles(
