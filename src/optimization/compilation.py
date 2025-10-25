@@ -336,6 +336,68 @@ class GateCompiler:
             method, gate_sequence, parsed_gate_times, optimize_kwargs
         )
 
+    def _optimize_gate_with_cache(
+        self, gate_name: str, gate_time: float, optimize_kwargs: Dict
+    ):
+        """
+        Optimize single gate using cache if available.
+
+        Parameters
+        ----------
+        gate_name : str
+            Gate name.
+        gate_time : float
+            Gate duration.
+        optimize_kwargs : dict
+            Optimization parameters.
+
+        Returns
+        -------
+        OptimizationResult
+            Gate optimization result.
+        """
+        cache_key = f"{gate_name}_{gate_time}"
+        if cache_key in self._gate_cache:
+            return self._gate_cache[cache_key]
+        else:
+            gate_result = self._optimize_single_gate(
+                gate_name, gate_time, optimize_kwargs
+            )
+            self._gate_cache[cache_key] = gate_result
+            return gate_result
+
+    def _build_pulse_list_with_spacing(self, individual_gates, gate_times):
+        """
+        Build pulse list with spacing between gates.
+
+        Parameters
+        ----------
+        individual_gates : list
+            List of optimized gate results.
+        gate_times : list
+            Gate durations.
+
+        Returns
+        -------
+        list
+            List of pulse arrays including spacing.
+        """
+        all_pulses = []
+        for gate_result, gate_time in zip(individual_gates, gate_times):
+            all_pulses.append(gate_result.optimized_pulses)
+
+            if self.gate_spacing > 0:
+                n_spacing = int(
+                    self.gate_spacing
+                    / (gate_time / gate_result.optimized_pulses.shape[1])
+                )
+                if n_spacing > 0:
+                    spacing_pulses = np.zeros(
+                        (gate_result.optimized_pulses.shape[0], n_spacing)
+                    )
+                    all_pulses.append(spacing_pulses)
+        return all_pulses
+
     def _compile_sequential(
         self,
         gate_sequence: List[str],
@@ -349,42 +411,17 @@ class GateCompiler:
         joint optimization across gate boundaries.
         """
         individual_gates = []
-        all_pulses = []
 
         for gate_name, gate_time in zip(gate_sequence, gate_times):
-            # Check cache
-            cache_key = f"{gate_name}_{gate_time}"
-            if cache_key in self._gate_cache:
-                gate_result = self._gate_cache[cache_key]
-            else:
-                # Optimize gate
-                gate_result = self._optimize_single_gate(
-                    gate_name, gate_time, optimize_kwargs
-                )
-                self._gate_cache[cache_key] = gate_result
-
+            gate_result = self._optimize_gate_with_cache(
+                gate_name, gate_time, optimize_kwargs
+            )
             individual_gates.append(gate_result)
-            all_pulses.append(gate_result.optimized_pulses)
 
-            # Add spacing if needed
-            if self.gate_spacing > 0:
-                n_spacing = int(
-                    self.gate_spacing
-                    / (gate_time / gate_result.optimized_pulses.shape[1])
-                )
-                if n_spacing > 0:
-                    spacing_pulses = np.zeros(
-                        (gate_result.optimized_pulses.shape[0], n_spacing)
-                    )
-                    all_pulses.append(spacing_pulses)
-
-        # Concatenate pulses
+        all_pulses = self._build_pulse_list_with_spacing(individual_gates, gate_times)
         compiled_pulses = np.concatenate(all_pulses, axis=1)
 
-        # Compute total fidelity (product of individual fidelities)
         total_fidelity = np.prod([g.final_fidelity for g in individual_gates])
-
-        # Total time
         total_time = sum(gate_times) + self.gate_spacing * (len(gate_sequence) - 1)
 
         metadata = {

@@ -208,9 +208,8 @@ class BlochAnimator:
 
         return self.animation
 
-    def _update_frame(self, frame: int):
-        """Update animation frame."""
-        # Remove previous artists
+    def _clear_previous_artists(self):
+        """Remove previous frame artists."""
         for artist_dict in self.artists:
             if artist_dict["trail"] is not None:
                 artist_dict["trail"].remove()
@@ -219,60 +218,62 @@ class BlochAnimator:
             if artist_dict["vector"] is not None:
                 artist_dict["vector"].remove()
 
-        # Update each trajectory
-        for i, (bloch_traj, artist_dict) in enumerate(
-            zip(self.bloch_trajectories, self.artists)
-        ):
+    def _draw_trajectory_trail(
+        self, bloch_traj, frame: int, color: str, artist_dict: dict
+    ):
+        """Draw trajectory trail for current frame."""
+        if not self.show_trail or frame == 0:
+            return
+
+        start_idx = max(0, frame - self.trail_length) if self.trail_length else 0
+        trail_data = bloch_traj[start_idx : frame + 1]
+        artist_dict["trail"] = self.ax.plot(
+            trail_data[:, 0],
+            trail_data[:, 1],
+            trail_data[:, 2],
+            color=color,
+            linewidth=self.style.trajectory_linewidth,
+            alpha=self.style.trajectory_alpha,
+        )[0]
+
+    def _draw_current_state(self, current_pos, color: str, artist_dict: dict):
+        """Draw current state point and vector."""
+        artist_dict["point"] = self.ax.scatter(
+            current_pos[0],
+            current_pos[1],
+            current_pos[2],
+            color=color,
+            s=self.style.point_size,
+            alpha=self.style.point_alpha,
+            edgecolors="black",
+            linewidths=1.5,
+        )
+
+        artist_dict["vector"] = self.ax.quiver(
+            0,
+            0,
+            0,
+            current_pos[0],
+            current_pos[1],
+            current_pos[2],
+            color=color,
+            arrow_length_ratio=0.15,
+            linewidth=1.5,
+            alpha=0.6,
+        )
+
+    def _update_frame(self, frame: int):
+        """Update animation frame."""
+        self._clear_previous_artists()
+
+        for bloch_traj, artist_dict in zip(self.bloch_trajectories, self.artists):
             color = artist_dict["color"]
-
-            # Determine trail start
-            if self.trail_length is not None:
-                start_idx = max(0, frame - self.trail_length)
-            else:
-                start_idx = 0
-
-            # Draw trail
-            if self.show_trail and frame > 0:
-                trail_data = bloch_traj[start_idx : frame + 1]
-                artist_dict["trail"] = self.ax.plot(
-                    trail_data[:, 0],
-                    trail_data[:, 1],
-                    trail_data[:, 2],
-                    color=color,
-                    linewidth=self.style.trajectory_linewidth,
-                    alpha=self.style.trajectory_alpha,
-                )[0]
-
-            # Draw current point
             current_pos = bloch_traj[frame]
-            artist_dict["point"] = self.ax.scatter(
-                current_pos[0],
-                current_pos[1],
-                current_pos[2],
-                color=color,
-                s=self.style.point_size,
-                alpha=self.style.point_alpha,
-                edgecolors="black",
-                linewidths=1.5,
-            )
 
-            # Draw vector from origin
-            artist_dict["vector"] = self.ax.quiver(
-                0,
-                0,
-                0,
-                current_pos[0],
-                current_pos[1],
-                current_pos[2],
-                color=color,
-                arrow_length_ratio=0.15,
-                linewidth=1.5,
-                alpha=0.6,
-            )
+            self._draw_trajectory_trail(bloch_traj, frame, color, artist_dict)
+            self._draw_current_state(current_pos, color, artist_dict)
 
-        # Update title with frame number
         self.ax.set_title(f"Frame {frame + 1}/{self.n_frames}", fontsize=12, pad=10)
-
         return []
 
     def save(

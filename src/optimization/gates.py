@@ -203,41 +203,9 @@ class UniversalGates:
         """
         Optimize Hadamard gate using GRAPE or Krotov.
 
-        The Hadamard gate is H = (1/√2)[1  1; 1 -1], which creates an equal
-        superposition |+⟩ = (|0⟩ + |1⟩)/√2 from |0⟩.
-
-        Physically, H can be implemented as a π/2 rotation about the y-axis
-        followed by a π rotation about x (or vice versa), but optimal control
-        can find faster and more robust implementations.
-
-        Parameters
-        ----------
-        gate_time : float, optional
-            Total gate duration in ns (default: 20.0).
-        n_timeslices : int, optional
-            Number of time slices for piecewise-constant control (default: 100).
-        method : {'grape', 'krotov'}, optional
-            Optimization method to use (default: 'grape').
-        max_iterations : int, optional
-            Maximum optimizer iterations (default: 500).
-        convergence_threshold : float, optional
-            Convergence threshold for optimizer (default: 1e-6).
-        amplitude_limit : float, optional
-            Maximum control amplitude in MHz (default: None).
-        **kwargs
-            Additional arguments passed to optimizer.
-
-        Returns
-        -------
-        GateResult
-            Optimization result with final fidelity, pulses, and metadata.
-
-        Examples
-        --------
-        >>> gates = UniversalGates(H_drift, H_controls)
-        >>> result = gates.optimize_hadamard(gate_time=20.0, n_timeslices=100)
-        >>> print(f"Hadamard gate fidelity: {result.final_fidelity:.6f}")
-        >>> print(f"Gate time: {result.gate_time:.2f} ns")
+        Parameters: gate_time, n_timeslices, method ('grape'/'krotov'),
+        max_iterations, convergence_threshold, amplitude_limit, **kwargs.
+        Returns: GateResult with fidelity, pulses, metadata.
         """
         target = self._standard_gates["H"]
 
@@ -292,42 +260,9 @@ class UniversalGates:
         """
         Optimize phase gate P(φ) = diag(1, exp(iφ)).
 
-        Common phase gates:
-        - S gate: φ = π/2
-        - T gate: φ = π/4
-        - Z gate: φ = π
-
-        Phase gates leave |0⟩ unchanged and apply a phase to |1⟩:
-            P(φ)|0⟩ = |0⟩
-            P(φ)|1⟩ = e^(iφ)|1⟩
-
-        Parameters
-        ----------
-        phase : float
-            Phase angle φ in radians.
-        gate_time : float, optional
-            Gate duration in ns (default: 15.0).
-        n_timeslices : int, optional
-            Number of time slices (default: 80).
-        method : {'grape', 'krotov'}, optional
-            Optimization method (default: 'grape').
-        max_iterations : int, optional
-            Maximum iterations (default: 500).
-        **kwargs
-            Additional optimizer arguments.
-
-        Returns
-        -------
-        GateResult
-            Optimization result.
-
-        Examples
-        --------
-        >>> # Optimize S gate (π/2 phase)
-        >>> s_result = gates.optimize_phase_gate(np.pi/2, gate_time=15.0)
-        >>>
-        >>> # Optimize T gate (π/4 phase)
-        >>> t_result = gates.optimize_phase_gate(np.pi/4, gate_time=15.0)
+        Common gates: S (π/2), T (π/4), Z (π).
+        Parameters: phase (radians), gate_time, n_timeslices, method, max_iterations, **kwargs.
+        Returns: GateResult.
         """
         target = qt.gates.phasegate(phase)
         gate_name = self._get_phase_gate_name(phase)

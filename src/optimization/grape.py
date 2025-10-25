@@ -418,6 +418,53 @@ class GRAPEOptimizer:
         fidelity = (np.abs(overlap) ** 2 + d) / (d * (d + 1))
         return np.real(fidelity)
 
+    def _compute_timeslice_gradient(
+        self,
+        k: int,
+        propagators: List[qt.Qobj],
+        forward_unitaries: List[qt.Qobj],
+        backward_unitaries: List[qt.Qobj],
+        U_target: qt.Qobj,
+        overlap_final: complex,
+    ) -> np.ndarray:
+        """
+        Compute gradient for all controls at a single timeslice.
+
+        Parameters
+        ----------
+        k : int
+            Timeslice index.
+        propagators : list
+            Propagators for each timeslice.
+        forward_unitaries : list
+            Cumulative forward propagators.
+        backward_unitaries : list
+            Cumulative backward propagators.
+        U_target : qt.Qobj
+            Target unitary.
+        overlap_final : complex
+            Overlap of target with final unitary.
+
+        Returns
+        -------
+        np.ndarray
+            Gradients for all controls at timeslice k.
+        """
+        gradients_k = np.zeros(self.n_controls)
+
+        U_before = forward_unitaries[k - 1] if k > 0 else qt.qeye(self.dim)
+        U_after = backward_unitaries[k]
+
+        for j in range(self.n_controls):
+            dU = -1j * self.dt * self.H_controls[j] * propagators[k]
+            X_jk = U_before * dU * U_after
+
+            trace_val = (U_target.dag() * X_jk).tr()
+            grad_contribution = 2 * np.real(np.conj(overlap_final) * trace_val)
+            gradients_k[j] = grad_contribution / (self.dim * (self.dim + 1))
+
+        return gradients_k
+
     def _compute_gradients_unitary(
         self,
         u: np.ndarray,
@@ -427,31 +474,13 @@ class GRAPEOptimizer:
         U_target: qt.Qobj,
     ) -> np.ndarray:
         """
-        Compute gradients of fidelity with respect to control amplitudes.
+        Compute gradients of fidelity w.r.t. control amplitudes.
 
-        The gradient at timeslice k for control j is:
+        Gradient: ∂F/∂u_j^k ∝ Re[Tr(U_target† X_jk U(T))]
 
-            ∂F/∂u_j^k ∝ Re[Tr(U_target† X_jk U(T))]
-
-        where X_jk is the system response to control j at timeslice k.
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current control amplitudes.
-        propagators : list of qutip.Qobj
-            Propagators for each timeslice.
-        forward_unitaries : list of qutip.Qobj
-            Cumulative forward propagators.
-        backward_unitaries : list of qutip.Qobj
-            Cumulative backward propagators.
-        U_target : qutip.Qobj
-            Target unitary.
-
-        Returns
-        -------
-        np.ndarray
-            Gradients, shape (n_controls, n_timeslices).
+        Parameters: u (controls), propagators, forward_unitaries,
+        backward_unitaries, U_target.
+        Returns: gradients array (n_controls, n_timeslices).
         """
         gradients = np.zeros((self.n_controls, self.n_timeslices))
 
@@ -459,27 +488,14 @@ class GRAPEOptimizer:
         overlap_final = (U_target.dag() * U_final).tr()
 
         for k in range(self.n_timeslices):
-            # Get propagators before and after timeslice k
-            if k > 0:
-                U_before = forward_unitaries[k - 1]
-            else:
-                U_before = qt.qeye(self.dim)
-
-            U_after = backward_unitaries[k]
-
-            for j in range(self.n_controls):
-                # Compute response operator: -i dt H_j
-                dU = -1j * self.dt * self.H_controls[j] * propagators[k]
-
-                # Chain rule: X_jk = U_before * dU * U_after
-                X_jk = U_before * dU * U_after
-
-                # Gradient contribution
-                trace_val = (U_target.dag() * X_jk).tr()
-                grad_contribution = 2 * np.real(np.conj(overlap_final) * trace_val)
-                # Normalize gradient to match average gate fidelity: F = (|z|² + d) / (d(d+1))
-                d = self.dim
-                gradients[j, k] = grad_contribution / (d * (d + 1))
+            gradients[:, k] = self._compute_timeslice_gradient(
+                k,
+                propagators,
+                forward_unitaries,
+                backward_unitaries,
+                U_target,
+                overlap_final,
+            )
 
         return gradients
 
@@ -718,6 +734,36 @@ class GRAPEOptimizer:
             "velocity": np.zeros_like(u),
         }
 
+    def _track_best_solution(self, opt_state: dict):
+        """Track best solution found so far."""
+        if opt_state["fidelity"] > opt_state["best_fidelity"]:
+            opt_state["best_fidelity"] = opt_state["fidelity"]
+            opt_state["best_u"] = opt_state["u"].copy()
+
+    def _compute_and_check_gradients(
+        self, opt_state: dict, U_target: qt.Qobj, iteration: int
+    ) -> tuple:
+        """
+        Compute gradients and check convergence.
+
+        Returns: (gradients, grad_norm, should_stop)
+        """
+        gradients = self._compute_iteration_gradients(
+            opt_state["u"],
+            opt_state["propagators"],
+            opt_state["forward_unitaries"],
+            U_target,
+            iteration,
+        )
+
+        grad_norm = np.linalg.norm(gradients)
+        opt_state["gradient_norms"].append(grad_norm)
+
+        should_stop = self._check_convergence(
+            grad_norm, opt_state["fidelity"], iteration
+        )
+        return gradients, grad_norm, should_stop
+
     def _execute_optimization_iteration(
         self,
         iteration: int,
@@ -732,34 +778,19 @@ class GRAPEOptimizer:
         )
 
         opt_state["fidelity_history"].append(opt_state["fidelity"])
+        self._track_best_solution(opt_state)
 
-        # Track best solution
-        if opt_state["fidelity"] > opt_state["best_fidelity"]:
-            opt_state["best_fidelity"] = opt_state["fidelity"]
-            opt_state["best_u"] = opt_state["u"].copy()
-
-        # Compute gradients
-        gradients = self._compute_iteration_gradients(
-            opt_state["u"],
-            opt_state["propagators"],
-            opt_state["forward_unitaries"],
-            U_target,
-            iteration,
+        gradients, grad_norm, should_stop = self._compute_and_check_gradients(
+            opt_state, U_target, iteration
         )
 
-        grad_norm = np.linalg.norm(gradients)
-        opt_state["gradient_norms"].append(grad_norm)
-
-        # Check convergence
-        if self._check_convergence(grad_norm, opt_state["fidelity"], iteration):
+        if should_stop:
             opt_state["converged"] = True
             opt_state["message"] = "Converged (gradient norm below threshold)"
             return opt_state
 
-        # Update controls with momentum
         opt_state["velocity"] = self.momentum * opt_state["velocity"] + gradients
 
-        # Perform control update step
         u, propagators, forward_unitaries, fidelity, current_lr = (
             self._perform_control_update(
                 opt_state["u"],
