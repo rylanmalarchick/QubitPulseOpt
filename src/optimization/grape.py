@@ -939,36 +939,14 @@ class GRAPEOptimizer:
             message=opt_state["message"],
         )
 
-    def optimize_state(
+    def _validate_state_parameters_grape(
         self,
         psi_init: qt.Qobj,
         psi_target: qt.Qobj,
-        u_init: Optional[np.ndarray] = None,
-        adaptive_step: bool = True,
-        step_decay: float = 0.99,
-    ) -> GRAPEResult:
-        """
-        Optimize control pulses to transfer initial state to target state.
-
-        Parameters
-        ----------
-        psi_init : qutip.Qobj
-            Initial quantum state.
-        psi_target : qutip.Qobj
-            Target quantum state.
-        u_init : np.ndarray, optional
-            Initial control guess.
-        adaptive_step : bool, optional
-            Use adaptive learning rate. Default: True.
-        step_decay : float, optional
-            Learning rate decay factor. Default: 0.99.
-
-        Returns
-        -------
-        GRAPEResult
-            Optimization result.
-
-        # Rule 5: Parameter validation assertions
+        u_init: Optional[np.ndarray],
+        step_decay: float,
+    ) -> None:
+        """Validate state optimization parameters."""
         if psi_init is None:
             raise ValueError("Initial state cannot be None")
         if psi_target is None:
@@ -988,10 +966,10 @@ class GRAPEOptimizer:
             f"Target state dimension {psi_target.shape[0]} != system dimension {self.dim}"
         )
         assert psi_init.shape[1] == 1, (
-            f"Initial state must be ket (column vector), got shape {psi_init.shape}"
+            f"Initial state must be ket, got shape {psi_init.shape}"
         )
         assert psi_target.shape[1] == 1, (
-            f"Target state must be ket (column vector), got shape {psi_target.shape}"
+            f"Target state must be ket, got shape {psi_target.shape}"
         )
 
         # Check state normalization
@@ -1010,93 +988,115 @@ class GRAPEOptimizer:
                 f"u_init must be ndarray, got {type(u_init)}"
             )
             assert u_init.shape == (self.n_controls, self.n_timeslices), (
-                f"u_init shape {u_init.shape} != expected "
-                f"({self.n_controls}, {self.n_timeslices})"
+                f"u_init shape {u_init.shape} != expected ({self.n_controls}, {self.n_timeslices})"
             )
             assert np.all(np.isfinite(u_init)), "u_init contains non-finite values"
 
         if not (0 < step_decay <= 1):
             raise ValueError(f"step_decay must be in (0, 1], got {step_decay}")
 
-        Notes
-        -----
-        For state transfer, fidelity is:
-            F = |⟨ψ_target|U(T)|ψ_init⟩|²
-        """
-        # Initialize controls
-        if u_init is None:
-            u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
-            u_init = self._apply_constraints(u_init)
+    def _compute_state_gradients(
+        self,
+        psi_init: qt.Qobj,
+        psi_target: qt.Qobj,
+        psi_final: qt.Qobj,
+        propagators: List[qt.Qobj],
+        forward_unitaries: List[qt.Qobj],
+        backward_unitaries: List[qt.Qobj],
+        overlap,
+    ) -> np.ndarray:
+        """Compute gradients for state transfer optimization."""
+        gradients = np.zeros((self.n_controls, self.n_timeslices))
 
-        u = u_init.copy()
+        for k in range(self.n_timeslices):
+            U_before = forward_unitaries[k - 1] if k > 0 else qt.qeye(self.dim)
+            U_after = backward_unitaries[k]
 
-        # History tracking
+            for j in range(self.n_controls):
+                dU = -1j * self.dt * self.H_controls[j] * propagators[k]
+                X_jk = U_before * dU * U_after
+                psi_derivative = X_jk * psi_init
+                trace_val = psi_target.dag() * psi_derivative
+                gradients[j, k] = 2 * np.real(np.conj(overlap) * trace_val)
+
+        return gradients
+
+    def _execute_state_iteration_grape(
+        self, psi_init: qt.Qobj, psi_target: qt.Qobj, u: np.ndarray
+    ) -> Tuple[float, np.ndarray, List[qt.Qobj]]:
+        """Execute one iteration of state optimization."""
+        propagators = self._compute_propagators(u)
+        forward_unitaries, U_final = self._forward_propagation(propagators)
+        psi_final = U_final * psi_init
+
+        # Compute fidelity
+        overlap = psi_target.dag() * psi_final
+        fidelity = np.real(np.abs(overlap) ** 2)
+
+        # Compute gradients
+        backward_unitaries = self._backward_propagation(propagators)
+        gradients = self._compute_state_gradients(
+            psi_init,
+            psi_target,
+            psi_final,
+            propagators,
+            forward_unitaries,
+            backward_unitaries,
+            overlap,
+        )
+
+        return fidelity, gradients, propagators
+
+    def _check_state_convergence_grape(
+        self, iteration: int, fidelity: float, grad_norm: float, current_lr: float
+    ) -> Tuple[bool, str]:
+        """Check convergence for state optimization."""
+        if grad_norm < self.convergence_threshold:
+            if self.verbose:
+                print(
+                    f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
+                    f"Grad Norm = {grad_norm:.2e} [CONVERGED]"
+                )
+            return True, "Converged (gradient norm below threshold)"
+        return False, ""
+
+    def _run_state_optimization_loop_grape(
+        self,
+        psi_init: qt.Qobj,
+        psi_target: qt.Qobj,
+        u: np.ndarray,
+        adaptive_step: bool,
+        step_decay: float,
+    ) -> Tuple[np.ndarray, List[float], List[float], bool, str, int]:
+        """Execute the main state optimization loop."""
         fidelity_history = []
         gradient_norms = []
-
-        # Optimization loop
         current_lr = self.learning_rate
         converged = False
         message = "Max iterations reached"
 
         for iteration in range(self.max_iterations):
-            # Forward propagation
-            propagators = self._compute_propagators(u)
-            forward_unitaries, U_final = self._forward_propagation(propagators)
-
-            # Evolve initial state
-            psi_final = U_final * psi_init
-
-            # Compute fidelity
-            overlap = psi_target.dag() * psi_final  # Returns complex scalar
-            fidelity = np.abs(overlap) ** 2
-            fidelity = np.real(fidelity)
+            # Execute iteration
+            fidelity, gradients, propagators = self._execute_state_iteration_grape(
+                psi_init, psi_target, u
+            )
             fidelity_history.append(fidelity)
-
-            # Compute gradients (simplified for state transfer)
-            gradients = np.zeros((self.n_controls, self.n_timeslices))
-
-            # Backward propagation
-            backward_unitaries = self._backward_propagation(propagators)
-
-            overlap = psi_target.dag() * psi_final  # Returns complex scalar
-
-            for k in range(self.n_timeslices):
-                if k > 0:
-                    U_before = forward_unitaries[k - 1]
-                else:
-                    U_before = qt.qeye(self.dim)
-
-                U_after = backward_unitaries[k]
-
-                for j in range(self.n_controls):
-                    dU = -1j * self.dt * self.H_controls[j] * propagators[k]
-                    X_jk = U_before * dU * U_after
-                    psi_derivative = X_jk * psi_init
-                    trace_val = (
-                        psi_target.dag() * psi_derivative
-                    )  # Returns complex scalar
-                    gradients[j, k] = 2 * np.real(np.conj(overlap) * trace_val)
 
             # Gradient norm
             grad_norm = np.linalg.norm(gradients)
             gradient_norms.append(grad_norm)
 
             # Check convergence
-            if grad_norm < self.convergence_threshold:
-                converged = True
-                message = "Converged (gradient norm below threshold)"
-                if self.verbose:
-                    print(
-                        f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                        f"Grad Norm = {grad_norm:.2e} [CONVERGED]"
-                    )
+            converged, conv_message = self._check_state_convergence_grape(
+                iteration, fidelity, grad_norm, current_lr
+            )
+            if converged:
+                message = conv_message
                 break
 
-            # Gradient ascent
+            # Update controls
             u_new = u + current_lr * gradients
-            u_new = self._apply_constraints(u_new)
-            u = u_new
+            u = self._apply_constraints(u_new)
 
             # Adaptive learning rate
             if adaptive_step:
@@ -1109,28 +1109,58 @@ class GRAPEOptimizer:
                     f"Grad Norm = {grad_norm:.2e}, LR = {current_lr:.4f}"
                 )
 
-        # Final fidelity
+        return u, fidelity_history, gradient_norms, converged, message, iteration + 1
+
+    def optimize_state(
+        self,
+        psi_init: qt.Qobj,
+        psi_target: qt.Qobj,
+        u_init: Optional[np.ndarray] = None,
+        adaptive_step: bool = True,
+        step_decay: float = 0.99,
+    ) -> GRAPEResult:
+        """
+        Optimize control pulses to transfer initial state to target state.
+
+        Orchestrates GRAPE optimization for state-to-state transfer using
+        gradient ascent with optional adaptive learning rate.
+        """
+        # Validate parameters
+        self._validate_state_parameters_grape(psi_init, psi_target, u_init, step_decay)
+        # Initialize controls
+        if u_init is None:
+            u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
+            u_init = self._apply_constraints(u_init)
+        u = u_init.copy()
+
+        # Run optimization loop
+        u, fid_hist, grad_norms, converged, msg, n_iter = (
+            self._run_state_optimization_loop_grape(
+                psi_init, psi_target, u, adaptive_step, step_decay
+            )
+        )
+
+        # Final evaluation
         propagators = self._compute_propagators(u)
         _, U_final = self._forward_propagation(propagators)
         psi_final = U_final * psi_init
-        overlap = psi_target.dag() * psi_final  # Returns complex scalar
-        final_fidelity = np.abs(overlap) ** 2
-        final_fidelity = np.real(final_fidelity)
-        fidelity_history.append(final_fidelity)
+        overlap = psi_target.dag() * psi_final
+        final_fidelity = np.real(np.abs(overlap) ** 2)
+        fid_hist.append(final_fidelity)
 
         if self.verbose:
-            print(f"\nOptimization complete: {message}")
+            print(f"\nOptimization complete: {msg}")
             print(f"Final fidelity: {final_fidelity:.8f}")
-            print(f"Iterations: {iteration + 1}")
+            print(f"Iterations: {n_iter}")
 
         return GRAPEResult(
             final_fidelity=final_fidelity,
             optimized_pulses=u,
-            fidelity_history=fidelity_history,
-            gradient_norms=gradient_norms,
-            n_iterations=iteration + 1,
+            fidelity_history=fid_hist,
+            gradient_norms=grad_norms,
+            n_iterations=n_iter,
             converged=converged,
-            message=message,
+            message=msg,
         )
 
     def get_pulse_functions(self, u: np.ndarray) -> List[Callable]:
