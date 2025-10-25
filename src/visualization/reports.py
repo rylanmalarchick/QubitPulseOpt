@@ -480,79 +480,55 @@ class OptimizationReport:
         """Mark optimization as complete."""
         self.end_time = datetime.now()
 
-    def generate_summary(
-        self, filename: Optional[str] = None, figsize: Tuple[int, int] = (12, 8)
-    ) -> plt.Figure:
-        """
-        Generate optimization summary report.
-
-        Parameters
-        ----------
-        filename : str, optional
-            If provided, save to file
-        figsize : tuple
-            Figure size
-
-        Returns
-        -------
-        fig : Figure
-        """
-        fig = plt.figure(figsize=figsize)
-        gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
-
-        # Fidelity convergence
-        ax1 = fig.add_subplot(gs[0, 0])
+    def _plot_fidelity_convergence(self, ax: plt.Axes) -> None:
+        """Plot fidelity convergence over iterations."""
         if self.fidelities:
-            ax1.plot(
+            ax.plot(
                 self.iterations[: len(self.fidelities)],
                 self.fidelities,
                 "b-",
                 linewidth=2,
             )
-            ax1.set_xlabel("Iteration")
-            ax1.set_ylabel("Fidelity")
-            ax1.set_title("Fidelity Convergence")
-            ax1.grid(True, alpha=0.3)
-            ax1.set_ylim([0, 1.05])
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Fidelity")
+            ax.set_title("Fidelity Convergence")
+            ax.grid(True, alpha=0.3)
+            ax.set_ylim([0, 1.05])
 
-        # Infidelity (log scale)
-        ax2 = fig.add_subplot(gs[0, 1])
+    def _plot_infidelity_progress(self, ax: plt.Axes) -> None:
+        """Plot infidelity on log scale over iterations."""
         if self.infidelities:
             valid_infid = [max(1e-15, inf) for inf in self.infidelities]
-            ax2.semilogy(
+            ax.semilogy(
                 self.iterations[: len(valid_infid)], valid_infid, "r-", linewidth=2
             )
-            ax2.set_xlabel("Iteration")
-            ax2.set_ylabel("Infidelity (log)")
-            ax2.set_title("Infidelity Progress")
-            ax2.grid(True, alpha=0.3)
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Infidelity (log)")
+            ax.set_title("Infidelity Progress")
+            ax.grid(True, alpha=0.3)
 
-        # Gradient norm
-        ax3 = fig.add_subplot(gs[1, 0])
+    def _plot_gradient_convergence(self, ax: plt.Axes) -> None:
+        """Plot gradient norm convergence on log scale."""
         if self.gradient_norms:
-            ax3.semilogy(
+            ax.semilogy(
                 self.iterations[: len(self.gradient_norms)],
                 self.gradient_norms,
                 "g-",
                 linewidth=2,
             )
-            ax3.set_xlabel("Iteration")
-            ax3.set_ylabel("Gradient Norm (log)")
-            ax3.set_title("Gradient Convergence")
-            ax3.grid(True, alpha=0.3)
+            ax.set_xlabel("Iteration")
+            ax.set_ylabel("Gradient Norm (log)")
+            ax.set_title("Gradient Convergence")
+            ax.grid(True, alpha=0.3)
 
-        # Summary statistics
-        ax4 = fig.add_subplot(gs[1, 1])
-        ax4.axis("off")
+    def _create_summary_table(self, ax: plt.Axes) -> None:
+        """Create summary statistics table."""
+        ax.axis("off")
 
-        summary_data = [
-            ["Metric", "Value"],
-            ["Method", self.method],
-        ]
+        summary_data = [["Metric", "Value"], ["Method", self.method]]
 
         if self.target:
             summary_data.append(["Target", self.target])
-
         if self.fidelities:
             summary_data.append(["Final Fidelity", f"{self.fidelities[-1]:.6f}"])
             summary_data.append(["Initial Fidelity", f"{self.fidelities[0]:.6f}"])
@@ -563,7 +539,7 @@ class OptimizationReport:
             duration = (self.end_time - self.start_time).total_seconds()
             summary_data.append(["Duration (s)", f"{duration:.2f}"])
 
-        table = ax4.table(
+        table = ax.table(
             cellText=summary_data, cellLoc="left", loc="center", colWidths=[0.5, 0.5]
         )
         table.auto_set_font_size(False)
@@ -575,7 +551,20 @@ class OptimizationReport:
             table[(0, i)].set_facecolor("#2196F3")
             table[(0, i)].set_text_props(weight="bold", color="white")
 
-        ax4.set_title("Optimization Summary", fontsize=13, fontweight="bold", pad=20)
+        ax.set_title("Optimization Summary", fontsize=13, fontweight="bold", pad=20)
+
+    def generate_summary(
+        self, filename: Optional[str] = None, figsize: Tuple[int, int] = (12, 8)
+    ) -> plt.Figure:
+        """Generate optimization summary report with plots and statistics."""
+        fig = plt.figure(figsize=figsize)
+        gs = GridSpec(2, 2, figure=fig, hspace=0.3, wspace=0.3)
+
+        # Plot all subplots
+        self._plot_fidelity_convergence(fig.add_subplot(gs[0, 0]))
+        self._plot_infidelity_progress(fig.add_subplot(gs[0, 1]))
+        self._plot_gradient_convergence(fig.add_subplot(gs[1, 0]))
+        self._create_summary_table(fig.add_subplot(gs[1, 1]))
 
         # Main title
         title = f"Optimization Report: {self.method}"
