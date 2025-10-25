@@ -331,6 +331,8 @@ def log_config(config: Dict[str, Any], logger: Optional[logging.Logger] = None) 
         config: Configuration dictionary
         logger: Logger to use
     """
+    assert isinstance(config, dict), f"Config must be a dictionary, got {type(config)}"
+
     if logger is None:
         logger = get_logger(__name__)
 

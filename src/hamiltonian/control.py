@@ -90,6 +90,7 @@ class ControlHamiltonian:
         # Test pulse function with a sample value
         try:
             test_val = pulse_func(0.0)
+            assert test_val is not None, "pulse_func must not return None"
             assert (
                 np.isfinite(test_val)
                 if np.isscalar(test_val)
@@ -333,6 +334,7 @@ class ControlHamiltonian:
 
         # Rule 5: Validate result
         assert np.isfinite(area), f"Pulse area not finite: {area}"
+        assert len(amplitudes) == num_points, f"Amplitude array length mismatch"
 
         return area
 
