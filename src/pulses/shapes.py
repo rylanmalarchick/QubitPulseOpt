@@ -45,6 +45,68 @@ from ..constants import (
 )
 
 
+def _validate_times_array(times: np.ndarray) -> None:
+    """Validate times array parameter."""
+    if times is None:
+        raise ValueError("times array cannot be None")
+    if not isinstance(times, np.ndarray):
+        raise TypeError(f"times must be ndarray, got {type(times)}")
+    if len(times) > 0 and not np.all(np.isfinite(times)):
+        raise ValueError("times must contain only finite values")
+
+
+def _validate_pulse_amplitude(amplitude: float) -> None:
+    """Validate pulse amplitude parameter."""
+    if not isinstance(amplitude, (int, float)):
+        raise TypeError(f"amplitude must be numeric, got {type(amplitude)}")
+    if not np.isfinite(amplitude):
+        raise ValueError(f"amplitude must be finite, got {amplitude}")
+    if not (MIN_PULSE_AMPLITUDE <= amplitude <= MAX_PULSE_AMPLITUDE):
+        raise ValueError(
+            f"amplitude {amplitude} outside bounds [{MIN_PULSE_AMPLITUDE}, {MAX_PULSE_AMPLITUDE}]"
+        )
+
+
+def _validate_pulse_center(t_center: float) -> None:
+    """Validate pulse center time parameter."""
+    if not isinstance(t_center, (int, float)):
+        raise TypeError(f"t_center must be numeric, got {type(t_center)}")
+    if not np.isfinite(t_center):
+        raise ValueError(f"t_center must be finite, got {t_center}")
+    if t_center < 0:
+        raise ValueError(f"t_center must be non-negative, got {t_center}")
+
+
+def _validate_pulse_sigma(sigma: float) -> None:
+    """Validate pulse width parameter."""
+    if not isinstance(sigma, (int, float)):
+        raise TypeError(f"sigma must be numeric, got {type(sigma)}")
+    if sigma <= 0:
+        raise ValueError(f"sigma must be positive, got {sigma}")
+    if not np.isfinite(sigma):
+        raise ValueError(f"sigma must be finite, got {sigma}")
+
+
+def _validate_truncation(truncation: float) -> None:
+    """Validate truncation parameter."""
+    if truncation <= 0:
+        raise ValueError(f"truncation must be positive, got {truncation}")
+
+
+def _compute_gaussian_envelope(
+    times: np.ndarray,
+    amplitude: float,
+    t_center: float,
+    sigma: float,
+    truncation: float,
+) -> np.ndarray:
+    """Compute Gaussian pulse envelope."""
+    pulse = np.zeros_like(times)
+    mask = np.abs(times - t_center) <= truncation * sigma
+    pulse[mask] = amplitude * np.exp(-((times[mask] - t_center) ** 2) / (2 * sigma**2))
+    return pulse
+
+
 def gaussian_pulse(
     times: np.ndarray,
     amplitude: float,
@@ -55,93 +117,23 @@ def gaussian_pulse(
     """
     Generate a Gaussian pulse envelope.
 
-    The Gaussian pulse is one of the most commonly used shapes in quantum control
-    due to its smooth rise and fall, which minimizes spectral leakage and
-    unwanted transitions. The pulse is typically truncated at ±4σ to ensure
-    it decays to near-zero at the boundaries.
-
-    Mathematical Form:
-        Ω(t) = A * exp(-(t - t_c)² / (2σ²))  for |t - t_c| ≤ truncation*σ
-             = 0                              otherwise
-
-    Parameters
-    ----------
-    times : np.ndarray
-        Array of time points at which to evaluate the pulse.
-    amplitude : float
-        Peak amplitude of the pulse (maximum Rabi frequency).
-        Units: angular frequency (rad/s or 2π × Hz).
-    t_center : float
-        Center time of the pulse (peak location).
-    sigma : float
-        Standard deviation of the Gaussian (controls pulse width).
-        A larger σ gives a slower, wider pulse.
-    truncation : float, optional
-        Number of standard deviations at which to truncate the pulse.
-        Default is 4.0 (pulse decays to ~0.034% of peak at edges).
-
-    Returns
-    -------
-    np.ndarray
-        Pulse amplitude as a function of time, same shape as `times`.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> times = np.linspace(0, 100, 1000)  # 100 ns duration
-    >>> pulse = gaussian_pulse(times, amplitude=2*np.pi*10, t_center=50, sigma=10)
-    >>> # Peak at t=50 ns, width ~40 ns (4σ), peak Rabi frequency = 10 MHz
-
-    Notes
-    -----
-    For a π-pulse (|0⟩ → |1⟩ transition), the integrated pulse area must satisfy:
-        ∫ Ω(t) dt = π
-    For a Gaussian pulse, this gives:
-        A * σ * √(2π) ≈ π  →  A ≈ √(π/(2σ²))
+    Gaussian pulses minimize spectral leakage and unwanted transitions.
+    Form: Ω(t) = A * exp(-(t-t_c)²/(2σ²)) for |t-t_c| ≤ truncation*σ
     """
-    # Rule 5: Parameter validation with proper exceptions
-    if times is None:
-        raise ValueError("times array cannot be None")
-    if not isinstance(times, np.ndarray):
-        raise TypeError(f"times must be ndarray, got {type(times)}")
-    # Note: Empty times array is allowed - it just returns an empty pulse
+    # Validate parameters
+    _validate_times_array(times)
     if len(times) == 0:
         return np.array([])
-    if not np.all(np.isfinite(times)):
-        raise ValueError("times must contain only finite values")
-    # Note: times can be negative (e.g., centered pulses with t_center=0)
 
-    if not isinstance(amplitude, (int, float)):
-        raise TypeError(f"amplitude must be numeric, got {type(amplitude)}")
-    if not np.isfinite(amplitude):
-        raise ValueError(f"amplitude must be finite, got {amplitude}")
-    if not (MIN_PULSE_AMPLITUDE <= amplitude <= MAX_PULSE_AMPLITUDE):
-        raise ValueError(
-            f"amplitude {amplitude} outside bounds [{MIN_PULSE_AMPLITUDE}, {MAX_PULSE_AMPLITUDE}]"
-        )
+    _validate_pulse_amplitude(amplitude)
+    _validate_pulse_center(t_center)
+    _validate_pulse_sigma(sigma)
+    _validate_truncation(truncation)
 
-    if not isinstance(t_center, (int, float)):
-        raise TypeError(f"t_center must be numeric, got {type(t_center)}")
-    if not np.isfinite(t_center):
-        raise ValueError(f"t_center must be finite, got {t_center}")
-    if t_center < 0:
-        raise ValueError(f"t_center must be non-negative, got {t_center}")
+    # Compute pulse
+    pulse = _compute_gaussian_envelope(times, amplitude, t_center, sigma, truncation)
 
-    if not isinstance(sigma, (int, float)):
-        raise TypeError(f"sigma must be numeric, got {type(sigma)}")
-    if sigma <= 0:
-        raise ValueError(f"sigma must be positive, got {sigma}")
-    if not np.isfinite(sigma):
-        raise ValueError(f"sigma must be finite, got {sigma}")
-
-    if truncation <= 0:
-        raise ValueError(f"truncation must be positive, got {truncation}")
-
-    pulse = np.zeros_like(times)
-    mask = np.abs(times - t_center) <= truncation * sigma
-    pulse[mask] = amplitude * np.exp(-((times[mask] - t_center) ** 2) / (2 * sigma**2))
-
-    # Rule 5: Postcondition assertions
+    # Postcondition checks
     assert np.all(np.isfinite(pulse)), "Pulse contains non-finite values"
     assert pulse.shape == times.shape, (
         f"Output shape {pulse.shape} != input shape {times.shape}"
