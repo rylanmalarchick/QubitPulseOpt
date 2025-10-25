@@ -831,36 +831,9 @@ def create_publication_figure(
     """
     Create publication-quality figure with proper formatting.
 
-    Parameters
-    ----------
-    data : ndarray or list of ndarray
-        Data to plot
-    labels : list of str, optional
-        Legend labels
-    xlabel, ylabel : str
-        Axis labels
-    title : str
-        Figure title
-    filename : str, optional
-        Save to file if provided
-    style : str
-        Matplotlib style to use
-    figsize : tuple
-        Figure size
-    **plot_kwargs
-        Additional arguments passed to plot()
-
-    Returns
-    -------
-    fig : Figure
-
-    Examples
-    --------
-    >>> x = np.linspace(0, 10, 100)
-    >>> y1 = np.sin(x)
-    >>> y2 = np.cos(x)
-    >>> fig = create_publication_figure([y1, y2], labels=['sin', 'cos'],
-    ...                                   filename='trig.pdf')
+    Parameters: data (array or list), labels, xlabel, ylabel, title,
+    filename (optional), style, figsize, **plot_kwargs.
+    Returns: Figure.
     """
     # Setup figure with style
     fig, ax = _setup_publication_style(style, figsize)

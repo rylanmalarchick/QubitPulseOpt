@@ -505,6 +505,91 @@ class CompositePulse:
 
     # ==================== Analysis Methods ====================
 
+    def _get_control_hamiltonian(self, axis: RotationAxis) -> qt.Qobj:
+        """
+        Get control Hamiltonian for rotation axis.
+
+        Parameters
+        ----------
+        axis : RotationAxis
+            Rotation axis
+
+        Returns
+        -------
+        qt.Qobj
+            Pauli matrix for the axis
+        """
+        if axis == RotationAxis.X:
+            return qt.sigmax()
+        elif axis == RotationAxis.Y:
+            return qt.sigmay()
+        elif axis == RotationAxis.Z:
+            return qt.sigmaz()
+        else:
+            raise ValueError(f"Unknown axis: {axis}")
+
+    def _compute_segment_duration(self, segment, angle_with_error: float) -> float:
+        """
+        Compute duration for a pulse segment.
+
+        Parameters
+        ----------
+        segment : PulseSegment
+            Pulse segment
+        angle_with_error : float
+            Rotation angle with applied error
+
+        Returns
+        -------
+        float
+            Duration of the segment
+        """
+        if segment.duration is not None:
+            return segment.duration
+        else:
+            return abs(angle_with_error) / self.rabi_frequency
+
+    def _simulate_segment(
+        self,
+        segment,
+        amplitude_error: float,
+        phase_error: float,
+        detuning: float,
+    ) -> qt.Qobj:
+        """
+        Simulate a single pulse segment with errors.
+
+        Parameters
+        ----------
+        segment : PulseSegment
+            Pulse segment to simulate
+        amplitude_error : float
+            Relative amplitude error
+        phase_error : float
+            Phase error in radians
+        detuning : float
+            Detuning error
+
+        Returns
+        -------
+        qt.Qobj
+            Unitary for this segment
+        """
+        angle_with_error = segment.angle * (1.0 + amplitude_error)
+        phase_with_error = segment.phase + phase_error
+
+        H_control = self._get_control_hamiltonian(segment.axis)
+        dt = self._compute_segment_duration(segment, angle_with_error)
+
+        # Rotation from control pulse
+        U_pulse = (-1j * angle_with_error / 2 * H_control).expm()
+
+        # Detuning evolution during pulse
+        U_detuning = (-1j * detuning * dt / 2 * qt.sigmaz()).expm()
+
+        # Combined evolution
+        return U_detuning * U_pulse
+
     def simulate_sequence(
         self,
         sequence: CompositeSequence,
@@ -540,39 +625,10 @@ class CompositePulse:
         """
         U_total = qt.qeye(2)
 
-        for i, segment in enumerate(sequence.segments):
-            # Get rotation operator for this segment
-            angle_with_error = segment.angle * (1.0 + amplitude_error)
-            phase_with_error = segment.phase + phase_error
-
-            # Build rotation operator
-            if segment.axis == RotationAxis.X:
-                H_control = qt.sigmax()
-            elif segment.axis == RotationAxis.Y:
-                H_control = qt.sigmay()
-            elif segment.axis == RotationAxis.Z:
-                H_control = qt.sigmaz()
-            else:
-                raise ValueError(f"Unknown axis: {segment.axis}")
-
-            # Duration of this segment
-            if segment.duration is not None:
-                dt = segment.duration
-            else:
-                # Duration based on angle and Rabi frequency
-                dt = abs(angle_with_error) / self.rabi_frequency
-
-            # Rotation from control pulse (angle/2 because of Pauli matrices)
-            U_pulse = (-1j * angle_with_error / 2 * H_control).expm()
-
-            # Detuning evolution during pulse (free precession)
-            # Detuning acts as additional Z rotation
-            U_detuning = (-1j * detuning * dt / 2 * qt.sigmaz()).expm()
-
-            # Combined evolution: pulse and detuning
-            # Order matters: detuning is always-on, pulse is applied
-            U_segment = U_detuning * U_pulse
-
+        for segment in sequence.segments:
+            U_segment = self._simulate_segment(
+                segment, amplitude_error, phase_error, detuning
+            )
             U_total = U_segment * U_total
 
         return U_total

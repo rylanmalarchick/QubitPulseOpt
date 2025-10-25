@@ -601,38 +601,11 @@ def create_drag_pulse_for_gate(
     optimize_beta: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Create optimized DRAG pulse for standard gates.
+    Create optimized DRAG pulse for standard gates with automatic β optimization.
 
-    This convenience function generates DRAG pulses for common gates
-    with automatic β optimization and appropriate pulse areas.
-
-    Parameters
-    ----------
-    gate_type : str
-        Type of gate: 'X', 'Y', 'X/2', 'Y/2', or 'H' (Hadamard)
-    gate_time : float
-        Total gate duration (ns)
-    n_points : int
-        Number of time points
-    anharmonicity : float, optional
-        Qubit anharmonicity (MHz). If provided and optimize_beta=True,
-        β will be automatically optimized.
-    optimize_beta : bool
-        Whether to optimize β parameter (requires anharmonicity)
-
-    Returns
-    -------
-    times : np.ndarray
-        Time points
-    omega_I : np.ndarray
-        I component of DRAG pulse
-    omega_Q : np.ndarray
-        Q component of DRAG pulse
-
-    Examples
-    --------
-    >>> times, I, Q = create_drag_pulse_for_gate('X', gate_time=50.0,
-    ...                                           anharmonicity=-200.0)
+    Parameters: gate_type ('X', 'Y', 'X/2', 'Y/2', 'H'), gate_time (ns),
+    n_points, anharmonicity (MHz, optional), optimize_beta.
+    Returns: (times, omega_I, omega_Q).
     """
     # Determine target rotation angle
     target_angle = _get_gate_angle(gate_type)

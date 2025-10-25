@@ -165,6 +165,90 @@ class RobustnessTester:
                 "or (psi_init, psi_target) for state fidelity"
             )
 
+    def _build_time_dependent_hamiltonian(
+        self, H_drift: qt.Qobj, pulse_amplitudes: np.ndarray
+    ) -> list:
+        """
+        Build time-dependent Hamiltonian list for QuTiP.
+
+        Parameters
+        ----------
+        H_drift : qt.Qobj
+            Drift Hamiltonian.
+        pulse_amplitudes : np.ndarray
+            Control pulse amplitudes.
+
+        Returns
+        -------
+        list
+            QuTiP Hamiltonian list format.
+        """
+        H_list = [H_drift]
+        for j in range(self.n_controls):
+
+            def coeff_func(t, args=None, ctrl_idx=j, pulses=pulse_amplitudes):
+                idx = int(np.clip(t / self.dt, 0, self.n_timeslices - 1))
+                return pulses[ctrl_idx, idx]
+
+            H_list.append([self.H_controls[j], coeff_func])
+        return H_list
+
+    def _compute_unitary_fidelity(self, H: list, times: np.ndarray) -> float:
+        """
+        Compute unitary gate fidelity.
+
+        Parameters
+        ----------
+        H : list
+            Time-dependent Hamiltonian.
+        times : np.ndarray
+            Time points.
+
+        Returns
+        -------
+        float
+            Unitary fidelity.
+        """
+        psi0 = qt.basis(self.dim, 0)
+        result = qt.sesolve(H, psi0, times)
+        U_evolved_col0 = result.states[-1]
+
+        if self.dim == 2:
+            psi1 = qt.basis(self.dim, 1)
+            result = qt.sesolve(H, psi1, times)
+            U_evolved_col1 = result.states[-1]
+
+            U_evolved = qt.Qobj(
+                np.column_stack([U_evolved_col0.full(), U_evolved_col1.full()])
+            )
+
+            overlap = (self.U_target.dag() * U_evolved).tr()
+            fidelity = np.abs(overlap) ** 2 / self.dim**2
+            return np.real(fidelity)
+        else:
+            warnings.warn("Unitary fidelity for dim > 2 uses approximation")
+            return qt.fidelity(U_evolved_col0, self.U_target * psi0) ** 2
+
+    def _compute_state_fidelity(self, H: list, times: np.ndarray) -> float:
+        """
+        Compute state transfer fidelity.
+
+        Parameters
+        ----------
+        H : list
+            Time-dependent Hamiltonian.
+        times : np.ndarray
+            Time points.
+
+        Returns
+        -------
+        float
+            State fidelity.
+        """
+        result = qt.sesolve(H, self.psi_init, times)
+        psi_final = result.states[-1]
+        return qt.fidelity(psi_final, self.psi_target) ** 2
+
     def _compute_fidelity(
         self,
         H_drift: qt.Qobj,
@@ -185,54 +269,13 @@ class RobustnessTester:
         float
             Fidelity.
         """
-
-        # Construct time-dependent Hamiltonian
-        def build_hamiltonian_list():
-            H_list = [H_drift]
-            for j in range(self.n_controls):
-                # Piecewise constant coefficient function
-                # QuTiP 5.x may call with just (t) or (t, args)
-                def coeff_func(t, args=None, ctrl_idx=j, pulses=pulse_amplitudes):
-                    idx = int(np.clip(t / self.dt, 0, self.n_timeslices - 1))
-                    return pulses[ctrl_idx, idx]
-
-                H_list.append([self.H_controls[j], coeff_func])
-            return H_list
-
-        H = build_hamiltonian_list()
+        H = self._build_time_dependent_hamiltonian(H_drift, pulse_amplitudes)
         times = np.linspace(0, self.total_time, self.n_timeslices + 1)
 
         if self.fidelity_type == "unitary":
-            # Evolve basis states to construct unitary
-            psi0 = qt.basis(self.dim, 0)
-            result = qt.sesolve(H, psi0, times)
-            U_evolved_col0 = result.states[-1]
-
-            if self.dim == 2:
-                psi1 = qt.basis(self.dim, 1)
-                result = qt.sesolve(H, psi1, times)
-                U_evolved_col1 = result.states[-1]
-
-                # Construct evolved unitary from columns
-                U_evolved = qt.Qobj(
-                    np.column_stack([U_evolved_col0.full(), U_evolved_col1.full()])
-                )
-
-                # Compute fidelity
-                overlap = (self.U_target.dag() * U_evolved).tr()
-                fidelity = np.abs(overlap) ** 2 / self.dim**2
-                return np.real(fidelity)
-            else:
-                # For higher dimensions, use average gate fidelity
-                # This is a simplified implementation
-                warnings.warn("Unitary fidelity for dim > 2 uses approximation")
-                return qt.fidelity(U_evolved_col0, self.U_target * psi0) ** 2
-
-        else:  # state transfer
-            result = qt.sesolve(H, self.psi_init, times)
-            psi_final = result.states[-1]
-            fidelity = qt.fidelity(psi_final, self.psi_target) ** 2
-            return fidelity
+            return self._compute_unitary_fidelity(H, times)
+        else:
+            return self._compute_state_fidelity(H, times)
 
     def _sweep_detuning_range(self, detuning_range: np.ndarray) -> tuple:
         """
@@ -1017,6 +1060,137 @@ class RobustnessTester:
             "all_params": all_params,
         }
 
+    def _apply_parameter_modifications(
+        self, param_name: str, param_value: float
+    ) -> Tuple:
+        """
+        Apply parameter modifications to Hamiltonian and pulse.
+
+        Parameters
+        ----------
+        param_name : str
+            Name of parameter to modify.
+        param_value : float
+            Value of parameter.
+
+        Returns
+        -------
+        tuple
+            Modified (H_drift, pulse_amplitudes).
+        """
+        H_drift_mod = self.H_drift
+        pulse_mod = self.pulse_amplitudes.copy()
+
+        if param_name == "detuning":
+            H_drift_mod = H_drift_mod + 0.5 * param_value * qt.sigmaz()
+        elif param_name == "amplitude_error":
+            pulse_mod = pulse_mod * (1.0 + param_value)
+
+        return H_drift_mod, pulse_mod
+
+    def _compute_landscape_1d(
+        self, param_name: str, param_range: Tuple[float, float], n_points: int
+    ) -> Dict:
+        """
+        Compute 1D robustness landscape.
+
+        Parameters
+        ----------
+        param_name : str
+            Parameter name.
+        param_range : tuple
+            (min, max) range for parameter.
+        n_points : int
+            Number of points to sample.
+
+        Returns
+        -------
+        dict
+            Landscape data with fidelities and statistics.
+        """
+        low, high = param_range
+        param_values = np.linspace(low, high, n_points)
+
+        fidelities = []
+        for val in param_values:
+            H_drift_mod, pulse_mod = self._apply_parameter_modifications(
+                param_name, val
+            )
+            fid = self._compute_fidelity(H_drift_mod, pulse_mod)
+            fidelities.append(fid)
+
+        fidelities = np.array(fidelities)
+
+        return {
+            "param_names": [param_name],
+            "param_grids": [param_values],
+            "fidelity_grid": fidelities,
+            "mean_fidelity": np.mean(fidelities),
+            "std_fidelity": np.std(fidelities),
+            "min_fidelity": np.min(fidelities),
+        }
+
+    def _compute_landscape_2d(
+        self,
+        param_names: List[str],
+        param_ranges: Dict[str, Tuple[float, float]],
+        n_points: int,
+    ) -> Dict:
+        """
+        Compute 2D robustness landscape.
+
+        Parameters
+        ----------
+        param_names : list
+            Two parameter names.
+        param_ranges : dict
+            Parameter ranges.
+        n_points : int
+            Number of points per axis.
+
+        Returns
+        -------
+        dict
+            Landscape data with 2D fidelity grid and statistics.
+        """
+        name1, name2 = param_names
+        low1, high1 = param_ranges[name1]
+        low2, high2 = param_ranges[name2]
+
+        param1_values = np.linspace(low1, high1, n_points)
+        param2_values = np.linspace(low2, high2, n_points)
+
+        fidelity_grid = np.zeros((n_points, n_points))
+
+        for i, val1 in enumerate(param1_values):
+            for j, val2 in enumerate(param2_values):
+                H_drift_mod = self.H_drift
+                pulse_mod = self.pulse_amplitudes.copy()
+
+                H_drift_mod, pulse_mod = self._apply_parameter_modifications(
+                    name1, val1
+                )
+                H_drift_tmp, pulse_tmp = self._apply_parameter_modifications(
+                    name2, val2
+                )
+
+                # Combine modifications
+                if name2 == "detuning":
+                    H_drift_mod = H_drift_tmp
+                elif name2 == "amplitude_error":
+                    pulse_mod = pulse_tmp
+
+                fidelity_grid[i, j] = self._compute_fidelity(H_drift_mod, pulse_mod)
+
+        return {
+            "param_names": param_names,
+            "param_grids": [param1_values, param2_values],
+            "fidelity_grid": fidelity_grid,
+            "mean_fidelity": np.mean(fidelity_grid),
+            "std_fidelity": np.std(fidelity_grid),
+            "min_fidelity": np.min(fidelity_grid),
+        }
+
     def compute_robustness_landscape(
         self,
         param_ranges: Dict[str, Tuple[float, float]],
@@ -1060,71 +1234,11 @@ class RobustnessTester:
         param_names = list(param_ranges.keys())
 
         if len(param_names) == 1:
-            # 1D landscape
-            name = param_names[0]
-            low, high = param_ranges[name]
-            param_values = np.linspace(low, high, n_points)
-
-            fidelities = []
-            for val in param_values:
-                H_drift_mod = self.H_drift
-                pulse_mod = self.pulse_amplitudes.copy()
-
-                if name == "detuning":
-                    H_drift_mod = H_drift_mod + 0.5 * val * qt.sigmaz()
-                elif name == "amplitude_error":
-                    pulse_mod = pulse_mod * (1.0 + val)
-
-                fid = self._compute_fidelity(H_drift_mod, pulse_mod)
-                fidelities.append(fid)
-
-            fidelities = np.array(fidelities)
-
-            return {
-                "param_names": param_names,
-                "param_grids": [param_values],
-                "fidelity_grid": fidelities,
-                "mean_fidelity": np.mean(fidelities),
-                "std_fidelity": np.std(fidelities),
-                "min_fidelity": np.min(fidelities),
-            }
-
+            return self._compute_landscape_1d(
+                param_names[0], param_ranges[param_names[0]], n_points
+            )
         else:
-            # 2D landscape
-            name1, name2 = param_names
-            low1, high1 = param_ranges[name1]
-            low2, high2 = param_ranges[name2]
-
-            param1_values = np.linspace(low1, high1, n_points)
-            param2_values = np.linspace(low2, high2, n_points)
-
-            fidelity_grid = np.zeros((n_points, n_points))
-
-            for i, val1 in enumerate(param1_values):
-                for j, val2 in enumerate(param2_values):
-                    H_drift_mod = self.H_drift
-                    pulse_mod = self.pulse_amplitudes.copy()
-
-                    if name1 == "detuning":
-                        H_drift_mod = H_drift_mod + 0.5 * val1 * qt.sigmaz()
-                    elif name1 == "amplitude_error":
-                        pulse_mod = pulse_mod * (1.0 + val1)
-
-                    if name2 == "detuning":
-                        H_drift_mod = H_drift_mod + 0.5 * val2 * qt.sigmaz()
-                    elif name2 == "amplitude_error":
-                        pulse_mod = pulse_mod * (1.0 + val2)
-
-                    fidelity_grid[i, j] = self._compute_fidelity(H_drift_mod, pulse_mod)
-
-            return {
-                "param_names": param_names,
-                "param_grids": [param1_values, param2_values],
-                "fidelity_grid": fidelity_grid,
-                "mean_fidelity": np.mean(fidelity_grid),
-                "std_fidelity": np.std(fidelity_grid),
-                "min_fidelity": np.min(fidelity_grid),
-            }
+            return self._compute_landscape_2d(param_names, param_ranges, n_points)
 
     def __repr__(self) -> str:
         """String representation."""

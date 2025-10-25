@@ -190,69 +190,83 @@ class OptimizationDashboard:
             self.fig.canvas.draw()
             self.fig.canvas.flush_events()
 
+    def _update_fidelity_plot(self):
+        """Update fidelity plot panel."""
+        if not self.fidelities:
+            return
+        self.axes["fidelity"].clear()
+        self.axes["fidelity"].plot(self.iterations, self.fidelities, "b-", linewidth=2)
+        self.axes["fidelity"].set_xlabel("Iteration")
+        self.axes["fidelity"].set_ylabel("Fidelity")
+        self.axes["fidelity"].set_title("Optimization Fidelity")
+        self.axes["fidelity"].grid(True, alpha=0.3)
+        self.axes["fidelity"].set_ylim([0, 1.05])
+
+    def _update_infidelity_plot(self):
+        """Update infidelity plot panel."""
+        if not self.infidelities:
+            return
+        self.axes["infidelity"].clear()
+        valid_infid = [max(1e-15, inf) for inf in self.infidelities]
+        self.axes["infidelity"].semilogy(
+            self.iterations, valid_infid, "r-", linewidth=2
+        )
+        self.axes["infidelity"].set_xlabel("Iteration")
+        self.axes["infidelity"].set_ylabel("Infidelity (log)")
+        self.axes["infidelity"].set_title("Infidelity Progress")
+        self.axes["infidelity"].grid(True, alpha=0.3)
+
+    def _update_gradient_plot(self):
+        """Update gradient norm plot panel."""
+        if not self.gradient_norms:
+            return
+        self.axes["gradient"].clear()
+        self.axes["gradient"].semilogy(
+            self.iterations, self.gradient_norms, "g-", linewidth=2
+        )
+        self.axes["gradient"].set_xlabel("Iteration")
+        self.axes["gradient"].set_ylabel("Gradient Norm")
+        self.axes["gradient"].set_title("Gradient Norm")
+        self.axes["gradient"].grid(True, alpha=0.3)
+
+    def _update_time_plot(self):
+        """Update computation time plot panel."""
+        if not self.times:
+            return
+        self.axes["time"].clear()
+        self.axes["time"].plot(
+            self.iterations[: len(self.times)], self.times, "m-", linewidth=2
+        )
+        self.axes["time"].set_xlabel("Iteration")
+        self.axes["time"].set_ylabel("Time (s)")
+        self.axes["time"].set_title("Computation Time")
+        self.axes["time"].grid(True, alpha=0.3)
+
+    def _update_controls_plot(self):
+        """Update control fields plot panel."""
+        if not self.controls_history:
+            return
+        self.axes["controls"].clear()
+        latest_controls = self.controls_history[-1]
+        if latest_controls.ndim == 1:
+            latest_controls = latest_controls.reshape(1, -1)
+
+        for i in range(min(self.n_controls, latest_controls.shape[0])):
+            self.axes["controls"].plot(latest_controls[i], label=f"Control {i + 1}")
+
+        self.axes["controls"].set_xlabel("Time Step")
+        self.axes["controls"].set_ylabel("Control Amplitude")
+        self.axes["controls"].set_title("Control Fields Evolution")
+        self.axes["controls"].legend()
+        self.axes["controls"].grid(True, alpha=0.3)
+
     def _update_plots(self):
         """Update all plots with current data."""
-        # Fidelity
-        if self.fidelities:
-            self.axes["fidelity"].clear()
-            self.axes["fidelity"].plot(
-                self.iterations, self.fidelities, "b-", linewidth=2
-            )
-            self.axes["fidelity"].set_xlabel("Iteration")
-            self.axes["fidelity"].set_ylabel("Fidelity")
-            self.axes["fidelity"].set_title("Optimization Fidelity")
-            self.axes["fidelity"].grid(True, alpha=0.3)
-            self.axes["fidelity"].set_ylim([0, 1.05])
-
-        # Infidelity
-        if self.infidelities:
-            self.axes["infidelity"].clear()
-            valid_infid = [max(1e-15, inf) for inf in self.infidelities]
-            self.axes["infidelity"].semilogy(
-                self.iterations, valid_infid, "r-", linewidth=2
-            )
-            self.axes["infidelity"].set_xlabel("Iteration")
-            self.axes["infidelity"].set_ylabel("Infidelity (log)")
-            self.axes["infidelity"].set_title("Infidelity Progress")
-            self.axes["infidelity"].grid(True, alpha=0.3)
-
-        # Gradient norm
-        if self.gradient_norms:
-            self.axes["gradient"].clear()
-            self.axes["gradient"].semilogy(
-                self.iterations, self.gradient_norms, "g-", linewidth=2
-            )
-            self.axes["gradient"].set_xlabel("Iteration")
-            self.axes["gradient"].set_ylabel("Gradient Norm")
-            self.axes["gradient"].set_title("Gradient Norm")
-            self.axes["gradient"].grid(True, alpha=0.3)
-
-        # Time
-        if self.times:
-            self.axes["time"].clear()
-            self.axes["time"].plot(
-                self.iterations[: len(self.times)], self.times, "m-", linewidth=2
-            )
-            self.axes["time"].set_xlabel("Iteration")
-            self.axes["time"].set_ylabel("Time (s)")
-            self.axes["time"].set_title("Computation Time")
-            self.axes["time"].grid(True, alpha=0.3)
-
-        # Controls
-        if self.controls_history:
-            self.axes["controls"].clear()
-            latest_controls = self.controls_history[-1]
-            if latest_controls.ndim == 1:
-                latest_controls = latest_controls.reshape(1, -1)
-
-            for i in range(min(self.n_controls, latest_controls.shape[0])):
-                self.axes["controls"].plot(latest_controls[i], label=f"Control {i + 1}")
-
-            self.axes["controls"].set_xlabel("Time Step")
-            self.axes["controls"].set_ylabel("Control Amplitude")
-            self.axes["controls"].set_title("Control Fields Evolution")
-            self.axes["controls"].legend()
-            self.axes["controls"].grid(True, alpha=0.3)
+        self._update_fidelity_plot()
+        self._update_infidelity_plot()
+        self._update_gradient_plot()
+        self._update_time_plot()
+        self._update_controls_plot()
 
     def save(self, filename: str, dpi: int = 300):
         """Save dashboard to file."""
@@ -446,27 +460,9 @@ class ParameterSweepViewer:
         """
         Create heatmap and contour plots of parameter sweep.
 
-        Parameters
-        ----------
-        x_values : ndarray
-            First parameter values (1D)
-        y_values : ndarray
-            Second parameter values (1D)
-        z_values : ndarray
-            Metric values (2D: len(y_values) x len(x_values))
-        x_label, y_label, z_label : str
-            Axis labels
-        title : str
-            Plot title
-        cmap : str
-            Colormap name
-        vmin, vmax : float, optional
-            Color scale limits
-
-        Returns
-        -------
-        fig : Figure
-        axes : array of Axes
+        Parameters: x_values, y_values (1D), z_values (2D array),
+        labels, title, cmap, vmin/vmax (color limits).
+        Returns: (fig, axes).
         """
         fig, axes = plt.subplots(1, 3, figsize=self.figsize)
 

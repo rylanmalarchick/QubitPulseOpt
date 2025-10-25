@@ -453,60 +453,32 @@ def drag_pulse(
     truncation: float = 4.0,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Generate a DRAG (Derivative Removal by Adiabatic Gate) pulse.
+    Generate DRAG pulse for leakage suppression in anharmonic qubits.
 
-    DRAG pulses correct for leakage to non-computational states in weakly
-    anharmonic qubits (e.g., transmons). The technique adds a quadrature
-    component (derivative of the in-phase pulse) to cancel leakage to the
-    |2⟩ state during fast gates.
-
-    Mathematical Form:
-        Ω_I(t) = A * exp(-(t - t_c)² / (2σ²))
-        Ω_Q(t) = -β * dΩ_I/dt = β * A * (t - t_c)/σ² * exp(-(t - t_c)² / (2σ²))
-
-    The total control Hamiltonian becomes:
-        H_c(t) = Ω_I(t) σ_x + Ω_Q(t) σ_y
+    DRAG adds quadrature component (derivative) to cancel |2⟩ leakage.
+    Form: Ω_I(t) = A*exp(-(t-t_c)²/(2σ²)), Ω_Q(t) = -β*dΩ_I/dt
 
     Parameters
     ----------
     times : np.ndarray
-        Array of time points.
+        Time points.
     amplitude : float
-        Peak amplitude of the in-phase (I) component.
+        Peak I-component amplitude.
     t_center : float
-        Center time of the pulse.
+        Pulse center time.
     sigma : float
-        Standard deviation (pulse width).
+        Pulse width (std deviation).
     beta : float
-        DRAG coefficient (dimensionless).
-        Optimal value: β ≈ -α / (2Ω_max) where α is the anharmonicity.
-        Typical range: 0.1 to 0.5 for superconducting qubits.
+        DRAG coefficient (typical: 0.1-0.5).
     truncation : float, optional
-        Truncation parameter (number of σ). Default 4.0.
+        Truncation in units of σ. Default 4.0.
 
     Returns
     -------
     omega_I : np.ndarray
-        In-phase (I) component (Gaussian envelope).
+        In-phase Gaussian component.
     omega_Q : np.ndarray
-        Quadrature (Q) component (derivative correction).
-
-    Examples
-    --------
-    >>> times = np.linspace(0, 100, 1000)
-    >>> omega_I, omega_Q = drag_pulse(times, amplitude=2*np.pi*10, t_center=50,
-    ...                                sigma=10, beta=0.3)
-    >>> # Apply as: H_c(t) = omega_I(t)*σ_x + omega_Q(t)*σ_y
-
-    References
-    ----------
-    Motzoi, F. et al., "Simple pulses for elimination of leakage in weakly
-    nonlinear qubits," Physical Review Letters 103, 110501 (2009).
-
-    Notes
-    -----
-    The DRAG correction is a first-order perturbative solution. For very fast
-    gates or strong driving, higher-order corrections may be needed.
+        Quadrature derivative component.
     """
     # Compute I and Q components
     omega_I = _compute_drag_i_component(times, amplitude, t_center, sigma, truncation)
@@ -663,42 +635,11 @@ def custom_pulse(
     interpolation: str = "cubic",
 ) -> np.ndarray:
     """
-    Generate a custom pulse from control points using interpolation.
+    Generate custom pulse from control points via interpolation.
 
-    This function allows arbitrary pulse shapes defined by a set of
-    control points. Useful for implementing optimized pulses from
-    GRAPE or other optimal control algorithms.
-
-    Parameters
-    ----------
-    times : np.ndarray
-        Array of time points at which to evaluate the pulse.
-    control_points : np.ndarray
-        Amplitude values at control times.
-    control_times : np.ndarray
-        Time points corresponding to control_points.
-        Must be same length as control_points.
-    interpolation : str, optional
-        Interpolation method: 'linear', 'cubic', or 'pchip'.
-        Default is 'cubic' (smooth, no oscillations).
-
-    Returns
-    -------
-    np.ndarray
-        Interpolated pulse amplitude at all time points.
-
-    Examples
-    --------
-    >>> times = np.linspace(0, 100, 1000)
-    >>> control_times = np.linspace(0, 100, 20)
-    >>> control_points = np.random.randn(20) * 2*np.pi
-    >>> pulse = custom_pulse(times, control_points, control_times, 'cubic')
-
-    Notes
-    -----
-    For optimal control implementations (GRAPE, Krotov), this function can
-    reconstruct smooth pulses from piecewise-constant or discrete control
-    vectors.
+    Parameters: times (array), control_points (array), control_times (array),
+    interpolation ('linear', 'cubic', or 'pchip', default='cubic').
+    Returns: interpolated pulse array.
     """
     from scipy.interpolate import interp1d, PchipInterpolator
 
