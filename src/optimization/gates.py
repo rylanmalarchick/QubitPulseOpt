@@ -584,99 +584,72 @@ class UniversalGates:
             amplitude_limit,
         )
 
+    def _check_gate_relation(
+        self,
+        gate_product: qt.Qobj,
+        relation_name: str,
+        tolerance: float,
+        report: Dict[str, any],
+    ) -> None:
+        """Check if gate product equals identity up to global phase."""
+        I = qt.qeye(2)
+        fidelity = abs((gate_product.dag() * I).tr()) / 2
+        passed = fidelity > (1 - tolerance)
+
+        report["relations_checked"].append(relation_name)
+        if passed:
+            report["relations_passed"].append((relation_name, fidelity))
+        else:
+            report["relations_failed"].append((relation_name, fidelity))
+
+    def _check_h_squared(
+        self, gate_dict: Dict[str, qt.Qobj], tolerance: float, report: Dict[str, any]
+    ) -> None:
+        """Check H² = I relation."""
+        if "Hadamard" in gate_dict or "H" in gate_dict:
+            H = gate_dict.get("Hadamard", gate_dict.get("H"))
+            HH = H * H
+            self._check_gate_relation(HH, "H² = I", tolerance, report)
+
+    def _check_s_fourth(
+        self, gate_dict: Dict[str, qt.Qobj], tolerance: float, report: Dict[str, any]
+    ) -> None:
+        """Check S⁴ = I relation."""
+        if "S" in gate_dict:
+            S = gate_dict["S"]
+            S4 = S * S * S * S
+            self._check_gate_relation(S4, "S⁴ = I", tolerance, report)
+
+    def _check_hs_cubed(
+        self, gate_dict: Dict[str, qt.Qobj], tolerance: float, report: Dict[str, any]
+    ) -> None:
+        """Check (HS)³ = I relation."""
+        if ("Hadamard" in gate_dict or "H" in gate_dict) and "S" in gate_dict:
+            H = gate_dict.get("Hadamard", gate_dict.get("H"))
+            S = gate_dict["S"]
+            HS = H * S
+            HS3 = HS * HS * HS
+            self._check_gate_relation(HS3, "(HS)³ = I", tolerance, report)
+
     def check_clifford_closure(
         self, gates: List[GateResult], tolerance: float = 1e-6
     ) -> Tuple[bool, Dict[str, any]]:
         """
         Check if a set of gates forms a closed Clifford group.
 
-        The single-qubit Clifford group has 24 elements and is generated
-        by {H, S}. This method verifies that the provided gates satisfy
-        the group closure property and standard Clifford relations.
-
-        Key relations to check:
-        - H² = I
-        - S⁴ = I
-        - (HS)³ = I
-        - HSH = SHS (conjugation relation)
-
-        Parameters
-        ----------
-        gates : list[GateResult]
-            List of gate results to check. Should include at least H and S.
-        tolerance : float, optional
-            Numerical tolerance for checking relations (default: 1e-6).
-
-        Returns
-        -------
-        is_clifford : bool
-            True if gates satisfy Clifford group relations.
-        report : dict
-            Detailed report of which relations passed/failed.
-
-        Examples
-        --------
-        >>> h_result = gates.optimize_hadamard()
-        >>> s_result = gates.optimize_phase_gate(np.pi/2)
-        >>> is_clifford, report = gates.check_clifford_closure([h_result, s_result])
-        >>> print(f"Clifford group: {is_clifford}")
+        Verifies Clifford group relations: H² = I, S⁴ = I, (HS)³ = I.
         """
-        # Extract gates by name
         gate_dict = {g.gate_name: g.target_unitary for g in gates}
-
         report = {
             "relations_checked": [],
             "relations_passed": [],
             "relations_failed": [],
         }
 
-        # Check H² = I
-        if "Hadamard" in gate_dict or "H" in gate_dict:
-            H = gate_dict.get("Hadamard", gate_dict.get("H"))
-            HH = H * H
-            I = qt.qeye(2)
-
-            # Check if HH ≈ ±I (global phase doesn't matter)
-            fidelity = abs((HH.dag() * I).tr()) / 2
-            passed = fidelity > (1 - tolerance)
-
-            report["relations_checked"].append("H² = I")
-            if passed:
-                report["relations_passed"].append(("H² = I", fidelity))
-            else:
-                report["relations_failed"].append(("H² = I", fidelity))
-
-        # Check S⁴ = I
-        if "S" in gate_dict:
-            S = gate_dict["S"]
-            S4 = S * S * S * S
-            I = qt.qeye(2)
-
-            fidelity = abs((S4.dag() * I).tr()) / 2
-            passed = fidelity > (1 - tolerance)
-
-            report["relations_checked"].append("S⁴ = I")
-            if passed:
-                report["relations_passed"].append(("S⁴ = I", fidelity))
-            else:
-                report["relations_failed"].append(("S⁴ = I", fidelity))
-
-        # Check (HS)³ = I
-        if ("Hadamard" in gate_dict or "H" in gate_dict) and "S" in gate_dict:
-            H = gate_dict.get("Hadamard", gate_dict.get("H"))
-            S = gate_dict["S"]
-            HS = H * S
-            HS3 = HS * HS * HS
-            I = qt.qeye(2)
-
-            fidelity = abs((HS3.dag() * I).tr()) / 2
-            passed = fidelity > (1 - tolerance)
-
-            report["relations_checked"].append("(HS)³ = I")
-            if passed:
-                report["relations_passed"].append(("(HS)³ = I", fidelity))
-            else:
-                report["relations_failed"].append(("(HS)³ = I", fidelity))
+        # Check all Clifford relations
+        self._check_h_squared(gate_dict, tolerance, report)
+        self._check_s_fourth(gate_dict, tolerance, report)
+        self._check_hs_cubed(gate_dict, tolerance, report)
 
         # Overall result
         is_clifford = (
