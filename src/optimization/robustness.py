@@ -374,6 +374,41 @@ class RobustnessTester:
             parameter_name="amplitude_error",
         )
 
+    def _run_noise_realizations(self, noise_level: float, n_realizations: int) -> tuple:
+        """
+        Run multiple noise realizations.
+
+        Parameters
+        ----------
+        noise_level : float
+            Standard deviation of Gaussian noise
+        n_realizations : int
+            Number of realizations
+
+        Returns
+        -------
+        fidelities : np.ndarray
+            Fidelities for each realization
+        noise_levels_actual : np.ndarray
+            Actual noise levels (RMS)
+        """
+        fidelities = []
+        noise_levels_actual = []
+
+        for _ in range(n_realizations):
+            # Generate Gaussian noise
+            noise = np.random.randn(*self.pulse_amplitudes.shape) * noise_level
+            pulse_noisy = self.pulse_amplitudes + noise
+
+            # Compute fidelity
+            fid = self._compute_fidelity(self.H_drift, pulse_noisy)
+            fidelities.append(fid)
+
+            # Track actual noise level (RMS)
+            noise_levels_actual.append(np.std(noise))
+
+        return np.array(fidelities), np.array(noise_levels_actual)
+
     def add_gaussian_noise(
         self,
         noise_level: float,
@@ -411,26 +446,13 @@ class RobustnessTester:
         if seed is not None:
             np.random.seed(seed)
 
-        fidelities = []
-        noise_levels_actual = []
-
         # Nominal fidelity (no noise)
         nominal_fidelity = self._compute_fidelity(self.H_drift, self.pulse_amplitudes)
 
-        for _ in range(n_realizations):
-            # Generate Gaussian noise
-            noise = np.random.randn(*self.pulse_amplitudes.shape) * noise_level
-            pulse_noisy = self.pulse_amplitudes + noise
-
-            # Compute fidelity
-            fid = self._compute_fidelity(self.H_drift, pulse_noisy)
-            fidelities.append(fid)
-
-            # Track actual noise level (RMS)
-            noise_levels_actual.append(np.std(noise))
-
-        fidelities = np.array(fidelities)
-        noise_levels_actual = np.array(noise_levels_actual)
+        # Run noise realizations
+        fidelities, noise_levels_actual = self._run_noise_realizations(
+            noise_level, n_realizations
+        )
 
         return RobustnessResult(
             parameter_values=noise_levels_actual,
@@ -623,6 +645,64 @@ class RobustnessTester:
         sensitivity = np.abs((F_pert - F0) / delta)
         return sensitivity
 
+    def _compute_perturbed_state(self, parameter_name: str, delta: float) -> qt.Qobj:
+        """
+        Compute perturbed quantum state.
+
+        Parameters
+        ----------
+        parameter_name : str
+            Parameter to perturb
+        delta : float
+            Perturbation magnitude
+
+        Returns
+        -------
+        qt.Qobj
+            Perturbed state
+
+        Raises
+        ------
+        ValueError
+            If parameter name is unknown
+        """
+        if parameter_name == "detuning":
+            H_pert = self.H_drift + 0.5 * delta * qt.sigmaz()
+            return self._evolve_state(H_pert, self.pulse_amplitudes)
+        elif parameter_name == "amplitude":
+            pulse_pert = self.pulse_amplitudes * (1.0 + delta)
+            return self._evolve_state(self.H_drift, pulse_pert)
+        else:
+            raise ValueError(f"Unknown parameter: {parameter_name}")
+
+    def _compute_fisher_from_states(
+        self, rho_0: qt.Qobj, rho_delta: qt.Qobj, delta: float
+    ) -> float:
+        """
+        Compute Fisher information from states.
+
+        Parameters
+        ----------
+        rho_0 : qt.Qobj
+            Unperturbed state
+        rho_delta : qt.Qobj
+            Perturbed state
+        delta : float
+            Perturbation step size
+
+        Returns
+        -------
+        float
+            Fisher information
+        """
+        # Numerical derivative of state
+        drho_dtheta = (rho_delta - rho_0) / delta
+
+        # Classical Fisher information approximation:
+        # F ≈ 4 * Tr[(∂ρ/∂θ)²]
+        fisher = 4 * np.real((drho_dtheta.dag() * drho_dtheta).tr())
+        return fisher
+
     def compute_fisher_information(
         self,
         parameter_name: str,
@@ -664,26 +744,12 @@ class RobustnessTester:
         - Braunstein & Caves, PRL 72, 3439 (1994)
         - Paris, Int. J. Quantum Inf. 7, 125 (2009)
         """
-        # Compute states at θ and θ+δ
+        # Compute unperturbed and perturbed states
         rho_0 = self._evolve_state(self.H_drift, self.pulse_amplitudes)
+        rho_delta = self._compute_perturbed_state(parameter_name, delta)
 
-        if parameter_name == "detuning":
-            H_pert = self.H_drift + 0.5 * delta * qt.sigmaz()
-            rho_delta = self._evolve_state(H_pert, self.pulse_amplitudes)
-        elif parameter_name == "amplitude":
-            pulse_pert = self.pulse_amplitudes * (1.0 + delta)
-            rho_delta = self._evolve_state(self.H_drift, pulse_pert)
-        else:
-            raise ValueError(f"Unknown parameter: {parameter_name}")
-
-        # Numerical derivative of state
-        drho_dtheta = (rho_delta - rho_0) / delta
-
-        # Classical Fisher information approximation:
-        # F ≈ 4 * Tr[(∂ρ/∂θ)²]
-        fisher = 4 * np.real((drho_dtheta.dag() * drho_dtheta).tr())
-
-        return fisher
+        # Compute Fisher information
+        return self._compute_fisher_from_states(rho_0, rho_delta, delta)
 
     def _evolve_state(
         self,
