@@ -566,6 +566,8 @@ class GRAPEOptimizer:
         """
         Optimize control pulses to implement a target unitary.
 
+        Uses helper functions to maintain Rule 4 compliance (≤60 lines).
+
         Parameters
         ----------
         U_target : qutip.Qobj
@@ -592,7 +594,17 @@ class GRAPEOptimizer:
         >>> result = optimizer.optimize_unitary(U_target)
         >>> print(f"Fidelity: {result.final_fidelity:.6f}")
         """
-        # Rule 5: Parameter validation assertions
+        self._validate_target_unitary(U_target, u_init, step_decay)
+        u = self._initialize_controls_for_unitary(u_init)
+        opt_state = self._run_unitary_optimization_loop(
+            U_target, u, adaptive_step, step_decay
+        )
+        return self._assemble_grape_result(opt_state)
+
+    def _validate_target_unitary(
+        self, U_target: qt.Qobj, u_init: Optional[np.ndarray], step_decay: float
+    ) -> None:
+        """Validate target unitary and optional parameters."""
         if U_target is None:
             raise ValueError("Target unitary cannot be None")
         assert isinstance(U_target, qt.Qobj), (
@@ -625,40 +637,48 @@ class GRAPEOptimizer:
         if not (0 < step_decay <= 1):
             raise ValueError(f"step_decay must be in (0, 1], got {step_decay}")
 
-        # Initialize controls
+    def _initialize_controls_for_unitary(
+        self, u_init: Optional[np.ndarray]
+    ) -> np.ndarray:
+        """Initialize control pulse array."""
         if u_init is None:
             u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
             u_init = self._apply_constraints(u_init)
+        return u_init.copy()
 
-        u = u_init.copy()
-
-        # History tracking
+    def _run_unitary_optimization_loop(
+        self,
+        U_target: qt.Qobj,
+        u: np.ndarray,
+        adaptive_step: bool,
+        step_decay: float,
+    ) -> dict:
+        """Execute main GRAPE optimization loop for unitary target."""
+        # Initialize optimization state
         fidelity_history = []
         gradient_norms = []
-
-        # Optimization loop
         current_lr = self.learning_rate
         converged = False
         message = "Max iterations reached"
         best_fidelity = 0.0
         best_u = u.copy()
-        velocity = np.zeros_like(u)  # For momentum
+        velocity = np.zeros_like(u)
 
         # Compute initial fidelity
         propagators = self._compute_propagators(u)
         forward_unitaries, U_final = self._forward_propagation(propagators)
         fidelity = self._compute_fidelity_unitary(U_final, U_target)
 
-        # Rule 5: Validate initial fidelity
+        # Validate initial fidelity
         assert_fidelity_valid(fidelity)
         assert 0 <= fidelity <= 1.0, f"Initial fidelity {fidelity} out of bounds [0, 1]"
 
+        # Main optimization loop
         for iteration in range(self.max_iterations):
-            # Rule 5: Iteration bound assertion
             assert iteration < MAX_ITERATIONS, (
                 f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
             )
-            # Store fidelity
+
             fidelity_history.append(fidelity)
 
             # Track best solution
@@ -666,94 +686,162 @@ class GRAPEOptimizer:
                 best_fidelity = fidelity
                 best_u = u.copy()
 
-            # Backward propagation (reuse forward propagators from current u)
-            backward_unitaries = self._backward_propagation(propagators)
-
             # Compute gradients
-            gradients = self._compute_gradients_unitary(
-                u, propagators, forward_unitaries, backward_unitaries, U_target
+            gradients = self._compute_iteration_gradients(
+                u, propagators, forward_unitaries, U_target, iteration
             )
 
-            # Clip gradients if specified
-            gradients = self._clip_gradients(gradients)
-
-            # Rule 5: Validate gradient computation
-            assert np.all(np.isfinite(gradients)), (
-                f"Gradients contain non-finite values at iteration {iteration}"
-            )
-
-            # Gradient norm (convergence check)
             grad_norm = np.linalg.norm(gradients)
             gradient_norms.append(grad_norm)
 
-            # Rule 5: Validate gradient norm
-            assert np.isfinite(grad_norm), (
-                f"Gradient norm is not finite at iteration {iteration}: {grad_norm}"
-            )
-
             # Check convergence
-            if grad_norm < self.convergence_threshold:
+            if self._check_convergence(grad_norm, fidelity, iteration):
                 converged = True
                 message = "Converged (gradient norm below threshold)"
-                if self.verbose:
-                    print(
-                        f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                        f"Grad Norm = {grad_norm:.2e} [CONVERGED]"
-                    )
                 break
 
-            # Apply momentum to gradients
+            # Update controls with momentum
             velocity = self.momentum * velocity + gradients
-            effective_gradients = velocity
 
-            # Determine step size and update controls
-            if self.use_line_search:
-                # Backtracking line search
-                step_size, new_fidelity = self._line_search(
-                    u, effective_gradients, fidelity, U_target, alpha_init=current_lr
+            # Perform control update step
+            u, propagators, forward_unitaries, fidelity, current_lr = (
+                self._perform_control_update(
+                    u,
+                    velocity,
+                    fidelity,
+                    U_target,
+                    current_lr,
+                    adaptive_step,
+                    step_decay,
+                    iteration,
+                    grad_norm,
                 )
-                u_new = u + step_size * effective_gradients
-                u_new = self._apply_constraints(u_new)
-                u = u_new
+            )
 
-                # Recompute propagators for next iteration
-                propagators = self._compute_propagators(u)
-                forward_unitaries, U_final = self._forward_propagation(propagators)
-                fidelity = new_fidelity
-
-                # Update for next iteration
-                if adaptive_step:
-                    current_lr *= step_decay
-            else:
-                # Standard gradient ascent with momentum
-                u_new = u + current_lr * effective_gradients
-                u_new = self._apply_constraints(u_new)
-                u = u_new
-
-                # Recompute for next iteration
-                propagators = self._compute_propagators(u)
-                forward_unitaries, U_final = self._forward_propagation(propagators)
-                fidelity = self._compute_fidelity_unitary(U_final, U_target)
-
-                # Adaptive learning rate
-                if adaptive_step:
-                    current_lr *= step_decay
-
-            # Verbose output
-            if self.verbose and (iteration % 10 == 0 or iteration < 5):
-                print(
-                    f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                    f"Grad Norm = {grad_norm:.2e}, LR = {current_lr:.4f}"
-                )
-
-        # Use best solution found
+        # Finalize with best solution
         u = best_u
         propagators = self._compute_propagators(u)
         forward_unitaries, U_final = self._forward_propagation(propagators)
         final_fidelity = self._compute_fidelity_unitary(U_final, U_target)
         fidelity_history.append(final_fidelity)
 
-        # Rule 5: Postcondition assertions - validate optimization results
+        self._validate_optimization_result(
+            u, final_fidelity, fidelity_history, iteration
+        )
+
+        if self.verbose:
+            print(f"\nOptimization complete: {message}")
+            print(f"Final fidelity: {final_fidelity:.8f}")
+            print(f"Best fidelity: {best_fidelity:.8f}")
+            print(f"Iterations: {iteration + 1}")
+
+        return {
+            "final_fidelity": final_fidelity,
+            "optimized_pulses": u,
+            "fidelity_history": fidelity_history,
+            "gradient_norms": gradient_norms,
+            "n_iterations": iteration + 1,
+            "converged": converged,
+            "message": message,
+        }
+
+    def _compute_iteration_gradients(
+        self,
+        u: np.ndarray,
+        propagators: List[qt.Qobj],
+        forward_unitaries: List[qt.Qobj],
+        U_target: qt.Qobj,
+        iteration: int,
+    ) -> np.ndarray:
+        """Compute and validate gradients for current iteration."""
+        backward_unitaries = self._backward_propagation(propagators)
+
+        gradients = self._compute_gradients_unitary(
+            u, propagators, forward_unitaries, backward_unitaries, U_target
+        )
+
+        gradients = self._clip_gradients(gradients)
+
+        # Validate gradient computation
+        assert np.all(np.isfinite(gradients)), (
+            f"Gradients contain non-finite values at iteration {iteration}"
+        )
+
+        return gradients
+
+    def _check_convergence(
+        self, grad_norm: float, fidelity: float, iteration: int
+    ) -> bool:
+        """Check if optimization has converged."""
+        assert np.isfinite(grad_norm), (
+            f"Gradient norm is not finite at iteration {iteration}: {grad_norm}"
+        )
+
+        if grad_norm < self.convergence_threshold:
+            if self.verbose:
+                print(
+                    f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
+                    f"Grad Norm = {grad_norm:.2e} [CONVERGED]"
+                )
+            return True
+        return False
+
+    def _perform_control_update(
+        self,
+        u: np.ndarray,
+        effective_gradients: np.ndarray,
+        fidelity: float,
+        U_target: qt.Qobj,
+        current_lr: float,
+        adaptive_step: bool,
+        step_decay: float,
+        iteration: int,
+        grad_norm: float,
+    ) -> tuple:
+        """Perform one control update step with optional line search."""
+        if self.use_line_search:
+            step_size, new_fidelity = self._line_search(
+                u, effective_gradients, fidelity, U_target, alpha_init=current_lr
+            )
+            u_new = u + step_size * effective_gradients
+            u_new = self._apply_constraints(u_new)
+            u = u_new
+
+            propagators = self._compute_propagators(u)
+            forward_unitaries, U_final = self._forward_propagation(propagators)
+            fidelity = new_fidelity
+
+            if adaptive_step:
+                current_lr *= step_decay
+        else:
+            u_new = u + current_lr * effective_gradients
+            u_new = self._apply_constraints(u_new)
+            u = u_new
+
+            propagators = self._compute_propagators(u)
+            forward_unitaries, U_final = self._forward_propagation(propagators)
+            fidelity = self._compute_fidelity_unitary(U_final, U_target)
+
+            if adaptive_step:
+                current_lr *= step_decay
+
+        # Verbose output
+        if self.verbose and (iteration % 10 == 0 or iteration < 5):
+            print(
+                f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
+                f"Grad Norm = {grad_norm:.2e}, LR = {current_lr:.4f}"
+            )
+
+        return u, propagators, forward_unitaries, fidelity, current_lr
+
+    def _validate_optimization_result(
+        self,
+        u: np.ndarray,
+        final_fidelity: float,
+        fidelity_history: list,
+        iteration: int,
+    ) -> None:
+        """Validate final optimization result."""
         assert_fidelity_valid(final_fidelity)
         assert 0 <= final_fidelity <= 1.0, (
             f"Final fidelity {final_fidelity} out of bounds [0, 1]"
@@ -771,20 +859,16 @@ class GRAPEOptimizer:
             f"Iteration count {iteration + 1} exceeds maximum {MAX_ITERATIONS}"
         )
 
-        if self.verbose:
-            print(f"\nOptimization complete: {message}")
-            print(f"Final fidelity: {final_fidelity:.8f}")
-            print(f"Best fidelity: {best_fidelity:.8f}")
-            print(f"Iterations: {iteration + 1}")
-
+    def _assemble_grape_result(self, opt_state: dict) -> GRAPEResult:
+        """Assemble optimization state into GRAPEResult object."""
         return GRAPEResult(
-            final_fidelity=final_fidelity,
-            optimized_pulses=u,
-            fidelity_history=fidelity_history,
-            gradient_norms=gradient_norms,
-            n_iterations=iteration + 1,
-            converged=converged,
-            message=message,
+            final_fidelity=opt_state["final_fidelity"],
+            optimized_pulses=opt_state["optimized_pulses"],
+            fidelity_history=opt_state["fidelity_history"],
+            gradient_norms=opt_state["gradient_norms"],
+            n_iterations=opt_state["n_iterations"],
+            converged=opt_state["converged"],
+            message=opt_state["message"],
         )
 
     def optimize_state(
