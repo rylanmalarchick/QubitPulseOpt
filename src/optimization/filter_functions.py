@@ -403,6 +403,51 @@ class NoiseTailoredOptimizer:
         self.ff_calc = ff_calculator or FilterFunctionCalculator()
         self.infid_calc = infidelity_calc or NoiseInfidelityCalculator(self.ff_calc)
 
+    def _create_objective_function(
+        self, times: np.ndarray, noise_type: str, noise_psd: Callable
+    ) -> Callable:
+        """
+        Create objective function for pulse optimization.
+
+        Args:
+            times: Time array
+            noise_type: Type of noise
+            noise_psd: Noise PSD function
+
+        Returns:
+            Objective function
+        """
+
+        def objective(amps):
+            try:
+                ff_result = self.ff_calc.compute_from_pulse(times, amps, noise_type)
+                chi = self.infid_calc.compute_infidelity(ff_result, noise_psd)
+                return chi
+            except Exception as e:
+                warnings.warn(f"Error in objective: {e}")
+                return 1e10
+
+        return objective
+
+    def _create_scipy_constraints(self, times: np.ndarray, constraints: Dict) -> list:
+        """
+        Create scipy-compatible constraints.
+
+        Args:
+            times: Time array
+            constraints: Constraint dictionary
+
+        Returns:
+            List of scipy constraint dictionaries
+        """
+        scipy_constraints = []
+        if "area" in constraints:
+            target_area = constraints["area"]
+            scipy_constraints.append(
+                {"type": "eq", "fun": lambda amps: np.trapz(amps, times) - target_area}
+            )
+        return scipy_constraints
+
     def optimize_pulse_shape(
         self,
         times: np.ndarray,
@@ -430,26 +475,10 @@ class NoiseTailoredOptimizer:
         constraints = constraints or {}
         max_amp = constraints.get("max_amplitude", 10.0)
 
-        # Objective function: noise infidelity
-        def objective(amps):
-            try:
-                ff_result = self.ff_calc.compute_from_pulse(times, amps, noise_type)
-                chi = self.infid_calc.compute_infidelity(ff_result, noise_psd)
-                return chi
-            except Exception as e:
-                warnings.warn(f"Error in objective: {e}")
-                return 1e10
-
-        # Bounds: amplitude constraints
+        # Create objective and constraints
+        objective = self._create_objective_function(times, noise_type, noise_psd)
         bounds = [(-max_amp, max_amp) for _ in initial_amplitudes]
-
-        # Scipy constraints (e.g., area constraint)
-        scipy_constraints = []
-        if "area" in constraints:
-            target_area = constraints["area"]
-            scipy_constraints.append(
-                {"type": "eq", "fun": lambda amps: np.trapz(amps, times) - target_area}
-            )
+        scipy_constraints = self._create_scipy_constraints(times, constraints)
 
         # Optimize
         result = minimize(
