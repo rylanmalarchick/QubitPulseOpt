@@ -152,32 +152,9 @@ class KrotovOptimizer:
     >>> print(f"Final fidelity: {result.final_fidelity:.6f}")
     """
 
-    def __init__(
-        self,
-        H_drift: qt.Qobj,
-        H_controls: List[qt.Qobj],
-        n_timeslices: int,
-        total_time: float,
-        penalty_lambda: float = 1.0,
-        convergence_threshold: float = 1e-5,
-        max_iterations: int = 200,
-        u_limits: Tuple[float, float] = (-10.0, 10.0),
-        verbose: bool = True,
-    ):
-        """Initialize Krotov optimizer."""
-        # Rule 5: Comprehensive parameter validation with assertions
-
-        # Control Hamiltonians validation
-        if H_controls is None:
-            raise ValueError("H_controls cannot be None")
-        if len(H_controls) == 0:
-            raise ValueError("Must provide at least one control Hamiltonian")
-        if len(H_controls) > MAX_CONTROL_HAMILTONIANS:
-            raise ValueError(
-                f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
-            )
-
-        # Drift Hamiltonian validation
+    @staticmethod
+    def _validate_drift_hamiltonian(H_drift: qt.Qobj) -> None:
+        """Validate drift Hamiltonian."""
         if H_drift is None:
             raise ValueError("Drift Hamiltonian cannot be None")
         if not isinstance(H_drift, qt.Qobj):
@@ -190,7 +167,20 @@ class KrotovOptimizer:
             )
         assert_system_size(H_drift.shape[0], MAX_HILBERT_DIM)
 
-        # Control Hamiltonians validation
+    @staticmethod
+    def _validate_control_hamiltonians(
+        H_controls: List[qt.Qobj], H_drift: qt.Qobj
+    ) -> None:
+        """Validate control Hamiltonians."""
+        if H_controls is None:
+            raise ValueError("H_controls cannot be None")
+        if len(H_controls) == 0:
+            raise ValueError("Must provide at least one control Hamiltonian")
+        if len(H_controls) > MAX_CONTROL_HAMILTONIANS:
+            raise ValueError(
+                f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
+            )
+
         for i, H_c in enumerate(H_controls):
             if H_c is None:
                 raise ValueError(f"Control Hamiltonian {i} cannot be None")
@@ -203,7 +193,9 @@ class KrotovOptimizer:
                     f"Control Hamiltonian {i} shape {H_c.shape} != drift shape {H_drift.shape}"
                 )
 
-        # Time discretization validation
+    @staticmethod
+    def _validate_time_parameters(n_timeslices: int, total_time: float) -> None:
+        """Validate time discretization parameters."""
         if n_timeslices <= 0:
             raise ValueError(f"n_timeslices must be positive, got {n_timeslices}")
         if n_timeslices > MAX_TIMESLICES:
@@ -215,7 +207,14 @@ class KrotovOptimizer:
         if not np.isfinite(total_time):
             raise ValueError(f"total_time must be finite, got {total_time}")
 
-        # Penalty parameter validation
+    @staticmethod
+    def _validate_optimization_parameters(
+        penalty_lambda: float,
+        convergence_threshold: float,
+        max_iterations: int,
+        u_limits: Tuple[float, float],
+    ) -> None:
+        """Validate optimization parameters."""
         if penalty_lambda < 0:
             raise ValueError(
                 f"penalty_lambda must be non-negative, got {penalty_lambda}"
@@ -223,7 +222,6 @@ class KrotovOptimizer:
         if not np.isfinite(penalty_lambda):
             raise ValueError(f"penalty_lambda must be finite")
 
-        # Control limits validation
         if u_limits is None:
             raise ValueError("u_limits cannot be None")
         if len(u_limits) != 2:
@@ -237,7 +235,6 @@ class KrotovOptimizer:
         if not (np.isfinite(u_limits[0]) and np.isfinite(u_limits[1])):
             raise ValueError("u_limits must be finite")
 
-        # Optimization parameters validation
         if convergence_threshold <= 0:
             raise ValueError(
                 f"convergence_threshold must be positive, got {convergence_threshold}"
@@ -249,13 +246,37 @@ class KrotovOptimizer:
                 f"max_iterations {max_iterations} exceeds maximum {MAX_ITERATIONS}"
             )
 
-        # Total parameters validation
-        total_params = len(H_controls) * n_timeslices
+    @staticmethod
+    def _validate_total_parameters(n_controls: int, n_timeslices: int) -> None:
+        """Validate total parameter count."""
+        total_params = n_controls * n_timeslices
         if total_params > MAX_PARAMS:
             raise ValueError(
-                f"Total parameters {total_params} = {len(H_controls)} controls × "
+                f"Total parameters {total_params} = {n_controls} controls × "
                 f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
             )
+
+    def __init__(
+        self,
+        H_drift: qt.Qobj,
+        H_controls: List[qt.Qobj],
+        n_timeslices: int,
+        total_time: float,
+        penalty_lambda: float = 1.0,
+        convergence_threshold: float = 1e-5,
+        max_iterations: int = 200,
+        u_limits: Tuple[float, float] = (-10.0, 10.0),
+        verbose: bool = True,
+    ):
+        """Initialize Krotov optimizer."""
+        # Validate all parameters
+        self._validate_drift_hamiltonian(H_drift)
+        self._validate_control_hamiltonians(H_controls, H_drift)
+        self._validate_time_parameters(n_timeslices, total_time)
+        self._validate_optimization_parameters(
+            penalty_lambda, convergence_threshold, max_iterations, u_limits
+        )
+        self._validate_total_parameters(len(H_controls), n_timeslices)
 
         self.H_drift = H_drift
         self.H_controls = H_controls
@@ -418,6 +439,309 @@ class KrotovOptimizer:
         """Apply amplitude constraints."""
         return np.clip(u, self.u_limits[0], self.u_limits[1])
 
+    def _initialize_controls_for_unitary(
+        self, u_init: Optional[np.ndarray]
+    ) -> np.ndarray:
+        """
+        Initialize control pulse array for unitary optimization.
+
+        Parameters
+        ----------
+        u_init : np.ndarray or None
+            Initial control guess. If None, uses small random values.
+
+        Returns
+        -------
+        np.ndarray
+            Initialized control array with constraints applied.
+        """
+        if u_init is None:
+            u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
+            u_init = self._apply_constraints(u_init)
+        return u_init.copy()
+
+    def _initialize_unitary_state(self, psi_init: Optional[qt.Qobj]) -> qt.Qobj:
+        """
+        Initialize quantum state for unitary optimization.
+
+        Parameters
+        ----------
+        psi_init : qutip.Qobj or None
+            Initial state. If None, uses ground state |0⟩.
+
+        Returns
+        -------
+        qutip.Qobj
+            Initialized quantum state.
+        """
+        if psi_init is None:
+            return qt.basis(self.dim, 0)
+        return psi_init
+
+    def _compute_unitary_fidelity(
+        self, psi_final: qt.Qobj, psi_target: qt.Qobj
+    ) -> float:
+        """
+        Compute state transfer fidelity.
+
+        Parameters
+        ----------
+        psi_final : qutip.Qobj
+            Final evolved state.
+        psi_target : qutip.Qobj
+            Target state.
+
+        Returns
+        -------
+        float
+            State fidelity (real value between 0 and 1).
+        """
+        fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
+        return np.real(fidelity)
+
+    def _check_krotov_convergence(
+        self,
+        iteration: int,
+        fidelity: float,
+        fidelity_history: List[float],
+        delta_fidelity_history: List[float],
+    ) -> Tuple[bool, str, float]:
+        """
+        Check convergence of Krotov optimization.
+
+        Parameters
+        ----------
+        iteration : int
+            Current iteration number.
+        fidelity : float
+            Current fidelity value.
+        fidelity_history : list
+            History of fidelity values.
+        delta_fidelity_history : list
+            History of fidelity changes.
+
+        Returns
+        -------
+        tuple
+            (converged, message, delta_fid) where converged is bool,
+            message is convergence message, delta_fid is fidelity change.
+        """
+        if iteration > 0:
+            delta_fid = fidelity - fidelity_history[-2]
+            delta_fidelity_history.append(delta_fid)
+
+            if np.abs(delta_fid) < self.convergence_threshold:
+                message = "Converged (fidelity change below threshold)"
+                self._log_convergence(iteration, fidelity, delta_fid)
+                return True, message, delta_fid
+            return False, "", delta_fid
+        else:
+            delta_fidelity_history.append(0.0)
+            return False, "", 0.0
+
+    def _execute_krotov_iteration(
+        self,
+        psi_init: qt.Qobj,
+        U_target: qt.Qobj,
+        u: np.ndarray,
+    ) -> Tuple[float, qt.Qobj, List[qt.Qobj], List[qt.Qobj]]:
+        """
+        Execute one iteration of Krotov optimization.
+
+        Parameters
+        ----------
+        psi_init : qutip.Qobj
+            Initial state.
+        U_target : qutip.Qobj
+            Target unitary.
+        u : np.ndarray
+            Current control array.
+
+        Returns
+        -------
+        tuple
+            (fidelity, psi_target, forward_states, costates) containing
+            iteration results.
+        """
+        # Forward propagation
+        forward_states = self._forward_propagation(psi_init, u)
+        psi_final = forward_states[-1]
+
+        # Compute target state
+        psi_target = U_target * psi_init
+
+        # Compute fidelity
+        fidelity = self._compute_unitary_fidelity(psi_final, psi_target)
+
+        # Backward propagation (co-state is target state for state fidelity)
+        chi_final = psi_target
+        costates = self._backward_propagation(chi_final, u)
+
+        return fidelity, psi_target, forward_states, costates
+
+    def _update_krotov_controls(
+        self,
+        u: np.ndarray,
+        forward_states: List[qt.Qobj],
+        costates: List[qt.Qobj],
+    ) -> np.ndarray:
+        """
+        Update control pulses using Krotov gradient.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Current control array.
+        forward_states : list
+            Forward-propagated states.
+        costates : list
+            Backward-propagated co-states.
+
+        Returns
+        -------
+        np.ndarray
+            Updated control array with constraints applied.
+        """
+        updates = self._compute_control_updates(u, forward_states, costates)
+        u_new = u + updates
+        return self._apply_constraints(u_new)
+
+    def _evaluate_final_unitary_fidelity(
+        self, psi_init: qt.Qobj, U_target: qt.Qobj, u: np.ndarray
+    ) -> float:
+        """
+        Evaluate final fidelity after optimization.
+
+        Parameters
+        ----------
+        psi_init : qutip.Qobj
+            Initial state.
+        U_target : qutip.Qobj
+            Target unitary.
+        u : np.ndarray
+            Optimized control array.
+
+        Returns
+        -------
+        float
+            Final fidelity value.
+        """
+        forward_states = self._forward_propagation(psi_init, u)
+        psi_final = forward_states[-1]
+        psi_target = U_target * psi_init
+        return self._compute_unitary_fidelity(psi_final, psi_target)
+
+    def _run_krotov_optimization_loop(
+        self,
+        psi_init: qt.Qobj,
+        U_target: qt.Qobj,
+        u: np.ndarray,
+    ) -> Tuple[np.ndarray, List[float], List[float], bool, str, int]:
+        """
+        Execute the main Krotov optimization loop.
+
+        Parameters
+        ----------
+        psi_init : qutip.Qobj
+            Initial quantum state.
+        U_target : qutip.Qobj
+            Target unitary gate.
+        u : np.ndarray
+            Initial control array.
+
+        Returns
+        -------
+        tuple
+            (u, fidelity_history, delta_fidelity_history, converged, message, n_iter)
+        """
+        fidelity_history = []
+        delta_fidelity_history = []
+        converged = False
+        message = "Max iterations reached"
+
+        for iteration in range(self.max_iterations):
+            # Execute iteration
+            fidelity, psi_target, forward_states, costates = (
+                self._execute_krotov_iteration(psi_init, U_target, u)
+            )
+            fidelity_history.append(fidelity)
+
+            # Check convergence
+            conv_result = self._check_krotov_convergence(
+                iteration, fidelity, fidelity_history, delta_fidelity_history
+            )
+            converged, conv_message, delta_fid = conv_result
+            if converged:
+                message = conv_message
+                break
+
+            # Update controls
+            u = self._update_krotov_controls(u, forward_states, costates)
+
+            # Verbose output
+            if self.verbose and (iteration % 10 == 0 or iteration < 5):
+                delta_str = f", ΔF = {delta_fid:.2e}" if iteration > 0 else ""
+                print(f"Iteration {iteration}: Fidelity = {fidelity:.8f}{delta_str}")
+
+        return (
+            u,
+            fidelity_history,
+            delta_fidelity_history,
+            converged,
+            message,
+            iteration + 1,
+        )
+
+    def _assemble_krotov_result(
+        self,
+        u: np.ndarray,
+        fidelity_history: List[float],
+        delta_fidelity_history: List[float],
+        converged: bool,
+        message: str,
+        n_iterations: int,
+        final_fidelity: float,
+    ) -> KrotovResult:
+        """
+        Assemble final optimization result.
+
+        Parameters
+        ----------
+        u : np.ndarray
+            Optimized control array.
+        fidelity_history : list
+            Fidelity at each iteration.
+        delta_fidelity_history : list
+            Change in fidelity per iteration.
+        converged : bool
+            Convergence status.
+        message : str
+            Convergence message.
+        n_iterations : int
+            Number of iterations performed.
+        final_fidelity : float
+            Final fidelity value.
+
+        Returns
+        -------
+        KrotovResult
+            Complete optimization result.
+        """
+        if self.verbose:
+            print(f"\nOptimization complete: {message}")
+            print(f"Final fidelity: {final_fidelity:.8f}")
+            print(f"Iterations: {n_iterations}")
+
+        return KrotovResult(
+            final_fidelity=final_fidelity,
+            optimized_pulses=u,
+            fidelity_history=fidelity_history,
+            delta_fidelity=delta_fidelity_history,
+            n_iterations=n_iterations,
+            converged=converged,
+            message=message,
+        )
+
     def optimize_unitary(
         self,
         U_target: qt.Qobj,
@@ -429,6 +753,12 @@ class KrotovOptimizer:
 
         For unitary optimization, we consider multiple initial states
         (computational basis) to ensure the full gate is correct.
+
+        This function orchestrates the Krotov optimization algorithm by:
+        1. Initializing controls and state
+        2. Iteratively updating controls via gradient flow
+        3. Checking convergence based on fidelity change
+        4. Assembling final results
 
         Parameters
         ----------
@@ -442,7 +772,7 @@ class KrotovOptimizer:
         Returns
         -------
         KrotovResult
-            Optimization result.
+            Optimization result containing fidelity, optimized pulses, and history.
 
         Examples
         --------
@@ -453,102 +783,22 @@ class KrotovOptimizer:
         >>> result = optimizer.optimize_unitary(U_target)
         >>> print(f"Fidelity: {result.final_fidelity:.6f}")
         """
-        # Initialize controls
-        if u_init is None:
-            u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
-            u_init = self._apply_constraints(u_init)
+        # Initialize
+        u = self._initialize_controls_for_unitary(u_init)
+        psi_init = self._initialize_unitary_state(psi_init)
 
-        # Initialize state
-        if psi_init is None:
-            psi_init = qt.basis(self.dim, 0)
+        # Run optimization
+        u, fid_hist, delta_hist, converged, msg, n_iter = (
+            self._run_krotov_optimization_loop(psi_init, U_target, u)
+        )
 
-        u = u_init.copy()
+        # Final evaluation
+        final_fidelity = self._evaluate_final_unitary_fidelity(psi_init, U_target, u)
+        fid_hist.append(final_fidelity)
 
-        # History tracking
-        fidelity_history = []
-        delta_fidelity_history = []
-
-        # Optimization loop
-        converged = False
-        message = "Max iterations reached"
-
-        for iteration in range(self.max_iterations):
-            # Forward propagation
-            forward_states = self._forward_propagation(psi_init, u)
-            psi_final = forward_states[-1]
-
-            # Compute evolved unitary (for this initial state)
-            # Full unitary requires multiple initial states, but we approximate
-            # by using state transfer for now
-
-            # For state-to-state transfer, we use target state
-            psi_target = U_target * psi_init
-
-            # Compute fidelity
-            fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
-            fidelity = np.real(fidelity)
-            fidelity_history.append(fidelity)
-
-            # Check convergence
-            if iteration > 0:
-                delta_fid = fidelity - fidelity_history[-2]
-                delta_fidelity_history.append(delta_fid)
-
-                # Rule 1: Flatten nesting with early exit
-                if np.abs(delta_fid) < self.convergence_threshold:
-                    converged = True
-                    message = "Converged (fidelity change below threshold)"
-                    self._log_convergence(iteration, fidelity, delta_fid)
-                    break
-            else:
-                delta_fidelity_history.append(0.0)
-
-            # Compute co-state (gradient of fidelity w.r.t. final state)
-            # For state fidelity: χ(T) = |ψ_target⟩
-            chi_final = psi_target
-
-            # Backward propagation
-            costates = self._backward_propagation(chi_final, u)
-
-            # Compute control updates
-            updates = self._compute_control_updates(u, forward_states, costates)
-
-            # Apply updates
-            u_new = u + updates
-            u_new = self._apply_constraints(u_new)
-
-            # Check monotonicity (Krotov guarantees this)
-            # Optionally verify for debugging
-            u = u_new
-
-            # Verbose output
-            if self.verbose and (iteration % 10 == 0 or iteration < 5):
-                delta_str = (
-                    f", ΔF = {delta_fidelity_history[-1]:.2e}" if iteration > 0 else ""
-                )
-                print(f"Iteration {iteration}: Fidelity = {fidelity:.8f}{delta_str}")
-
-        # Final fidelity
-        forward_states = self._forward_propagation(psi_init, u)
-        psi_final = forward_states[-1]
-        psi_target = U_target * psi_init
-        final_fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
-        final_fidelity = np.real(final_fidelity)
-        fidelity_history.append(final_fidelity)
-
-        if self.verbose:
-            print(f"\nOptimization complete: {message}")
-            print(f"Final fidelity: {final_fidelity:.8f}")
-            print(f"Iterations: {iteration + 1}")
-
-        return KrotovResult(
-            final_fidelity=final_fidelity,
-            optimized_pulses=u,
-            fidelity_history=fidelity_history,
-            delta_fidelity=delta_fidelity_history,
-            n_iterations=iteration + 1,
-            converged=converged,
-            message=message,
+        # Assemble result
+        return self._assemble_krotov_result(
+            u, fid_hist, delta_hist, converged, msg, n_iter, final_fidelity
         )
 
     def optimize_state(
