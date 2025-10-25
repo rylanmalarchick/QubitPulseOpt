@@ -152,6 +152,110 @@ class GRAPEOptimizer:
     >>> print(f"Final fidelity: {result.final_fidelity:.6f}")
     """
 
+    @staticmethod
+    def _validate_drift_hamiltonian(H_drift: qt.Qobj) -> None:
+        """Validate drift Hamiltonian."""
+        if H_drift is None:
+            raise ValueError("Drift Hamiltonian cannot be None")
+        if not isinstance(H_drift, qt.Qobj):
+            raise ValueError(f"H_drift must be Qobj, got {type(H_drift)}")
+        if not H_drift.isherm:
+            raise ValueError("Drift Hamiltonian must be Hermitian")
+        if H_drift.shape[0] != H_drift.shape[1]:
+            raise ValueError(
+                f"Drift Hamiltonian must be square, got shape {H_drift.shape}"
+            )
+        assert_system_size(H_drift.shape[0], MAX_HILBERT_DIM)
+
+    @staticmethod
+    def _validate_control_hamiltonians(
+        H_controls: List[qt.Qobj], H_drift: qt.Qobj
+    ) -> None:
+        """Validate control Hamiltonians."""
+        if H_controls is None:
+            raise ValueError("H_controls cannot be None")
+        if len(H_controls) == 0:
+            raise ValueError("Must provide at least one control Hamiltonian")
+        if len(H_controls) > MAX_CONTROL_HAMILTONIANS:
+            raise ValueError(
+                f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
+            )
+
+        for i, H_c in enumerate(H_controls):
+            if H_c is None:
+                raise ValueError(f"Control Hamiltonian {i} cannot be None")
+            if not isinstance(H_c, qt.Qobj):
+                raise ValueError(f"H_controls[{i}] must be Qobj, got {type(H_c)}")
+            if not H_c.isherm:
+                raise ValueError(f"Control Hamiltonian {i} must be Hermitian")
+            if H_c.shape != H_drift.shape:
+                raise ValueError(
+                    f"Control Hamiltonian {i} shape {H_c.shape} != drift shape {H_drift.shape}"
+                )
+
+    @staticmethod
+    def _validate_time_parameters(n_timeslices: int, total_time: float) -> None:
+        """Validate time discretization parameters."""
+        if n_timeslices <= 0:
+            raise ValueError(f"n_timeslices must be positive, got {n_timeslices}")
+        if n_timeslices > MAX_TIMESLICES:
+            raise ValueError(
+                f"n_timeslices {n_timeslices} exceeds maximum {MAX_TIMESLICES}"
+            )
+        if total_time <= 0:
+            raise ValueError(f"total_time must be positive, got {total_time}")
+        if not np.isfinite(total_time):
+            raise ValueError(f"total_time must be finite, got {total_time}")
+
+    @staticmethod
+    def _validate_control_limits(u_limits: Tuple[float, float]) -> None:
+        """Validate control amplitude limits."""
+        if u_limits is None:
+            raise ValueError("u_limits cannot be None")
+        if len(u_limits) != 2:
+            raise ValueError(
+                f"u_limits must be (min, max), got {len(u_limits)} elements"
+            )
+        if u_limits[0] >= u_limits[1]:
+            raise ValueError(
+                f"u_limits[0] ({u_limits[0]}) must be < u_limits[1] ({u_limits[1]})"
+            )
+        if not (np.isfinite(u_limits[0]) and np.isfinite(u_limits[1])):
+            raise ValueError("u_limits must be finite")
+
+    @staticmethod
+    def _validate_grape_parameters(
+        convergence_threshold: float,
+        max_iterations: int,
+        learning_rate: float,
+        momentum: float,
+    ) -> None:
+        """Validate GRAPE-specific optimization parameters."""
+        if convergence_threshold <= 0:
+            raise ValueError(
+                f"convergence_threshold must be positive, got {convergence_threshold}"
+            )
+        if max_iterations <= 0:
+            raise ValueError(f"max_iterations must be positive, got {max_iterations}")
+        if max_iterations > MAX_ITERATIONS:
+            raise ValueError(
+                f"max_iterations {max_iterations} exceeds maximum {MAX_ITERATIONS}"
+            )
+        if learning_rate <= 0:
+            raise ValueError(f"learning_rate must be positive, got {learning_rate}")
+        if not (0 <= momentum < 1):
+            raise ValueError(f"momentum must be in [0, 1), got {momentum}")
+
+    @staticmethod
+    def _validate_total_parameters(n_controls: int, n_timeslices: int) -> None:
+        """Validate total parameter count."""
+        total_params = n_controls * n_timeslices
+        if total_params > MAX_PARAMS:
+            raise ValueError(
+                f"Total parameters {total_params} = {n_controls} controls × "
+                f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
+            )
+
     def __init__(
         self,
         H_drift: qt.Qobj,
@@ -179,93 +283,15 @@ class GRAPEOptimizer:
         momentum : float, optional
             Momentum coefficient (0 = no momentum, 0.9 = high momentum). Default: 0.0.
         """
-        # Rule 5: Comprehensive parameter validation with proper exceptions
-
-        # Control Hamiltonians validation
-        if H_controls is None:
-            raise ValueError("H_controls cannot be None")
-        if len(H_controls) == 0:
-            raise ValueError("Must provide at least one control Hamiltonian")
-        if len(H_controls) > MAX_CONTROL_HAMILTONIANS:
-            raise ValueError(
-                f"Number of controls {len(H_controls)} exceeds maximum {MAX_CONTROL_HAMILTONIANS}"
-            )
-
-        # Drift Hamiltonian validation
-        if H_drift is None:
-            raise ValueError("Drift Hamiltonian cannot be None")
-        if not isinstance(H_drift, qt.Qobj):
-            raise ValueError(f"H_drift must be Qobj, got {type(H_drift)}")
-        if not H_drift.isherm:
-            raise ValueError("Drift Hamiltonian must be Hermitian")
-        if H_drift.shape[0] != H_drift.shape[1]:
-            raise ValueError(
-                f"Drift Hamiltonian must be square, got shape {H_drift.shape}"
-            )
-        assert_system_size(H_drift.shape[0], MAX_HILBERT_DIM)
-
-        # Control Hamiltonians validation
-        for i, H_c in enumerate(H_controls):
-            if H_c is None:
-                raise ValueError(f"Control Hamiltonian {i} cannot be None")
-            if not isinstance(H_c, qt.Qobj):
-                raise ValueError(f"H_controls[{i}] must be Qobj, got {type(H_c)}")
-            if not H_c.isherm:
-                raise ValueError(f"Control Hamiltonian {i} must be Hermitian")
-            if H_c.shape != H_drift.shape:
-                raise ValueError(
-                    f"Control Hamiltonian {i} shape {H_c.shape} != drift shape {H_drift.shape}"
-                )
-
-        # Time discretization validation
-        if n_timeslices <= 0:
-            raise ValueError(f"n_timeslices must be positive, got {n_timeslices}")
-        if n_timeslices > MAX_TIMESLICES:
-            raise ValueError(
-                f"n_timeslices {n_timeslices} exceeds maximum {MAX_TIMESLICES}"
-            )
-        if total_time <= 0:
-            raise ValueError(f"total_time must be positive, got {total_time}")
-        if not np.isfinite(total_time):
-            raise ValueError(f"total_time must be finite, got {total_time}")
-
-        # Control limits validation
-        if u_limits is None:
-            raise ValueError("u_limits cannot be None")
-        if len(u_limits) != 2:
-            raise ValueError(
-                f"u_limits must be (min, max), got {len(u_limits)} elements"
-            )
-        if u_limits[0] >= u_limits[1]:
-            raise ValueError(
-                f"u_limits[0] ({u_limits[0]}) must be < u_limits[1] ({u_limits[1]})"
-            )
-        if not (np.isfinite(u_limits[0]) and np.isfinite(u_limits[1])):
-            raise ValueError("u_limits must be finite")
-
-        # Optimization parameters validation
-        if convergence_threshold <= 0:
-            raise ValueError(
-                f"convergence_threshold must be positive, got {convergence_threshold}"
-            )
-        if max_iterations <= 0:
-            raise ValueError(f"max_iterations must be positive, got {max_iterations}")
-        if max_iterations > MAX_ITERATIONS:
-            raise ValueError(
-                f"max_iterations {max_iterations} exceeds maximum {MAX_ITERATIONS}"
-            )
-        if learning_rate <= 0:
-            raise ValueError(f"learning_rate must be positive, got {learning_rate}")
-        if not (0 <= momentum < 1):
-            raise ValueError(f"momentum must be in [0, 1), got {momentum}")
-
-        # Total parameters validation
-        total_params = len(H_controls) * n_timeslices
-        if total_params > MAX_PARAMS:
-            raise ValueError(
-                f"Total parameters {total_params} = {len(H_controls)} controls × "
-                f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
-            )
+        # Validate all parameters
+        self._validate_drift_hamiltonian(H_drift)
+        self._validate_control_hamiltonians(H_controls, H_drift)
+        self._validate_time_parameters(n_timeslices, total_time)
+        self._validate_control_limits(u_limits)
+        self._validate_grape_parameters(
+            convergence_threshold, max_iterations, learning_rate, momentum
+        )
+        self._validate_total_parameters(len(H_controls), n_timeslices)
 
         self.H_drift = H_drift
         self.H_controls = H_controls
