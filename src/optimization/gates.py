@@ -629,9 +629,9 @@ class UniversalGates:
         return self._standard_gates[name]
 
 
-def _normalize_to_su2(u: np.ndarray) -> np.ndarray:
+def _normalize_to_su2(u: np.ndarray) -> tuple:
     """
-    Normalize matrix to SU(2).
+    Normalize matrix to SU(2) and extract global phase.
 
     Parameters
     ----------
@@ -640,40 +640,49 @@ def _normalize_to_su2(u: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    np.ndarray
+    u_normalized : np.ndarray
         Normalized matrix with det = 1
+    global_phase : float
+        Global phase removed to make det = 1
     """
     det_u = np.linalg.det(u)
-    return u / np.sqrt(det_u)
+    # det(U) = e^(2iα) for U(2) matrices
+    # To get SU(2), divide by e^(iα) where 2α = arg(det)
+    global_phase = np.angle(det_u) / 2
+    u_normalized = u * np.exp(-1j * global_phase)
+    return u_normalized, global_phase
 
 
 def _extract_theta_angle(u: np.ndarray) -> float:
     """
-    Extract theta angle from SU(2) matrix.
+    Extract theta angle from U(2) matrix.
 
     Parameters
     ----------
     u : np.ndarray
-        Normalized 2x2 SU(2) matrix
+        2x2 unitary matrix
 
     Returns
     -------
     float
         Theta angle (radians)
     """
-    # In ZYZ: U = Rz(φ1) Ry(θ) Rz(φ2)
-    # Matrix form: u[0,0] = cos(θ/2)e^(i(φ1+φ2)/2)
+    # In ZYZ: U = e^(iα) Rz(φ1) Ry(θ) Rz(φ2)
+    # Matrix form: u[0,0] = e^(iα) cos(θ/2) e^(i(φ1+φ2)/2)
+    # So |u[0,0]| = |cos(θ/2)| (global phase and other phases cancel in magnitude)
     return 2 * np.arccos(np.clip(np.abs(u[0, 0]), 0, 1))
 
 
 def _extract_euler_phases(u: np.ndarray, theta: float) -> Tuple[float, float, float]:
     """
-    Extract Euler angles from SU(2) matrix.
+    Extract Euler angles from U(2) matrix.
+
+    For U = e^(iα) Rz(φ1) Ry(θ) Rz(φ2), extracts (φ1, θ, φ2).
 
     Parameters
     ----------
     u : np.ndarray
-        Normalized 2x2 SU(2) matrix
+        2x2 unitary matrix
     theta : float
         Y-rotation angle
 
@@ -688,36 +697,72 @@ def _extract_euler_phases(u: np.ndarray, theta: float) -> Tuple[float, float, fl
     """
     # Handle special case: θ ≈ 0 (identity-like)
     if abs(theta) < 1e-10:
-        phi1 = 0.0
-        phi2 = 2 * np.angle(u[0, 0])
+        # When θ=0: U = e^(iα) Rz(φ1+φ2)
+        # u[0,0] = e^(iα) e^(-i(φ1+φ2)/2)
+        # u[1,1] = e^(iα) e^(i(φ1+φ2)/2)
+        # We want to match diagonal elements individually.
+        # Set φ1 such that the average phase matches, then compute φ2
+        # angle(u[0,0]) = α - (φ1+φ2)/2
+        # angle(u[1,1]) = α + (φ1+φ2)/2
+        # Therefore: φ1+φ2 = angle(u[1,1]) - angle(u[0,0])
+        # For diagonal matrices, we have freedom to choose φ1.
+        # Choose φ1 to minimize total rotation: set φ1 = φ2 = (φ1+φ2)/2
+        phi_sum = np.angle(u[1, 1]) - np.angle(u[0, 0])
+        phi1 = phi_sum / 2
+        phi2 = phi_sum / 2
         return phi1, theta, phi2
 
     # Handle special case: θ ≈ π (X-like)
     if abs(theta - np.pi) < 1e-10:
+        # When θ=π: U = Rz(φ1) Ry(π) Rz(φ2)
+        # The formula gives: U = [[0, -e^(-i(φ1-φ2)/2)], [e^(i(φ1-φ2)/2), 0]]
+        # From u[1,0]: e^(i(φ1-φ2)/2) = u[1,0]
+        # Therefore: (φ1-φ2)/2 = angle(u[1,0])
+        # Set φ1=0 and solve for φ2
+        phi_diff = 2 * np.angle(u[1, 0])
         phi1 = 0.0
-        phi2 = 2 * np.angle(u[1, 0])
+        phi2 = -phi_diff
         return phi1, theta, phi2
 
     # General case: extract phases
-    # u[1,0] = sin(θ/2)e^(i(φ1-φ2)/2)
-    # u[0,0] = cos(θ/2)e^(i(φ1+φ2)/2)
-    phase_plus = np.angle(u[0, 0])
-    phase_minus = np.angle(u[1, 0])
+    # ZYZ convention: U = Rz(φ1) Ry(θ) Rz(φ2) where Rz(φ) = exp(-iφσz/2)
+    # Matrix elements (ignoring global phase e^(iα)):
+    # u[0,0] = e^(-i(φ1+φ2)/2) cos(θ/2)
+    # u[1,0] = e^(i(φ1-φ2)/2) sin(θ/2)
+    # u[0,1] = -e^(-i(φ1-φ2)/2) sin(θ/2)
+    # u[1,1] = e^(i(φ1+φ2)/2) cos(θ/2)
 
-    phi1 = phase_plus + phase_minus
-    phi2 = phase_plus - phase_minus
+    # From u[0,0] and u[1,1]:
+    # angle(u[0,0]) = α - (φ1+φ2)/2
+    # angle(u[1,1]) = α + (φ1+φ2)/2
+    # Therefore: φ1+φ2 = 2*(angle(u[1,1]) - angle(u[0,0]))
+
+    # From u[1,0]:
+    # angle(u[1,0]) = α + (φ1-φ2)/2
+    # From u[0,1]:
+    # angle(u[0,1]) = α + π - (φ1-φ2)/2 (due to the minus sign)
+    # Therefore: φ1-φ2 = 2*(angle(u[1,0]) - α)
+    # But we can use: angle(u[1,0]) - angle(u[0,0]) = (φ1-φ2)/2 + (φ1+φ2)/2 = φ1
+
+    phase_00 = np.angle(u[0, 0])
+    phase_10 = np.angle(u[1, 0])
+    phase_11 = np.angle(u[1, 1])
+
+    phi1 = phase_10 - phase_00
+    phi2 = phase_11 - phase_10
 
     return phi1, theta, phi2
 
 
 def euler_angles_from_unitary(U: qt.Qobj) -> Tuple[float, float, float]:
     """
-    Decompose arbitrary SU(2) unitary into Euler angles.
+    Decompose arbitrary U(2) unitary into Euler angles.
 
     Any single-qubit unitary can be written as:
         U = e^(iα) R_z(φ₁) R_y(θ) R_z(φ₂)
 
-    This function extracts (φ₁, θ, φ₂) from U up to global phase.
+    This function extracts (φ₁, θ, φ₂) ignoring the global phase α.
+    The global phase can be recovered from det(U) = e^(2iα).
 
     Parameters
     ----------
@@ -749,15 +794,17 @@ def euler_angles_from_unitary(U: qt.Qobj) -> Tuple[float, float, float]:
     if U.shape != (2, 2):
         raise ValueError(f"Expected 2×2 unitary, got shape {U.shape}")
 
-    # Extract and normalize matrix
+    # Extract and normalize matrix to SU(2)
+    # For U(2) matrices with det(U) = e^(2iα), we factor out the global phase
+    # U = e^(iα) * U_SU2 where U_SU2 has det=1
     u = U.full()
-    u = _normalize_to_su2(u)
+    u_su2, global_phase = _normalize_to_su2(u)
 
-    # Extract theta angle
-    theta = _extract_theta_angle(u)
+    # Extract theta angle from normalized matrix
+    theta = _extract_theta_angle(u_su2)
 
-    # Extract Euler phases
-    return _extract_euler_phases(u, theta)
+    # Extract Euler phases from normalized matrix
+    return _extract_euler_phases(u_su2, theta)
 
 
 def rotation_from_euler_angles(
