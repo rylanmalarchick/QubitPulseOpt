@@ -654,17 +654,21 @@ class GRAPEOptimizer:
         step_decay: float,
     ) -> dict:
         """Execute main GRAPE optimization loop for unitary target."""
-        # Initialize optimization state
-        fidelity_history = []
-        gradient_norms = []
-        current_lr = self.learning_rate
-        converged = False
-        message = "Max iterations reached"
-        best_fidelity = 0.0
-        best_u = u.copy()
-        velocity = np.zeros_like(u)
+        opt_state = self._initialize_optimization_state(u, U_target)
 
-        # Compute initial fidelity
+        # Main optimization loop
+        for iteration in range(self.max_iterations):
+            opt_state = self._execute_optimization_iteration(
+                iteration, U_target, adaptive_step, step_decay, opt_state
+            )
+
+            if opt_state["converged"]:
+                break
+
+        return self._finalize_optimization(U_target, opt_state, iteration)
+
+    def _initialize_optimization_state(self, u: np.ndarray, U_target: qt.Qobj) -> dict:
+        """Initialize optimization state variables."""
         propagators = self._compute_propagators(u)
         forward_unitaries, U_final = self._forward_propagation(propagators)
         fidelity = self._compute_fidelity_unitary(U_final, U_target)
@@ -673,76 +677,114 @@ class GRAPEOptimizer:
         assert_fidelity_valid(fidelity)
         assert 0 <= fidelity <= 1.0, f"Initial fidelity {fidelity} out of bounds [0, 1]"
 
-        # Main optimization loop
-        for iteration in range(self.max_iterations):
-            assert iteration < MAX_ITERATIONS, (
-                f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
+        return {
+            "u": u,
+            "propagators": propagators,
+            "forward_unitaries": forward_unitaries,
+            "fidelity": fidelity,
+            "fidelity_history": [],
+            "gradient_norms": [],
+            "current_lr": self.learning_rate,
+            "converged": False,
+            "message": "Max iterations reached",
+            "best_fidelity": 0.0,
+            "best_u": u.copy(),
+            "velocity": np.zeros_like(u),
+        }
+
+    def _execute_optimization_iteration(
+        self,
+        iteration: int,
+        U_target: qt.Qobj,
+        adaptive_step: bool,
+        step_decay: float,
+        opt_state: dict,
+    ) -> dict:
+        """Execute one iteration of the optimization loop."""
+        assert iteration < MAX_ITERATIONS, (
+            f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
+        )
+
+        opt_state["fidelity_history"].append(opt_state["fidelity"])
+
+        # Track best solution
+        if opt_state["fidelity"] > opt_state["best_fidelity"]:
+            opt_state["best_fidelity"] = opt_state["fidelity"]
+            opt_state["best_u"] = opt_state["u"].copy()
+
+        # Compute gradients
+        gradients = self._compute_iteration_gradients(
+            opt_state["u"],
+            opt_state["propagators"],
+            opt_state["forward_unitaries"],
+            U_target,
+            iteration,
+        )
+
+        grad_norm = np.linalg.norm(gradients)
+        opt_state["gradient_norms"].append(grad_norm)
+
+        # Check convergence
+        if self._check_convergence(grad_norm, opt_state["fidelity"], iteration):
+            opt_state["converged"] = True
+            opt_state["message"] = "Converged (gradient norm below threshold)"
+            return opt_state
+
+        # Update controls with momentum
+        opt_state["velocity"] = self.momentum * opt_state["velocity"] + gradients
+
+        # Perform control update step
+        u, propagators, forward_unitaries, fidelity, current_lr = (
+            self._perform_control_update(
+                opt_state["u"],
+                opt_state["velocity"],
+                opt_state["fidelity"],
+                U_target,
+                opt_state["current_lr"],
+                adaptive_step,
+                step_decay,
+                iteration,
+                grad_norm,
             )
+        )
 
-            fidelity_history.append(fidelity)
+        opt_state["u"] = u
+        opt_state["propagators"] = propagators
+        opt_state["forward_unitaries"] = forward_unitaries
+        opt_state["fidelity"] = fidelity
+        opt_state["current_lr"] = current_lr
 
-            # Track best solution
-            if fidelity > best_fidelity:
-                best_fidelity = fidelity
-                best_u = u.copy()
+        return opt_state
 
-            # Compute gradients
-            gradients = self._compute_iteration_gradients(
-                u, propagators, forward_unitaries, U_target, iteration
-            )
-
-            grad_norm = np.linalg.norm(gradients)
-            gradient_norms.append(grad_norm)
-
-            # Check convergence
-            if self._check_convergence(grad_norm, fidelity, iteration):
-                converged = True
-                message = "Converged (gradient norm below threshold)"
-                break
-
-            # Update controls with momentum
-            velocity = self.momentum * velocity + gradients
-
-            # Perform control update step
-            u, propagators, forward_unitaries, fidelity, current_lr = (
-                self._perform_control_update(
-                    u,
-                    velocity,
-                    fidelity,
-                    U_target,
-                    current_lr,
-                    adaptive_step,
-                    step_decay,
-                    iteration,
-                    grad_norm,
-                )
-            )
-
-        # Finalize with best solution
-        u = best_u
+    def _finalize_optimization(
+        self, U_target: qt.Qobj, opt_state: dict, iteration: int
+    ) -> dict:
+        """Finalize optimization with best solution and create result dict."""
+        # Use best solution found
+        u = opt_state["best_u"]
         propagators = self._compute_propagators(u)
         forward_unitaries, U_final = self._forward_propagation(propagators)
         final_fidelity = self._compute_fidelity_unitary(U_final, U_target)
-        fidelity_history.append(final_fidelity)
+        opt_state["fidelity_history"].append(final_fidelity)
 
         self._validate_optimization_result(
-            u, final_fidelity, fidelity_history, iteration
+            u, final_fidelity, opt_state["fidelity_history"], iteration
         )
 
         if self.verbose:
-            print(f"\nOptimization complete: {message}")
+            print(f"\nOptimization complete: {opt_state['message']}")
             print(f"Final fidelity: {final_fidelity:.8f}")
-            print(f"Best fidelity: {best_fidelity:.8f}")
+            print(f"Best fidelity: {opt_state['best_fidelity']:.8f}")
             print(f"Iterations: {iteration + 1}")
 
         return {
             "final_fidelity": final_fidelity,
             "optimized_pulses": u,
-            "fidelity_history": fidelity_history,
-            "gradient_norms": gradient_norms,
+            "fidelity_history": opt_state["fidelity_history"],
+            "gradient_norms": opt_state["gradient_norms"],
             "n_iterations": iteration + 1,
-            "converged": converged,
-            "message": message,
+            "converged": opt_state["converged"],
+            "message": opt_state["message"],
         }
 
     def _compute_iteration_gradients(
