@@ -480,102 +480,77 @@ class UniversalGates:
             **kwargs,
         )
 
-    def _optimize_gate(
+    def _setup_amplitude_limits(
+        self, amplitude_limit: Optional[float]
+    ) -> Tuple[float, float]:
+        """Setup control amplitude limits."""
+        if amplitude_limit is not None:
+            return (-amplitude_limit, amplitude_limit)
+        return (-10.0, 10.0)
+
+    def _create_optimizer(
+        self,
+        method: str,
+        n_timeslices: int,
+        gate_time: float,
+        u_limits: Tuple[float, float],
+        max_iterations: int,
+        convergence_threshold: float,
+    ):
+        """Create optimizer instance based on method."""
+        if method == "grape":
+            return GRAPEOptimizer(
+                H_drift=self.H_drift,
+                H_controls=self.H_controls,
+                n_timeslices=n_timeslices,
+                total_time=gate_time,
+                u_limits=u_limits,
+                max_iterations=max_iterations,
+                convergence_threshold=convergence_threshold,
+                verbose=False,
+            )
+        elif method == "krotov":
+            return KrotovOptimizer(
+                H_drift=self.H_drift,
+                H_controls=self.H_controls,
+                n_timeslices=n_timeslices,
+                total_time=gate_time,
+                u_limits=u_limits,
+                max_iterations=max_iterations,
+                convergence_threshold=convergence_threshold,
+                verbose=False,
+            )
+        else:
+            raise ValueError(f"Unknown method '{method}'. Use 'grape' or 'krotov'.")
+
+    def _run_gate_optimization(
+        self,
+        optimizer,
+        target_unitary: qt.Qobj,
+        n_timeslices: int,
+        **kwargs,
+    ):
+        """Run optimization with initial random guess."""
+        initial_pulses = 0.1 * np.random.randn(self.n_controls, n_timeslices)
+        return optimizer.optimize_unitary(
+            U_target=target_unitary,
+            u_init=initial_pulses,
+            **kwargs,
+        )
+
+    def _build_gate_result(
         self,
         gate_name: str,
         target_unitary: qt.Qobj,
         gate_time: float,
+        method: str,
+        opt_result,
         n_timeslices: int,
-        method: Literal["grape", "krotov"],
-        max_iterations: int = 500,
-        convergence_threshold: float = 1e-6,
-        amplitude_limit: Optional[float] = None,
-        **kwargs,
+        amplitude_limit: Optional[float],
     ) -> GateResult:
-        """
-        Internal method to optimize a gate using specified method.
-
-        Parameters
-        ----------
-        gate_name : str
-            Name of the gate being optimized.
-        target_unitary : qt.Qobj
-            Target unitary operator.
-        gate_time : float
-            Total gate duration.
-        n_timeslices : int
-            Number of piecewise-constant time slices.
-        method : {'grape', 'krotov'}
-            Optimization method.
-        max_iterations : int
-            Maximum iterations.
-        convergence_threshold : float
-            Convergence threshold.
-        amplitude_limit : float, optional
-            Maximum control amplitude.
-        **kwargs
-            Additional optimizer arguments.
-
-        Returns
-        -------
-        GateResult
-            Complete optimization result.
-        """
-        # Set up amplitude limits
-        if amplitude_limit is not None:
-            u_limits = (-amplitude_limit, amplitude_limit)
-        else:
-            u_limits = (-10.0, 10.0)  # Default limits
-
-        if method == "grape":
-            optimizer = GRAPEOptimizer(
-                H_drift=self.H_drift,
-                H_controls=self.H_controls,
-                n_timeslices=n_timeslices,
-                total_time=gate_time,
-                u_limits=u_limits,
-                max_iterations=max_iterations,
-                convergence_threshold=convergence_threshold,
-                verbose=False,
-            )
-
-            # Initial guess: small random pulses
-            initial_pulses = 0.1 * np.random.randn(self.n_controls, n_timeslices)
-
-            opt_result = optimizer.optimize_unitary(
-                U_target=target_unitary,
-                u_init=initial_pulses,
-                **kwargs,
-            )
-
-        elif method == "krotov":
-            optimizer = KrotovOptimizer(
-                H_drift=self.H_drift,
-                H_controls=self.H_controls,
-                n_timeslices=n_timeslices,
-                total_time=gate_time,
-                u_limits=u_limits,
-                max_iterations=max_iterations,
-                convergence_threshold=convergence_threshold,
-                verbose=False,
-            )
-
-            # Initial guess for Krotov
-            initial_pulses = 0.1 * np.random.randn(self.n_controls, n_timeslices)
-
-            opt_result = optimizer.optimize_unitary(
-                U_target=target_unitary,
-                u_init=initial_pulses,
-                **kwargs,
-            )
-
-        else:
-            raise ValueError(f"Unknown method '{method}'. Use 'grape' or 'krotov'.")
-
-        # Check success
+        """Build final gate optimization result."""
         success = opt_result.final_fidelity >= self.fidelity_threshold
 
-        # Build metadata
         metadata = {
             "n_timeslices": n_timeslices,
             "n_iterations": opt_result.n_iterations,
@@ -595,6 +570,49 @@ class UniversalGates:
             method=method,
             success=success,
             metadata=metadata,
+        )
+
+    def _optimize_gate(
+        self,
+        gate_name: str,
+        target_unitary: qt.Qobj,
+        gate_time: float,
+        n_timeslices: int,
+        method: Literal["grape", "krotov"],
+        max_iterations: int = 500,
+        convergence_threshold: float = 1e-6,
+        amplitude_limit: Optional[float] = None,
+        **kwargs,
+    ) -> GateResult:
+        """
+        Internal method to optimize a gate using specified method.
+
+        Orchestrates gate optimization by setting up optimizer, running
+        optimization, and assembling results.
+        """
+        u_limits = self._setup_amplitude_limits(amplitude_limit)
+
+        optimizer = self._create_optimizer(
+            method,
+            n_timeslices,
+            gate_time,
+            u_limits,
+            max_iterations,
+            convergence_threshold,
+        )
+
+        opt_result = self._run_gate_optimization(
+            optimizer, target_unitary, n_timeslices, **kwargs
+        )
+
+        return self._build_gate_result(
+            gate_name,
+            target_unitary,
+            gate_time,
+            method,
+            opt_result,
+            n_timeslices,
+            amplitude_limit,
         )
 
     def check_clifford_closure(
