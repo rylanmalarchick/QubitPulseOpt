@@ -453,34 +453,10 @@ class PulseComparisonViewer:
         """Initialize pulse comparison viewer."""
         self.figsize = figsize
 
-    def compare_pulses(
-        self,
-        pulses: List[np.ndarray],
-        labels: List[str],
-        times: Optional[np.ndarray] = None,
-        metrics: Optional[Dict[str, List[float]]] = None,
-    ) -> plt.Figure:
-        """
-        Compare multiple pulse designs.
-
-        Parameters
-        ----------
-        pulses : list of ndarray
-            Pulse amplitudes for each design
-        labels : list of str
-            Label for each pulse
-        times : ndarray, optional
-            Time array (if None, uses indices)
-        metrics : dict, optional
-            Performance metrics for each pulse
-            e.g., {'fidelity': [0.99, 0.98, 0.97], 'duration': [10, 12, 8]}
-
-        Returns
-        -------
-        fig : Figure
-        """
-        n_pulses = len(pulses)
-
+    def _setup_comparison_figure(
+        self, metrics: Optional[Dict[str, List[float]]]
+    ) -> Tuple:
+        """Setup figure and axes for pulse comparison."""
         if metrics:
             fig = plt.figure(figsize=self.figsize)
             gs = GridSpec(3, 2, figure=fig, hspace=0.3, wspace=0.3)
@@ -490,37 +466,50 @@ class PulseComparisonViewer:
         else:
             fig, (ax_pulses, ax_spectrum) = plt.subplots(2, 1, figsize=self.figsize)
             ax_metrics = None
+        return fig, ax_pulses, ax_spectrum, ax_metrics
 
-        # Plot pulse shapes
-        colors = plt.cm.tab10(np.linspace(0, 1, n_pulses))
+    def _plot_pulse_shapes(
+        self,
+        ax: plt.Axes,
+        pulses: List[np.ndarray],
+        labels: List[str],
+        times: Optional[np.ndarray],
+        colors,
+    ) -> None:
+        """Plot pulse shapes on given axes."""
         for i, (pulse, label) in enumerate(zip(pulses, labels)):
-            # Create appropriate time array for each pulse
-            if times is not None and len(pulse) == len(times):
-                times_plot = times
-            else:
-                times_plot = np.arange(len(pulse))
-            ax_pulses.plot(times_plot, pulse, label=label, color=colors[i], linewidth=2)
+            times_plot = (
+                times
+                if times is not None and len(pulse) == len(times)
+                else np.arange(len(pulse))
+            )
+            ax.plot(times_plot, pulse, label=label, color=colors[i], linewidth=2)
 
-        ax_pulses.set_xlabel("Time")
-        ax_pulses.set_ylabel("Amplitude")
-        ax_pulses.set_title("Pulse Shapes Comparison")
-        ax_pulses.legend()
-        ax_pulses.grid(True, alpha=0.3)
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Amplitude")
+        ax.set_title("Pulse Shapes Comparison")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
 
-        # Plot spectra
+    def _plot_pulse_spectra(
+        self,
+        ax: plt.Axes,
+        pulses: List[np.ndarray],
+        labels: List[str],
+        times: Optional[np.ndarray],
+        colors,
+    ) -> None:
+        """Plot pulse spectra on given axes."""
         for i, (pulse, label) in enumerate(zip(pulses, labels)):
-            # Compute FFT
             spectrum = np.fft.fft(pulse)
-            # Determine time step
-            if times is not None and len(pulse) == len(times):
-                dt = times[1] - times[0] if len(times) > 1 else 1.0
-            else:
-                dt = 1.0
+            dt = (
+                times[1] - times[0]
+                if times is not None and len(pulse) == len(times) and len(times) > 1
+                else 1.0
+            )
             freqs = np.fft.fftfreq(len(pulse), dt)
-
-            # Plot positive frequencies only
             pos_mask = freqs >= 0
-            ax_spectrum.semilogy(
+            ax.semilogy(
                 freqs[pos_mask],
                 np.abs(spectrum[pos_mask]),
                 label=label,
@@ -528,37 +517,60 @@ class PulseComparisonViewer:
                 linewidth=2,
             )
 
-        ax_spectrum.set_xlabel("Frequency")
-        ax_spectrum.set_ylabel("Magnitude (log)")
-        ax_spectrum.set_title("Pulse Spectra Comparison")
-        ax_spectrum.legend()
-        ax_spectrum.grid(True, alpha=0.3)
+        ax.set_xlabel("Frequency")
+        ax.set_ylabel("Magnitude (log)")
+        ax.set_title("Pulse Spectra Comparison")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+    def _plot_comparison_metrics(
+        self,
+        ax: plt.Axes,
+        metrics: Dict[str, List[float]],
+        labels: List[str],
+        colors,
+    ) -> None:
+        """Plot performance metrics bar chart."""
+        n_pulses = len(labels)
+        metric_names = list(metrics.keys())
+        x_pos = np.arange(len(metric_names))
+        width = 0.8 / n_pulses
+
+        for i, label in enumerate(labels):
+            values = [metrics[name][i] for name in metric_names]
+            ax.bar(x_pos + i * width, values, width, label=label, color=colors[i])
+
+        ax.set_xlabel("Metric")
+        ax.set_ylabel("Value")
+        ax.set_title("Performance Metrics")
+        ax.set_xticks(x_pos + width * (n_pulses - 1) / 2)
+        ax.set_xticklabels(metric_names, rotation=45, ha="right")
+        ax.legend()
+        ax.grid(True, alpha=0.3, axis="y")
+
+    def compare_pulses(
+        self,
+        pulses: List[np.ndarray],
+        labels: List[str],
+        times: Optional[np.ndarray] = None,
+        metrics: Optional[Dict[str, List[float]]] = None,
+    ) -> plt.Figure:
+        """Compare multiple pulse designs with shapes, spectra, and metrics."""
+        n_pulses = len(pulses)
+        colors = plt.cm.tab10(np.linspace(0, 1, n_pulses))
+
+        # Setup figure
+        fig, ax_pulses, ax_spectrum, ax_metrics = self._setup_comparison_figure(metrics)
+
+        # Plot pulse shapes and spectra
+        self._plot_pulse_shapes(ax_pulses, pulses, labels, times, colors)
+        self._plot_pulse_spectra(ax_spectrum, pulses, labels, times, colors)
 
         # Plot metrics if provided
         if metrics and ax_metrics:
-            metric_names = list(metrics.keys())
-            x_pos = np.arange(len(metric_names))
-            width = 0.8 / n_pulses
+            self._plot_comparison_metrics(ax_metrics, metrics, labels, colors)
 
-            for i, label in enumerate(labels):
-                values = [metrics[name][i] for name in metric_names]
-                ax_metrics.bar(
-                    x_pos + i * width,
-                    values,
-                    width,
-                    label=label,
-                    color=colors[i],
-                )
-
-            ax_metrics.set_xlabel("Metric")
-            ax_metrics.set_ylabel("Value")
-            ax_metrics.set_title("Performance Metrics")
-            ax_metrics.set_xticks(x_pos + width * (n_pulses - 1) / 2)
-            ax_metrics.set_xticklabels(metric_names, rotation=45, ha="right")
-            ax_metrics.legend()
-            ax_metrics.grid(True, alpha=0.3, axis="y")
-
-        # Suppress tight_layout warning for axes that might not be compatible
+        # Suppress tight_layout warning
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 "ignore", message=".*tight_layout.*", category=UserWarning
