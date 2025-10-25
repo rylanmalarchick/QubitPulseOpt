@@ -328,6 +328,51 @@ class UniversalGates:
             **kwargs,
         )
 
+    def _parse_rotation_axis(
+        self, axis: Union[str, List[float], np.ndarray]
+    ) -> Tuple[np.ndarray, str]:
+        """Parse rotation axis specification into vector and name."""
+        if isinstance(axis, str):
+            axis = axis.lower()
+            if axis == "x":
+                return np.array([1.0, 0.0, 0.0]), "X"
+            elif axis == "y":
+                return np.array([0.0, 1.0, 0.0]), "Y"
+            elif axis == "z":
+                return np.array([0.0, 0.0, 1.0]), "Z"
+            else:
+                raise ValueError(f"Unknown axis '{axis}'. Use 'x', 'y', 'z' or array.")
+        else:
+            axis_vec = np.array(axis, dtype=float)
+            if axis_vec.shape != (3,):
+                raise ValueError(f"Axis must be 3D vector, got shape {axis_vec.shape}")
+            norm = np.linalg.norm(axis_vec)
+            if norm < 1e-10:
+                raise ValueError("Axis vector has zero norm")
+            axis_vec = axis_vec / norm
+            axis_name = f"[{axis_vec[0]:.2f},{axis_vec[1]:.2f},{axis_vec[2]:.2f}]"
+            return axis_vec, axis_name
+
+    def _build_rotation_unitary(self, axis_vec: np.ndarray, angle: float) -> qt.Qobj:
+        """Build rotation unitary operator R_n(θ) = exp(-i θ/2 n·σ)."""
+        n_dot_sigma = (
+            axis_vec[0] * qt.sigmax()
+            + axis_vec[1] * qt.sigmay()
+            + axis_vec[2] * qt.sigmaz()
+        )
+        return (-1j * angle / 2 * n_dot_sigma).expm()
+
+    def _format_rotation_gate_name(self, axis_name: str, angle: float) -> str:
+        """Format rotation gate name based on angle."""
+        if np.isclose(angle, np.pi):
+            return f"{axis_name}(π)"
+        elif np.isclose(angle, np.pi / 2):
+            return f"{axis_name}(π/2)"
+        elif np.isclose(angle, np.pi / 4):
+            return f"{axis_name}(π/4)"
+        else:
+            return f"R_{axis_name}({angle:.4f})"
+
     def optimize_rotation(
         self,
         axis: Union[str, List[float], np.ndarray],
@@ -340,87 +385,11 @@ class UniversalGates:
         """
         Optimize arbitrary rotation R_n(θ) = exp(-i θ/2 n·σ).
 
-        Rotations about an axis n = (n_x, n_y, n_z) by angle θ are fundamental
-        single-qubit operations. On the Bloch sphere, this rotates the state
-        vector by angle θ about the axis n.
-
-        Parameters
-        ----------
-        axis : str or array-like
-            Rotation axis. Can be:
-            - String: 'x', 'y', 'z' for Pauli rotations
-            - Array: [n_x, n_y, n_z] (will be normalized)
-        angle : float
-            Rotation angle θ in radians.
-        gate_time : float, optional
-            Gate duration in ns (default: 20.0).
-        n_timeslices : int, optional
-            Number of time slices (default: 100).
-        method : {'grape', 'krotov'}, optional
-            Optimization method (default: 'grape').
-        **kwargs
-            Additional optimizer arguments.
-
-        Returns
-        -------
-        GateResult
-            Optimization result.
-
-        Examples
-        --------
-        >>> # π/2 rotation about x-axis (X90)
-        >>> x90 = gates.optimize_rotation('x', np.pi/2)
-        >>>
-        >>> # π rotation about y-axis (Y gate)
-        >>> y_gate = gates.optimize_rotation('y', np.pi)
-        >>>
-        >>> # Arbitrary rotation about (1,1,0) axis
-        >>> custom = gates.optimize_rotation([1, 1, 0], np.pi/4)
+        Rotations about axis n by angle θ are fundamental single-qubit operations.
         """
-        # Parse axis specification
-        if isinstance(axis, str):
-            axis = axis.lower()
-            if axis == "x":
-                axis_vec = np.array([1.0, 0.0, 0.0])
-                axis_name = "X"
-            elif axis == "y":
-                axis_vec = np.array([0.0, 1.0, 0.0])
-                axis_name = "Y"
-            elif axis == "z":
-                axis_vec = np.array([0.0, 0.0, 1.0])
-                axis_name = "Z"
-            else:
-                raise ValueError(f"Unknown axis '{axis}'. Use 'x', 'y', 'z' or array.")
-        else:
-            axis_vec = np.array(axis, dtype=float)
-            if axis_vec.shape != (3,):
-                raise ValueError(f"Axis must be 3D vector, got shape {axis_vec.shape}")
-            # Normalize
-            norm = np.linalg.norm(axis_vec)
-            if norm < 1e-10:
-                raise ValueError("Axis vector has zero norm")
-            axis_vec = axis_vec / norm
-            axis_name = f"[{axis_vec[0]:.2f},{axis_vec[1]:.2f},{axis_vec[2]:.2f}]"
-
-        # Build rotation operator: R_n(θ) = exp(-i θ/2 n·σ)
-        # n·σ = n_x σ_x + n_y σ_y + n_z σ_z
-        n_dot_sigma = (
-            axis_vec[0] * qt.sigmax()
-            + axis_vec[1] * qt.sigmay()
-            + axis_vec[2] * qt.sigmaz()
-        )
-        target = (-1j * angle / 2 * n_dot_sigma).expm()
-
-        # Determine gate name
-        angle_deg = np.degrees(angle)
-        if np.isclose(angle, np.pi):
-            gate_name = f"{axis_name}(π)"
-        elif np.isclose(angle, np.pi / 2):
-            gate_name = f"{axis_name}(π/2)"
-        elif np.isclose(angle, np.pi / 4):
-            gate_name = f"{axis_name}(π/4)"
-        else:
-            gate_name = f"R_{axis_name}({angle:.4f})"
+        axis_vec, axis_name = self._parse_rotation_axis(axis)
+        target = self._build_rotation_unitary(axis_vec, angle)
+        gate_name = self._format_rotation_gate_name(axis_name, angle)
 
         return self._optimize_gate(
             gate_name=gate_name,
