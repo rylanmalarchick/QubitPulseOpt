@@ -801,39 +801,10 @@ class KrotovOptimizer:
             u, fid_hist, delta_hist, converged, msg, n_iter, final_fidelity
         )
 
-    def optimize_state(
-        self,
-        psi_init: qt.Qobj,
-        psi_target: qt.Qobj,
-        u_init: Optional[np.ndarray] = None,
-    ) -> KrotovResult:
-        """
-        Optimize control pulses for state-to-state transfer.
-
-        Parameters
-        ----------
-        psi_init : qutip.Qobj
-            Initial quantum state.
-        psi_target : qutip.Qobj
-            Target quantum state.
-        u_init : np.ndarray, optional
-            Initial control guess.
-
-        Returns
-        -------
-        KrotovResult
-            Optimization result.
-
-        Examples
-        --------
-        >>> H0 = qt.sigmaz()
-        >>> Hc = [qt.sigmax()]
-        >>> optimizer = KrotovOptimizer(H0, Hc, n_timeslices=100, total_time=50)
-        >>> psi_init = qt.basis(2, 0)  # |0⟩
-        >>> psi_target = qt.basis(2, 1)  # |1⟩
-        >>> result = optimizer.optimize_state(psi_init, psi_target)
-        """
-        # Rule 5: Parameter validation assertions
+    def _validate_state_parameters(
+        self, psi_init: qt.Qobj, psi_target: qt.Qobj, u_init: Optional[np.ndarray]
+    ) -> None:
+        """Validate state optimization parameters."""
         if psi_init is None:
             raise ValueError("Initial state cannot be None")
         if psi_target is None:
@@ -880,88 +851,121 @@ class KrotovOptimizer:
             )
             assert np.all(np.isfinite(u_init)), "u_init contains non-finite values"
 
-        # Initialize controls
+    def _initialize_controls_for_state(
+        self, u_init: Optional[np.ndarray]
+    ) -> np.ndarray:
+        """Initialize control pulses for state optimization."""
         if u_init is None:
             u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
             u_init = self._apply_constraints(u_init)
+        return u_init.copy()
 
-        u = u_init.copy()
+    def _compute_state_fidelity(self, psi_final: qt.Qobj, psi_target: qt.Qobj) -> float:
+        """Compute state transfer fidelity."""
+        fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
+        return np.real(fidelity)
 
-        # History tracking
+    def _check_state_convergence(
+        self,
+        iteration: int,
+        fidelity: float,
+        fidelity_history: List[float],
+        delta_fidelity_history: List[float],
+    ) -> Tuple[bool, str, float]:
+        """Check convergence for state optimization."""
+        if iteration > 0:
+            delta_fid = fidelity - fidelity_history[-2]
+            delta_fidelity_history.append(delta_fid)
+
+            if np.abs(delta_fid) < self.convergence_threshold:
+                if self.verbose:
+                    print(
+                        f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
+                        f"ΔF = {delta_fid:.2e} [CONVERGED]"
+                    )
+                return True, "Converged (fidelity change below threshold)", delta_fid
+            return False, "", delta_fid
+        else:
+            delta_fidelity_history.append(0.0)
+            return False, "", 0.0
+
+    def _execute_state_iteration(
+        self, psi_init: qt.Qobj, psi_target: qt.Qobj, u: np.ndarray, iteration: int
+    ) -> Tuple[float, List[qt.Qobj], List[qt.Qobj]]:
+        """Execute one iteration of state optimization."""
+        assert iteration < MAX_ITERATIONS, (
+            f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
+        )
+
+        # Forward propagation
+        forward_states = self._forward_propagation(psi_init, u)
+        psi_final = forward_states[-1]
+
+        # Compute fidelity
+        fidelity = self._compute_state_fidelity(psi_final, psi_target)
+
+        # Validate fidelity
+        assert_fidelity_valid(fidelity)
+        assert np.isfinite(fidelity), f"Fidelity is not finite at iteration {iteration}"
+
+        # Backward propagation
+        chi_final = psi_target
+        costates = self._backward_propagation(chi_final, u)
+
+        return fidelity, forward_states, costates
+
+    def _run_state_optimization_loop(
+        self, psi_init: qt.Qobj, psi_target: qt.Qobj, u: np.ndarray
+    ) -> Tuple[np.ndarray, List[float], List[float], bool, str, int]:
+        """Execute the main state optimization loop."""
         fidelity_history = []
         delta_fidelity_history = []
-
-        # Optimization loop
         converged = False
         message = "Max iterations reached"
 
         for iteration in range(self.max_iterations):
-            # Rule 5: Iteration bound assertion
-            assert iteration < MAX_ITERATIONS, (
-                f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
+            # Execute iteration
+            fidelity, forward_states, costates = self._execute_state_iteration(
+                psi_init, psi_target, u, iteration
             )
-
-            # Forward propagation
-            forward_states = self._forward_propagation(psi_init, u)
-            psi_final = forward_states[-1]
-
-            # Compute fidelity
-            fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
-
-            # Rule 5: Validate fidelity
-            assert_fidelity_valid(fidelity)
-            assert np.isfinite(fidelity), (
-                f"Fidelity is not finite at iteration {iteration}"
-            )
-            fidelity = np.real(fidelity)
             fidelity_history.append(fidelity)
 
             # Check convergence
-            if iteration > 0:
-                delta_fid = fidelity - fidelity_history[-2]
-                delta_fidelity_history.append(delta_fid)
+            conv_result = self._check_state_convergence(
+                iteration, fidelity, fidelity_history, delta_fidelity_history
+            )
+            converged, conv_message, delta_fid = conv_result
+            if converged:
+                message = conv_message
+                break
 
-                if np.abs(delta_fid) < self.convergence_threshold:
-                    converged = True
-                    message = "Converged (fidelity change below threshold)"
-                    if self.verbose:
-                        print(
-                            f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                            f"ΔF = {delta_fid:.2e} [CONVERGED]"
-                        )
-                    break
-            else:
-                delta_fidelity_history.append(0.0)
-
-            # Compute co-state
-            chi_final = psi_target
-
-            # Backward propagation
-            costates = self._backward_propagation(chi_final, u)
-
-            # Compute control updates
+            # Compute and apply control updates
             updates = self._compute_control_updates(u, forward_states, costates)
-
-            # Apply updates
             u_new = u + updates
-            u_new = self._apply_constraints(u_new)
-            u = u_new
+            u = self._apply_constraints(u_new)
 
             # Verbose output
             if self.verbose and (iteration % 10 == 0 or iteration < 5):
-                delta_str = (
-                    f", ΔF = {delta_fidelity_history[-1]:.2e}" if iteration > 0 else ""
-                )
+                delta_str = f", ΔF = {delta_fid:.2e}" if iteration > 0 else ""
                 print(f"Iteration {iteration}: Fidelity = {fidelity:.8f}{delta_str}")
 
-        # Final fidelity
-        forward_states = self._forward_propagation(psi_init, u)
-        psi_final = forward_states[-1]
-        final_fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
-        final_fidelity = np.real(final_fidelity)
-        fidelity_history.append(final_fidelity)
+        return (
+            u,
+            fidelity_history,
+            delta_fidelity_history,
+            converged,
+            message,
+            iteration + 1,
+        )
 
-        # Rule 5: Postcondition assertions - validate optimization results
+    def _validate_optimization_results(
+        self,
+        u: np.ndarray,
+        final_fidelity: float,
+        n_iterations: int,
+        fidelity_history: List[float],
+    ) -> None:
+        """Validate final optimization results."""
         assert_fidelity_valid(final_fidelity)
         assert 0 <= final_fidelity <= 1.0, (
             f"Final fidelity {final_fidelity} out of bounds [0, 1]"
@@ -974,23 +978,56 @@ class KrotovOptimizer:
             f"Optimized pulse shape {u.shape} != expected shape"
         )
         assert len(fidelity_history) > 0, "Fidelity history is empty"
-        assert iteration + 1 <= MAX_ITERATIONS, (
-            f"Iteration count {iteration + 1} exceeds maximum {MAX_ITERATIONS}"
+        assert n_iterations <= MAX_ITERATIONS, (
+            f"Iteration count {n_iterations} exceeds maximum {MAX_ITERATIONS}"
         )
 
+    def optimize_state(
+        self,
+        psi_init: qt.Qobj,
+        psi_target: qt.Qobj,
+        u_init: Optional[np.ndarray] = None,
+    ) -> KrotovResult:
+        """
+        Optimize control pulses for state-to-state transfer.
+
+        Orchestrates Krotov optimization for transferring from psi_init to psi_target.
+
+        Returns KrotovResult with final_fidelity, optimized_pulses, and convergence info.
+        """
+        # Validate parameters
+        self._validate_state_parameters(psi_init, psi_target, u_init)
+
+        # Initialize controls
+        u = self._initialize_controls_for_state(u_init)
+
+        # Run optimization loop
+        u, fid_hist, delta_hist, converged, msg, n_iter = (
+            self._run_state_optimization_loop(psi_init, psi_target, u)
+        )
+
+        # Final evaluation
+        forward_states = self._forward_propagation(psi_init, u)
+        psi_final = forward_states[-1]
+        final_fidelity = self._compute_state_fidelity(psi_final, psi_target)
+        fid_hist.append(final_fidelity)
+
+        # Validate results
+        self._validate_optimization_results(u, final_fidelity, n_iter, fid_hist)
+
         if self.verbose:
-            print(f"\nOptimization complete: {message}")
+            print(f"\nOptimization complete: {msg}")
             print(f"Final fidelity: {final_fidelity:.8f}")
-            print(f"Iterations: {iteration + 1}")
+            print(f"Iterations: {n_iter}")
 
         return KrotovResult(
             final_fidelity=final_fidelity,
             optimized_pulses=u,
-            fidelity_history=fidelity_history,
-            delta_fidelity=delta_fidelity_history,
-            n_iterations=iteration + 1,
+            fidelity_history=fid_hist,
+            delta_fidelity=delta_hist,
+            n_iterations=n_iter,
             converged=converged,
-            message=message,
+            message=msg,
         )
 
     def get_pulse_functions(self, u: np.ndarray) -> List[Callable]:
