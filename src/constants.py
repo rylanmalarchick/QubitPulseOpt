@@ -235,6 +235,7 @@ def assert_iteration_bound(iteration: int, max_iter: int = MAX_ITERATIONS) -> No
     Raises:
         AssertionError: If iteration exceeds bound
     """
+    assert iteration >= 0, f"Iteration must be non-negative, got {iteration}"
     assert iteration < max_iter, (
         f"Iteration {iteration} exceeds maximum {max_iter}. "
         f"Possible infinite loop or unbounded iteration."
@@ -252,6 +253,7 @@ def assert_parameter_count(n_params: int, max_params: int = MAX_PARAMS) -> None:
     Raises:
         AssertionError: If parameter count exceeds bound
     """
+    assert n_params > 0, f"Parameter count must be positive, got {n_params}"
     assert n_params <= max_params, (
         f"Parameter count {n_params} exceeds maximum {max_params}. "
         f"Consider reducing problem size or increasing MAX_PARAMS."
@@ -269,6 +271,7 @@ def assert_system_size(dim: int, max_dim: int = MAX_HILBERT_DIM) -> None:
     Raises:
         AssertionError: If dimension exceeds bound
     """
+    assert dim >= 2, f"Hilbert space dimension must be at least 2, got {dim}"
     assert dim <= max_dim, (
         f"Hilbert space dimension {dim} exceeds maximum {max_dim}. "
         f"Memory requirements may be too large."
@@ -285,6 +288,9 @@ def assert_fidelity_valid(fidelity: float) -> None:
     Raises:
         AssertionError: If fidelity is outside [0, 1] with small tolerance
     """
+    assert isinstance(fidelity, (int, float)), (
+        f"Fidelity must be numeric, got {type(fidelity)}"
+    )
     assert MIN_FIDELITY <= fidelity <= MAX_FIDELITY, (
         f"Fidelity {fidelity} outside valid range [{MIN_FIDELITY}, {MAX_FIDELITY}]. "
         f"Check numerical stability and computation."

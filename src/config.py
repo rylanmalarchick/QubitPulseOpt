@@ -268,6 +268,9 @@ class Config:
         Args:
             prefix: Environment variable prefix
         """
+        assert isinstance(prefix, str), "Prefix must be a string"
+        assert len(prefix) > 0, "Prefix cannot be empty"
+
         # Rule 1: Flatten nesting with early continue
         # Rule 2: Explicit loop bound from constants module
         for i, (key, value) in enumerate(os.environ.items()):
@@ -300,6 +303,7 @@ class Config:
             Parsed value as int, float, or string
         """
         assert isinstance(value, str), f"Expected string, got {type(value)}"
+        assert len(value) > 0, "Environment value cannot be empty"
 
         # Try to parse as number
         try:
