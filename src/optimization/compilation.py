@@ -197,6 +197,84 @@ class GateCompiler:
         # Cache for optimized gates
         self._gate_cache: Dict[str, GateResult] = {}
 
+    def _parse_gate_times(
+        self,
+        gate_sequence: List[str],
+        gate_times: Optional[Union[float, List[float]]],
+    ) -> List[float]:
+        """
+        Parse and validate gate times.
+
+        Parameters
+        ----------
+        gate_sequence : list of str
+            Gate sequence
+        gate_times : float, list of float, or None
+            Gate times specification
+
+        Returns
+        -------
+        list of float
+            Gate times for each gate
+
+        Raises
+        ------
+        ValueError
+            If gate_times length doesn't match gate_sequence
+        """
+        if gate_times is None:
+            return [self.default_gate_time] * len(gate_sequence)
+        elif isinstance(gate_times, (int, float)):
+            return [float(gate_times)] * len(gate_sequence)
+        else:
+            times = list(gate_times)
+            if len(times) != len(gate_sequence):
+                raise ValueError(
+                    f"gate_times length ({len(times)}) must match "
+                    f"gate_sequence length ({len(gate_sequence)})"
+                )
+            return times
+
+    def _dispatch_compilation_method(
+        self,
+        method: str,
+        gate_sequence: List[str],
+        gate_times: List[float],
+        optimize_kwargs: Dict,
+    ) -> CompiledCircuit:
+        """
+        Dispatch to appropriate compilation method.
+
+        Parameters
+        ----------
+        method : str
+            Compilation method
+        gate_sequence : list of str
+            Gate names
+        gate_times : list of float
+            Gate times
+        optimize_kwargs : dict
+            Optimization kwargs
+
+        Returns
+        -------
+        CompiledCircuit
+            Compiled circuit
+
+        Raises
+        ------
+        ValueError
+            If method is unknown
+        """
+        if method == "sequential":
+            return self._compile_sequential(gate_sequence, gate_times, optimize_kwargs)
+        elif method == "joint":
+            return self._compile_joint(gate_sequence, gate_times, optimize_kwargs)
+        elif method == "hybrid":
+            return self._compile_hybrid(gate_sequence, gate_times, optimize_kwargs)
+        else:
+            raise ValueError(f"Unknown compilation method '{method}'")
+
     def compile_circuit(
         self,
         gate_sequence: List[str],
@@ -244,34 +322,19 @@ class GateCompiler:
         ...     gate_times=[20.0, 15.0, 20.0]
         ... )
         """
+        # Set defaults
         if method is None:
             method = self.default_method
-
         if optimize_kwargs is None:
             optimize_kwargs = {}
 
         # Parse gate times
-        if gate_times is None:
-            gate_times = [self.default_gate_time] * len(gate_sequence)
-        elif isinstance(gate_times, (int, float)):
-            gate_times = [float(gate_times)] * len(gate_sequence)
-        else:
-            gate_times = list(gate_times)
-            if len(gate_times) != len(gate_sequence):
-                raise ValueError(
-                    f"gate_times length ({len(gate_times)}) must match "
-                    f"gate_sequence length ({len(gate_sequence)})"
-                )
+        parsed_gate_times = self._parse_gate_times(gate_sequence, gate_times)
 
-        # Dispatch to appropriate method
-        if method == "sequential":
-            return self._compile_sequential(gate_sequence, gate_times, optimize_kwargs)
-        elif method == "joint":
-            return self._compile_joint(gate_sequence, gate_times, optimize_kwargs)
-        elif method == "hybrid":
-            return self._compile_hybrid(gate_sequence, gate_times, optimize_kwargs)
-        else:
-            raise ValueError(f"Unknown compilation method '{method}'")
+        # Dispatch to compilation method
+        return self._dispatch_compilation_method(
+            method, gate_sequence, parsed_gate_times, optimize_kwargs
+        )
 
     def _compile_sequential(
         self,
@@ -341,6 +404,69 @@ class GateCompiler:
             metadata=metadata,
         )
 
+    def _build_target_unitary(self, gate_sequence: List[str]) -> qt.Qobj:
+        """
+        Build target unitary as product of gate unitaries.
+
+        Parameters
+        ----------
+        gate_sequence : list of str
+            Gate names
+
+        Returns
+        -------
+        qt.Qobj
+            Target unitary
+        """
+        target = qt.qeye(2)
+        for gate_name in gate_sequence:
+            gate_unitary = self.gate_optimizer.get_standard_gate(gate_name)
+            target = gate_unitary * target
+        return target
+
+    def _create_joint_optimizer(
+        self,
+        method: str,
+        n_timeslices: int,
+        total_time: float,
+        max_iterations: int,
+        convergence_threshold: float,
+    ):
+        """
+        Create optimizer for joint compilation.
+
+        Parameters
+        ----------
+        method : str
+            Optimization method ('grape' or 'krotov')
+        n_timeslices : int
+            Number of time slices
+        total_time : float
+            Total time
+        max_iterations : int
+            Maximum iterations
+        convergence_threshold : float
+            Convergence threshold
+
+        Returns
+        -------
+        Optimizer instance
+        """
+        common_kwargs = {
+            "H_drift": self.gate_optimizer.H_drift,
+            "H_controls": self.gate_optimizer.H_controls,
+            "n_timeslices": n_timeslices,
+            "total_time": total_time,
+            "max_iterations": max_iterations,
+            "convergence_threshold": convergence_threshold,
+            "verbose": False,
+        }
+
+        if method == "grape":
+            return GRAPEOptimizer(**common_kwargs)
+        else:
+            return KrotovOptimizer(**common_kwargs)
+
     def _compile_joint(
         self,
         gate_sequence: List[str],
@@ -353,53 +479,29 @@ class GateCompiler:
         This can achieve higher fidelity by exploiting constructive interference
         between gates, but is more computationally expensive.
         """
-        # Build target unitary as product of gate unitaries
-        target = qt.qeye(2)
-        for gate_name in gate_sequence:
-            gate_unitary = self.gate_optimizer.get_standard_gate(gate_name)
-            target = gate_unitary * target
+        # Build target unitary
+        target = self._build_target_unitary(gate_sequence)
 
-        # Total gate time
+        # Setup optimization parameters
         total_time = sum(gate_times)
-        n_timeslices = int(
-            total_time / self.default_gate_time * 100
-        )  # ~100 slices per default gate
+        n_timeslices = int(total_time / self.default_gate_time * 100)
 
         method = optimize_kwargs.get("method", "grape")
         max_iterations = optimize_kwargs.get("max_iterations", 500)
         convergence_threshold = optimize_kwargs.get("convergence_threshold", 1e-6)
 
-        if method == "grape":
-            optimizer = GRAPEOptimizer(
-                H_drift=self.gate_optimizer.H_drift,
-                H_controls=self.gate_optimizer.H_controls,
-                n_timeslices=n_timeslices,
-                total_time=total_time,
-                max_iterations=max_iterations,
-                convergence_threshold=convergence_threshold,
-                verbose=False,
-            )
-        else:
-            optimizer = KrotovOptimizer(
-                H_drift=self.gate_optimizer.H_drift,
-                H_controls=self.gate_optimizer.H_controls,
-                n_timeslices=n_timeslices,
-                total_time=total_time,
-                max_iterations=max_iterations,
-                convergence_threshold=convergence_threshold,
-                verbose=False,
-            )
+        # Create optimizer
+        optimizer = self._create_joint_optimizer(
+            method, n_timeslices, total_time, max_iterations, convergence_threshold
+        )
 
-        # Initial guess
+        # Initial guess and optimize
         initial_pulses = 0.1 * np.random.randn(
             self.gate_optimizer.n_controls, n_timeslices
         )
+        opt_result = optimizer.optimize_unitary(U_target=target, u_init=initial_pulses)
 
-        opt_result = optimizer.optimize_unitary(
-            U_target=target,
-            u_init=initial_pulses,
-        )
-
+        # Package results
         metadata = {
             "n_gates": len(gate_sequence),
             "n_timeslices": n_timeslices,

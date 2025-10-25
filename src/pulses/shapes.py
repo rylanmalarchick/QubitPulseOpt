@@ -142,6 +142,129 @@ def gaussian_pulse(
     return pulse
 
 
+def _validate_square_pulse_params(
+    times: np.ndarray,
+    amplitude: float,
+    t_start: float,
+    t_end: float,
+    rise_time: float,
+) -> None:
+    """
+    Validate square pulse parameters.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        Array of time points
+    amplitude : float
+        Pulse amplitude
+    t_start : float
+        Start time
+    t_end : float
+        End time
+    rise_time : float
+        Rise/fall time
+
+    Raises
+    ------
+    ValueError, TypeError
+        If parameters are invalid
+    """
+    if times is None:
+        raise ValueError("times array cannot be None")
+    if not isinstance(times, np.ndarray):
+        raise TypeError(f"times must be ndarray, got {type(times)}")
+    if len(times) == 0:
+        raise ValueError("times array must not be empty")
+    if not np.all(np.isfinite(times)):
+        raise ValueError("times must contain only finite values")
+
+    if not isinstance(amplitude, (int, float)):
+        raise TypeError(f"amplitude must be numeric, got {type(amplitude)}")
+    if not np.isfinite(amplitude):
+        raise ValueError(f"amplitude must be finite, got {amplitude}")
+
+    if not isinstance(t_start, (int, float)):
+        raise TypeError(f"t_start must be numeric, got {type(t_start)}")
+    if not isinstance(t_end, (int, float)):
+        raise TypeError(f"t_end must be numeric, got {type(t_end)}")
+    if not (np.isfinite(t_start) and np.isfinite(t_end)):
+        raise ValueError("t_start and t_end must be finite")
+
+    if rise_time < 0:
+        raise ValueError(f"rise_time must be non-negative, got {rise_time}")
+
+
+def _compute_square_envelope_smooth(
+    times: np.ndarray,
+    amplitude: float,
+    t_start: float,
+    t_end: float,
+    rise_time: float,
+) -> np.ndarray:
+    """
+    Compute square pulse with smooth rise/fall.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        Time points
+    amplitude : float
+        Pulse amplitude
+    t_start : float
+        Start time
+    t_end : float
+        End time
+    rise_time : float
+        Rise/fall time
+
+    Returns
+    -------
+    np.ndarray
+        Pulse envelope
+    """
+    pulse = np.zeros_like(times)
+    for i, t in enumerate(times):
+        if t_start <= t <= t_start + rise_time:
+            pulse[i] = amplitude * (t - t_start) / rise_time
+        elif t_start + rise_time < t < t_end - rise_time:
+            pulse[i] = amplitude
+        elif t_end - rise_time <= t <= t_end:
+            pulse[i] = amplitude * (t_end - t) / rise_time
+    return pulse
+
+
+def _compute_square_envelope_hard(
+    times: np.ndarray,
+    amplitude: float,
+    t_start: float,
+    t_end: float,
+) -> np.ndarray:
+    """
+    Compute square pulse with hard edges.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        Time points
+    amplitude : float
+        Pulse amplitude
+    t_start : float
+        Start time
+    t_end : float
+        End time
+
+    Returns
+    -------
+    np.ndarray
+        Pulse envelope
+    """
+    pulse = np.zeros_like(times)
+    mask = (times >= t_start) & (times <= t_end)
+    pulse[mask] = amplitude
+    return pulse
+
+
 def square_pulse(
     times: np.ndarray,
     amplitude: float,
@@ -180,48 +303,18 @@ def square_pulse(
     np.ndarray
         Pulse amplitude array.
     """
-    # Rule 5: Parameter validation with proper exceptions
-    if times is None:
-        raise ValueError("times array cannot be None")
-    if not isinstance(times, np.ndarray):
-        raise TypeError(f"times must be ndarray, got {type(times)}")
-    if len(times) == 0:
-        raise ValueError("times array must not be empty")
-    if not np.all(np.isfinite(times)):
-        raise ValueError("times must contain only finite values")
+    # Validate parameters
+    _validate_square_pulse_params(times, amplitude, t_start, t_end, rise_time)
 
-    if not isinstance(amplitude, (int, float)):
-        raise TypeError(f"amplitude must be numeric, got {type(amplitude)}")
-    if not np.isfinite(amplitude):
-        raise ValueError(f"amplitude must be finite, got {amplitude}")
-
-    if not isinstance(t_start, (int, float)):
-        raise TypeError(f"t_start must be numeric, got {type(t_start)}")
-    if not isinstance(t_end, (int, float)):
-        raise TypeError(f"t_end must be numeric, got {type(t_end)}")
-    # Note: t_start >= t_end is allowed - it just returns a zero pulse
-    if not (np.isfinite(t_start) and np.isfinite(t_end)):
-        raise ValueError("t_start and t_end must be finite")
-
-    if rise_time < 0:
-        raise ValueError(f"rise_time must be non-negative, got {rise_time}")
-
-    pulse = np.zeros_like(times)
+    # Compute envelope
     if rise_time > 0:
-        # Smooth rise and fall
-        for i, t in enumerate(times):
-            if t_start <= t <= t_start + rise_time:
-                pulse[i] = amplitude * (t - t_start) / rise_time
-            elif t_start + rise_time < t < t_end - rise_time:
-                pulse[i] = amplitude
-            elif t_end - rise_time <= t <= t_end:
-                pulse[i] = amplitude * (t_end - t) / rise_time
+        pulse = _compute_square_envelope_smooth(
+            times, amplitude, t_start, t_end, rise_time
+        )
     else:
-        # Hard edges
-        mask = (times >= t_start) & (times <= t_end)
-        pulse[mask] = amplitude
+        pulse = _compute_square_envelope_hard(times, amplitude, t_start, t_end)
 
-    # Rule 5: Postcondition assertions
+    # Postcondition assertions
     assert np.all(np.isfinite(pulse)), "Pulse contains non-finite values"
     assert pulse.shape == times.shape, f"Output shape mismatch"
 
@@ -294,6 +387,82 @@ def blackman_pulse(
     return pulse
 
 
+def _compute_drag_i_component(
+    times: np.ndarray,
+    amplitude: float,
+    t_center: float,
+    sigma: float,
+    truncation: float,
+) -> np.ndarray:
+    """
+    Compute in-phase (I) component of DRAG pulse.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        Time points
+    amplitude : float
+        Peak amplitude
+    t_center : float
+        Center time
+    sigma : float
+        Gaussian width
+    truncation : float
+        Truncation parameter
+
+    Returns
+    -------
+    np.ndarray
+        I component (Gaussian envelope)
+    """
+    omega_I = np.zeros_like(times)
+    mask = np.abs(times - t_center) <= truncation * sigma
+    t_masked = times[mask]
+    gaussian = amplitude * np.exp(-((t_masked - t_center) ** 2) / (2 * sigma**2))
+    omega_I[mask] = gaussian
+    return omega_I
+
+
+def _compute_drag_q_component(
+    times: np.ndarray,
+    amplitude: float,
+    t_center: float,
+    sigma: float,
+    beta: float,
+    truncation: float,
+) -> np.ndarray:
+    """
+    Compute quadrature (Q) component of DRAG pulse.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        Time points
+    amplitude : float
+        Peak amplitude
+    t_center : float
+        Center time
+    sigma : float
+        Gaussian width
+    beta : float
+        DRAG coefficient
+    truncation : float
+        Truncation parameter
+
+    Returns
+    -------
+    np.ndarray
+        Q component (derivative correction)
+    """
+    omega_Q = np.zeros_like(times)
+    mask = np.abs(times - t_center) <= truncation * sigma
+    t_masked = times[mask]
+    gaussian = amplitude * np.exp(-((t_masked - t_center) ** 2) / (2 * sigma**2))
+    derivative = (t_masked - t_center) / (sigma**2) * gaussian
+    omega_Q[mask] = beta * derivative
+    return omega_Q
+
+
 def drag_pulse(
     times: np.ndarray,
     amplitude: float,
@@ -358,17 +527,11 @@ def drag_pulse(
     The DRAG correction is a first-order perturbative solution. For very fast
     gates or strong driving, higher-order corrections may be needed.
     """
-    # In-phase component (standard Gaussian)
-    omega_I = np.zeros_like(times)
-    mask = np.abs(times - t_center) <= truncation * sigma
-    t_masked = times[mask]
-    gaussian = amplitude * np.exp(-((t_masked - t_center) ** 2) / (2 * sigma**2))
-    omega_I[mask] = gaussian
-
-    # Quadrature component (derivative of Gaussian)
-    omega_Q = np.zeros_like(times)
-    derivative = (t_masked - t_center) / (sigma**2) * gaussian
-    omega_Q[mask] = beta * derivative
+    # Compute I and Q components
+    omega_I = _compute_drag_i_component(times, amplitude, t_center, sigma, truncation)
+    omega_Q = _compute_drag_q_component(
+        times, amplitude, t_center, sigma, beta, truncation
+    )
 
     return omega_I, omega_Q
 

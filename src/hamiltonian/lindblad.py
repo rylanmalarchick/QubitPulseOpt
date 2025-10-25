@@ -271,6 +271,65 @@ class LindbladEvolution:
         result = qt.mesolve(self.H, rho0, times, self.c_ops, e_ops=e_ops)
         return result
 
+    def _get_unitary_hamiltonian(self, H_unitary: Optional[qt.Qobj]) -> qt.Qobj:
+        """
+        Get Hamiltonian for unitary comparison.
+
+        Parameters
+        ----------
+        H_unitary : qt.Qobj, optional
+            Provided Hamiltonian
+
+        Returns
+        -------
+        qt.Qobj
+            Hamiltonian to use
+        """
+        if H_unitary is None:
+            if isinstance(self.H, qt.Qobj):
+                return self.H
+            else:
+                return self.H[0]  # Use H0 from time-dependent list
+        return H_unitary
+
+    def _compute_fidelity_and_purity(
+        self,
+        lindblad_states: list,
+        unitary_states: list,
+    ) -> tuple:
+        """
+        Compute fidelities and purities.
+
+        Parameters
+        ----------
+        lindblad_states : list
+            States from Lindblad evolution
+        unitary_states : list
+            States from unitary evolution
+
+        Returns
+        -------
+        fidelities : np.ndarray
+            Fidelity at each time
+        purities : np.ndarray
+            Purity at each time
+        """
+        fidelities = []
+        purities = []
+
+        for rho_lindblad, rho_unitary in zip(lindblad_states, unitary_states):
+            # Fidelity between density matrices
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=Warning)
+                fid = qt.fidelity(rho_lindblad, rho_unitary)
+            fidelities.append(fid)
+
+            # Purity: Tr(ρ²)
+            purity = (rho_lindblad * rho_lindblad).tr()
+            purities.append(np.real(purity))
+
+        return np.array(fidelities), np.array(purities)
+
     def compare_with_unitary(
         self,
         rho0: qt.Qobj,
@@ -315,37 +374,19 @@ class LindbladEvolution:
         result_lindblad = self.evolve(rho0, times)
 
         # Unitary evolution (no decoherence)
-        if H_unitary is None:
-            if isinstance(self.H, qt.Qobj):
-                H_unitary = self.H
-            else:
-                H_unitary = self.H[0]  # Use H0 from time-dependent list
-
-        result_unitary = qt.sesolve(H_unitary, rho0, times)
+        H_eff = self._get_unitary_hamiltonian(H_unitary)
+        result_unitary = qt.sesolve(H_eff, rho0, times)
 
         # Compute fidelities and purity
-        fidelities = []
-        purities = []
-
-        for rho_lindblad, rho_unitary in zip(
+        fidelities, purities = self._compute_fidelity_and_purity(
             result_lindblad.states, result_unitary.states
-        ):
-            # Fidelity between density matrices
-            # Suppress LinAlgWarning from singular matrices in fidelity calculation
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=Warning)
-                fid = qt.fidelity(rho_lindblad, rho_unitary)
-            fidelities.append(fid)
-
-            # Purity: Tr(ρ²)
-            purity = (rho_lindblad * rho_lindblad).tr()
-            purities.append(np.real(purity))
+        )
 
         return {
             "lindblad_states": result_lindblad.states,
             "unitary_states": result_unitary.states,
-            "fidelities": np.array(fidelities),
-            "purity": np.array(purities),
+            "fidelities": fidelities,
+            "purity": purities,
         }
 
     def gate_fidelity_with_decoherence(

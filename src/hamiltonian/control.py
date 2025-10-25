@@ -176,27 +176,20 @@ class ControlHamiltonian:
         assert self._sigma_y.isherm, "sigma_y must be Hermitian"
         assert self._sigma_z.isherm, "sigma_z must be Hermitian"
 
-    def hamiltonian(self, t: float) -> qt.Qobj:
+    def _validate_time_parameter(self, t: float) -> None:
         """
-        Return control Hamiltonian H_c(t) at time t.
-
-        For rotating frame (default):
-            H_c(t) = Ω(t)/2 * (cos(φ) σ_x + sin(φ) σ_y)
-
-        For lab frame:
-            H_c(t) = Ω(t) * cos(ω_d*t + φ) σ_x
+        Validate time parameter.
 
         Parameters
         ----------
         t : float
-            Time at which to evaluate Hamiltonian.
+            Time value to validate
 
-        Returns
-        -------
-        qutip.Qobj
-            Control Hamiltonian operator.
+        Raises
+        ------
+        ValueError
+            If time is invalid
         """
-        # Rule 5: Input validation
         if t is None:
             raise ValueError("Time t cannot be None")
         if not isinstance(t, (int, float)):
@@ -206,15 +199,20 @@ class ControlHamiltonian:
         if t < 0:
             raise ValueError(f"Time must be non-negative, got {t}")
 
-        # Evaluate pulse amplitude
-        amplitude = self.pulse_func(t)
+    def _build_hamiltonian_operator(self, amplitude: float) -> qt.Qobj:
+        """
+        Build control Hamiltonian operator from amplitude.
 
-        # Rule 5: Validate pulse amplitude
-        assert np.isfinite(amplitude), (
-            f"Pulse amplitude not finite at t={t}: {amplitude}"
-        )
+        Parameters
+        ----------
+        amplitude : float
+            Pulse amplitude
 
-        # Build Hamiltonian based on drive axis
+        Returns
+        -------
+        qt.Qobj
+            Control Hamiltonian operator
+        """
         # Apply phase rotation: H = Ω(t)/2 * [cos(φ)σ_x + sin(φ)σ_y]
         if self.drive_axis == "x":
             # X-axis drive with phase rotation
@@ -246,8 +244,41 @@ class ControlHamiltonian:
                     + np.sin(self.phase) * self._sigma_y
                 )
             )
+        return H_c
 
-        # Rule 5: Validate output
+    def hamiltonian(self, t: float) -> qt.Qobj:
+        """
+        Return control Hamiltonian H_c(t) at time t.
+
+        For rotating frame (default):
+            H_c(t) = Ω(t)/2 * (cos(φ) σ_x + sin(φ) σ_y)
+
+        For lab frame:
+            H_c(t) = Ω(t) * cos(ω_d*t + φ) σ_x
+
+        Parameters
+        ----------
+        t : float
+            Time at which to evaluate Hamiltonian.
+
+        Returns
+        -------
+        qutip.Qobj
+            Control Hamiltonian operator.
+        """
+        # Validate time parameter
+        self._validate_time_parameter(t)
+
+        # Evaluate pulse amplitude
+        amplitude = self.pulse_func(t)
+        assert np.isfinite(amplitude), (
+            f"Pulse amplitude not finite at t={t}: {amplitude}"
+        )
+
+        # Build Hamiltonian operator
+        H_c = self._build_hamiltonian_operator(amplitude)
+
+        # Validate output
         assert H_c is not None, "Hamiltonian construction failed"
         assert isinstance(H_c, qt.Qobj), "H_c must be Qobj"
         assert H_c.isherm, f"Control Hamiltonian must be Hermitian at t={t}"

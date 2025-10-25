@@ -514,6 +514,85 @@ class DRAGPulse:
         return comparison
 
 
+def _get_gate_angle(gate_type: str) -> float:
+    """
+    Get target rotation angle for gate type.
+
+    Parameters
+    ----------
+    gate_type : str
+        Type of gate
+
+    Returns
+    -------
+    float
+        Target rotation angle (radians)
+
+    Raises
+    ------
+    ValueError
+        If gate type is unknown
+    """
+    gate_angles = {
+        "X": np.pi,
+        "Y": np.pi,
+        "X/2": np.pi / 2,
+        "Y/2": np.pi / 2,
+        "H": np.pi,  # Hadamard requires composite construction
+    }
+
+    if gate_type not in gate_angles:
+        raise ValueError(
+            f"Unknown gate type: {gate_type}. Must be one of {list(gate_angles.keys())}"
+        )
+
+    return gate_angles[gate_type]
+
+
+def _compute_drag_pulse_params(
+    target_angle: float,
+    gate_time: float,
+    anharmonicity: Optional[float],
+    optimize_beta: bool,
+) -> Tuple[float, float, float]:
+    """
+    Compute DRAG pulse parameters for target angle.
+
+    Parameters
+    ----------
+    target_angle : float
+        Target rotation angle
+    gate_time : float
+        Gate duration
+    anharmonicity : float, optional
+        Qubit anharmonicity
+    optimize_beta : bool
+        Whether to optimize beta
+
+    Returns
+    -------
+    amplitude : float
+        Pulse amplitude
+    sigma : float
+        Gaussian width
+    beta : float
+        DRAG correction parameter
+    """
+    # Pulse width (4σ truncation gives total width of 8σ)
+    sigma = gate_time / 8.0  # Pulse occupies central 50% of gate time
+
+    # Calculate amplitude for target rotation angle
+    # For Gaussian: ∫ A*exp(-(t-tc)²/(2σ²)) dt ≈ A*σ*√(2π)
+    amplitude = target_angle / (sigma * np.sqrt(2 * np.pi))
+
+    # Set initial β (will be optimized if requested)
+    beta = 0.0
+    if optimize_beta and anharmonicity is not None:
+        beta = -anharmonicity / (2.0 * amplitude)
+
+    return amplitude, sigma, beta
+
+
 def create_drag_pulse_for_gate(
     gate_type: str,
     gate_time: float,
@@ -556,37 +635,16 @@ def create_drag_pulse_for_gate(
     ...                                           anharmonicity=-200.0)
     """
     # Determine target rotation angle
-    gate_angles = {
-        "X": np.pi,
-        "Y": np.pi,
-        "X/2": np.pi / 2,
-        "Y/2": np.pi / 2,
-        "H": np.pi,  # Hadamard requires composite construction
-    }
+    target_angle = _get_gate_angle(gate_type)
 
-    if gate_type not in gate_angles:
-        raise ValueError(
-            f"Unknown gate type: {gate_type}. Must be one of {list(gate_angles.keys())}"
-        )
-
-    target_angle = gate_angles[gate_type]
+    # Compute pulse parameters
+    amplitude, sigma, beta = _compute_drag_pulse_params(
+        target_angle, gate_time, anharmonicity, optimize_beta
+    )
 
     # Time array
     times = np.linspace(0, gate_time, n_points)
     t_center = gate_time / 2.0
-
-    # Pulse width (4σ truncation gives total width of 8σ)
-    sigma = gate_time / 8.0  # Pulse occupies central 50% of gate time
-
-    # Calculate amplitude for target rotation angle
-    # For Gaussian: ∫ A*exp(-(t-tc)²/(2σ²)) dt ≈ A*σ*√(2π)
-    # We want this equal to target_angle
-    amplitude = target_angle / (sigma * np.sqrt(2 * np.pi))
-
-    # Set initial β (will be optimized if requested)
-    beta = 0.0
-    if optimize_beta and anharmonicity is not None:
-        beta = -anharmonicity / (2.0 * amplitude)
 
     # Create DRAG pulse
     params = DRAGParameters(
