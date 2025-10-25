@@ -349,40 +349,21 @@ def blackman_pulse(
     Examples
     --------
     >>> times = np.linspace(0, 100, 1000)
-    >>> pulse = square_pulse(times, amplitude=2*np.pi*5, t_start=20, t_end=80)
-    >>> # 60 ns flat-top pulse at 5 MHz Rabi frequency
-
-    Notes
-    -----
-    For a π-pulse with square envelope:
-        A * (t_end - t_start) = π  →  duration = π / A
+    >>> pulse = blackman_pulse(times, amplitude=2*np.pi*5, t_center=50, duration=60)
     """
+    t_start = t_center - duration / 2
+    t_end = t_center + duration / 2
+
     pulse = np.zeros_like(times)
+    mask = (times >= t_start) & (times <= t_end)
 
-    if rise_time == 0:
-        # Sharp edges
-        mask = (times >= t_start) & (times <= t_end)
-        pulse[mask] = amplitude
-    else:
-        # Smooth rise and fall with cosine edges
-        t_rise_end = t_start + rise_time
-        t_fall_start = t_end - rise_time
+    if not np.any(mask):
+        return pulse
 
-        # Rise edge
-        rise_mask = (times >= t_start) & (times < t_rise_end)
-        if np.any(rise_mask):
-            phase = (times[rise_mask] - t_start) / rise_time
-            pulse[rise_mask] = amplitude * 0.5 * (1 - np.cos(np.pi * phase))
-
-        # Flat top
-        flat_mask = (times >= t_rise_end) & (times <= t_fall_start)
-        pulse[flat_mask] = amplitude
-
-        # Fall edge
-        fall_mask = (times > t_fall_start) & (times <= t_end)
-        if np.any(fall_mask):
-            phase = (times[fall_mask] - t_fall_start) / rise_time
-            pulse[fall_mask] = amplitude * 0.5 * (1 + np.cos(np.pi * phase))
+    t_masked = times[mask]
+    x = (t_masked - t_start) / duration
+    window = _compute_blackman_window(x)
+    pulse[mask] = amplitude * window
 
     return pulse
 
@@ -536,6 +517,26 @@ def drag_pulse(
     return omega_I, omega_Q
 
 
+def _compute_blackman_window(x: np.ndarray) -> np.ndarray:
+    """
+    Compute Blackman window coefficients.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Normalized position in [0, 1]
+
+    Returns
+    -------
+    np.ndarray
+        Window values
+    """
+    a0 = 0.42
+    a1 = 0.5
+    a2 = 0.08
+    return a0 - a1 * np.cos(2 * np.pi * x) + a2 * np.cos(4 * np.pi * x)
+
+
 def blackman_pulse(
     times: np.ndarray,
     amplitude: float,
@@ -589,12 +590,8 @@ def blackman_pulse(
     duration = t_end - t_start
     x = (t_masked - t_start) / duration  # Normalize to [0, 1]
 
-    # Blackman window coefficients
-    a0 = 0.42
-    a1 = 0.5
-    a2 = 0.08
-
-    window = a0 - a1 * np.cos(2 * np.pi * x) + a2 * np.cos(4 * np.pi * x)
+    # Compute Blackman window
+    window = _compute_blackman_window(x)
     pulse[mask] = amplitude * window
 
     return pulse
