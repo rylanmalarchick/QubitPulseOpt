@@ -578,6 +578,91 @@ class OptimizationReport:
         return fig
 
 
+def _build_latex_table_header(columns: List[str], n_cols: int) -> List[str]:
+    """
+    Build LaTeX table header lines.
+
+    Parameters
+    ----------
+    columns : list of str
+        Column names
+    n_cols : int
+        Number of columns
+
+    Returns
+    -------
+    list of str
+        Header lines
+    """
+    lines = []
+    lines.append("\\begin{table}[h]")
+    lines.append("\\centering")
+    lines.append(f"\\begin{{tabular}}{{|{'|'.join(['c'] * n_cols)}|}}")
+    lines.append("\\hline")
+    header = " & ".join(f"\\textbf{{{col}}}" for col in columns)
+    lines.append(f"{header} \\\\")
+    lines.append("\\hline")
+    return lines
+
+
+def _build_latex_table_rows(
+    data: Dict[str, List[Any]], columns: List[str], n_rows: int
+) -> List[str]:
+    """
+    Build LaTeX table data rows.
+
+    Parameters
+    ----------
+    data : dict
+        Data dictionary
+    columns : list of str
+        Column names
+    n_rows : int
+        Number of rows
+
+    Returns
+    -------
+    list of str
+        Data row lines
+    """
+    lines = []
+    for i in range(n_rows):
+        row = []
+        for col in columns:
+            value = data[col][i]
+            if isinstance(value, float):
+                row.append(f"{value:.4f}")
+            else:
+                row.append(str(value))
+        lines.append(" & ".join(row) + " \\\\")
+    return lines
+
+
+def _build_latex_table_footer(caption: str, label: str) -> List[str]:
+    """
+    Build LaTeX table footer lines.
+
+    Parameters
+    ----------
+    caption : str
+        Table caption
+    label : str
+        LaTeX label
+
+    Returns
+    -------
+    list of str
+        Footer lines
+    """
+    lines = []
+    lines.append("\\hline")
+    lines.append("\\end{tabular}")
+    lines.append(f"\\caption{{{caption}}}")
+    lines.append(f"\\label{{{label}}}")
+    lines.append("\\end{table}")
+    return lines
+
+
 def generate_latex_table(
     data: Dict[str, List[Any]],
     filename: str,
@@ -612,33 +697,11 @@ def generate_latex_table(
     n_cols = len(columns)
     n_rows = len(data[columns[0]])
 
+    # Build table parts
     lines = []
-    lines.append("\\begin{table}[h]")
-    lines.append("\\centering")
-    lines.append(f"\\begin{{tabular}}{{|{'|'.join(['c'] * n_cols)}|}}")
-    lines.append("\\hline")
-
-    # Header
-    header = " & ".join(f"\\textbf{{{col}}}" for col in columns)
-    lines.append(f"{header} \\\\")
-    lines.append("\\hline")
-
-    # Data rows
-    for i in range(n_rows):
-        row = []
-        for col in columns:
-            value = data[col][i]
-            if isinstance(value, float):
-                row.append(f"{value:.4f}")
-            else:
-                row.append(str(value))
-        lines.append(" & ".join(row) + " \\\\")
-
-    lines.append("\\hline")
-    lines.append("\\end{tabular}")
-    lines.append(f"\\caption{{{caption}}}")
-    lines.append(f"\\label{{{label}}}")
-    lines.append("\\end{table}")
+    lines.extend(_build_latex_table_header(columns, n_cols))
+    lines.extend(_build_latex_table_rows(data, columns, n_rows))
+    lines.extend(_build_latex_table_footer(caption, label))
 
     latex_str = "\n".join(lines)
 
