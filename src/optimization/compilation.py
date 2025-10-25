@@ -598,6 +598,75 @@ class GateCompiler:
                 f"Unknown gate '{gate_name}'. Supported: I, X, Y, Z, H, S, T, Sdg, Tdg"
             )
 
+    def _reconstruct_and_compute_fidelity(
+        self, U: qt.Qobj, phi1: float, theta: float, phi2: float
+    ) -> tuple:
+        """
+        Reconstruct unitary and compute fidelity.
+
+        Parameters
+        ----------
+        U : qt.Qobj
+            Target unitary
+        phi1, theta, phi2 : float
+            Euler angles
+
+        Returns
+        -------
+        U_recon : qt.Qobj
+            Reconstructed unitary
+        fidelity : float
+            Reconstruction fidelity
+        global_phase : float
+            Global phase difference
+        """
+        U_recon = rotation_from_euler_angles(phi1, theta, phi2)
+        overlap = (U.dag() * U_recon).tr()
+        fidelity = abs(overlap) ** 2 / 4
+        global_phase = np.angle(overlap)
+        return U_recon, fidelity, global_phase
+
+    def _create_euler_decomposition(
+        self,
+        U: qt.Qobj,
+        phi1: float,
+        theta: float,
+        phi2: float,
+        U_recon: qt.Qobj,
+        fidelity: float,
+        global_phase: float,
+    ) -> EulerDecomposition:
+        """
+        Create Euler decomposition result.
+
+        Parameters
+        ----------
+        U : qt.Qobj
+            Target unitary
+        phi1, theta, phi2 : float
+            Euler angles
+        U_recon : qt.Qobj
+            Reconstructed unitary
+        fidelity : float
+            Reconstruction fidelity
+        global_phase : float
+            Global phase
+
+        Returns
+        -------
+        EulerDecomposition
+            Decomposition result
+        """
+        return EulerDecomposition(
+            phi1=phi1,
+            theta=theta,
+            phi2=phi2,
+            target_unitary=U,
+            reconstructed_unitary=U_recon,
+            fidelity=fidelity,
+            global_phase=global_phase,
+        )
+
     def decompose_unitary(
         self, U: qt.Qobj, return_gates: bool = False
     ) -> Union[EulerDecomposition, Tuple[EulerDecomposition, List[str]]]:
@@ -643,31 +712,17 @@ class GateCompiler:
         # Extract Euler angles
         phi1, theta, phi2 = euler_angles_from_unitary(U)
 
-        # Reconstruct unitary
-        U_recon = rotation_from_euler_angles(phi1, theta, phi2)
+        # Reconstruct and compute fidelity
+        U_recon, fidelity, global_phase = self._reconstruct_and_compute_fidelity(
+            U, phi1, theta, phi2
+        )
 
-        # Compute fidelity
-        # F = |Tr(U† U_recon)|² / d²
-        overlap = (U.dag() * U_recon).tr()
-        fidelity = abs(overlap) ** 2 / 4
-
-        # Global phase
-        global_phase = np.angle(overlap)
-
-        decomposition = EulerDecomposition(
-            phi1=phi1,
-            theta=theta,
-            phi2=phi2,
-            target_unitary=U,
-            reconstructed_unitary=U_recon,
-            fidelity=fidelity,
-            global_phase=global_phase,
+        # Create decomposition result
+        decomposition = self._create_euler_decomposition(
+            U, phi1, theta, phi2, U_recon, fidelity, global_phase
         )
 
         if return_gates:
-            # Convert Euler angles to gate sequence
-            # This is a simplified version - a full implementation would
-            # use the actual rotation angles to build Rz(φ₁), Ry(θ), Rz(φ₂)
             gate_sequence = self._euler_to_gate_sequence(phi1, theta, phi2)
             return decomposition, gate_sequence
 
