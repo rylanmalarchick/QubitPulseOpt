@@ -402,6 +402,83 @@ class RBExperiment:
 
         return result
 
+    def _fit_rb_curve(
+        self, sequence_lengths: np.ndarray, survival_probs: np.ndarray
+    ) -> tuple:
+        """
+        Fit RB decay curve with exponential model.
+
+        Args:
+            sequence_lengths: Array of sequence lengths
+            survival_probs: Measured survival probabilities
+
+        Returns:
+            A_fit, p_fit, B_fit, p_error
+        """
+
+        def rb_decay(m, A, p, B):
+            return A * p**m + B
+
+        p0 = [0.5, 0.95, 0.5]  # Initial guess (A, p, B)
+
+        try:
+            popt, pcov = curve_fit(
+                rb_decay,
+                sequence_lengths,
+                survival_probs,
+                p0=p0,
+                bounds=([0, 0, 0], [1, 1, 1]),
+                maxfev=5000,
+            )
+            A_fit, p_fit, B_fit = popt
+            perr = np.sqrt(np.diag(pcov))
+            p_error = perr[1]
+            return A_fit, p_fit, B_fit, p_error
+
+        except Exception as e:
+            warnings.warn(f"RB curve fitting failed: {e}. Using fallback.")
+            return self._fallback_rb_fit(sequence_lengths, survival_probs)
+
+    def _fallback_rb_fit(
+        self, sequence_lengths: np.ndarray, survival_probs: np.ndarray
+    ) -> tuple:
+        """
+        Fallback RB fit using linear fit in log space.
+
+        Args:
+            sequence_lengths: Array of sequence lengths
+            survival_probs: Measured survival probabilities
+
+        Returns:
+            A_fit, p_fit, B_fit, p_error
+        """
+        valid_idx = survival_probs > 1e-10
+        if np.sum(valid_idx) > 2:
+            log_probs = np.log(np.maximum(survival_probs[valid_idx], 1e-10))
+            poly = np.polyfit(sequence_lengths[valid_idx], log_probs, 1)
+            p_fit = np.exp(poly[0])
+        else:
+            p_fit = 0.9
+
+        return 0.5, p_fit, 0.5, 0.05
+
+    def _compute_gate_fidelity(self, p_fit: float, p_error: float, d: int = 2) -> tuple:
+        """
+        Compute average gate fidelity from depolarizing parameter.
+
+        Args:
+            p_fit: Fitted depolarizing parameter
+            p_error: Error in p
+            d: Dimension (default 2 for single qubit)
+
+        Returns:
+            F_avg, gate_infidelity, F_error
+        """
+        F_avg = 1 - (1 - p_fit) * (d - 1) / d
+        gate_infidelity = 1 - F_avg
+        F_error = p_error * (d - 1) / d
+        return F_avg, gate_infidelity, F_error
+
     def fit_rb_decay(
         self, sequence_lengths: np.ndarray, survival_probs: np.ndarray
     ) -> RBResult:
@@ -417,53 +494,14 @@ class RBExperiment:
         Returns:
             RBResult with fit parameters and fidelity
         """
+        # Fit RB curve
+        A_fit, p_fit, B_fit, p_error = self._fit_rb_curve(
+            sequence_lengths, survival_probs
+        )
 
-        # Define decay model
-        def rb_decay(m, A, p, B):
-            return A * p**m + B
-
-        # Initial guess
-        p0 = [0.5, 0.95, 0.5]  # (A, p, B)
-
-        # Fit with bounds
-        try:
-            popt, pcov = curve_fit(
-                rb_decay,
-                sequence_lengths,
-                survival_probs,
-                p0=p0,
-                bounds=([0, 0, 0], [1, 1, 1]),
-                maxfev=5000,
-            )
-            A_fit, p_fit, B_fit = popt
-
-            # Compute standard error
-            perr = np.sqrt(np.diag(pcov))
-            p_error = perr[1]
-
-        except Exception as e:
-            warnings.warn(f"RB curve fitting failed: {e}. Using fallback.")
-            # Fallback: estimate p from linear fit in log space
-            valid_idx = survival_probs > 1e-10
-            if np.sum(valid_idx) > 2:
-                log_probs = np.log(np.maximum(survival_probs[valid_idx], 1e-10))
-                poly = np.polyfit(sequence_lengths[valid_idx], log_probs, 1)
-                p_fit = np.exp(poly[0])
-            else:
-                p_fit = 0.9
-
-            A_fit, B_fit = 0.5, 0.5
-            p_error = 0.05
-
-        # Extract average gate fidelity
-        # For single qubit (d=2): F_avg = 1 - (1-p)(d-1)/d = 1 - (1-p)/2
+        # Compute gate fidelity
         d = 2  # dimension
-        F_avg = 1 - (1 - p_fit) * (d - 1) / d
-        gate_infidelity = 1 - F_avg
-
-        # Propagate error
-        # dF/dp = (d-1)/d, so σ_F = σ_p · (d-1)/d
-        F_error = p_error * (d - 1) / d
+        F_avg, gate_infidelity, F_error = self._compute_gate_fidelity(p_fit, p_error, d)
 
         fit_params = {"A": A_fit, "p": p_fit, "B": B_fit}
 

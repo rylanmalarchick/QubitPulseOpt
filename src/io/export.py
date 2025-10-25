@@ -48,6 +48,70 @@ class PulseExporter:
         self.metadata["exporter_version"] = self.VERSION
         self.metadata["export_timestamp"] = None  # Set at export time
 
+    def _build_pulse_data_dict(
+        self,
+        times: np.ndarray,
+        amplitudes: np.ndarray,
+        frequencies: Optional[np.ndarray],
+        phases: Optional[np.ndarray],
+    ) -> dict:
+        """
+        Build pulse data dictionary.
+
+        Args:
+            times: Time points array
+            amplitudes: Pulse amplitude envelope
+            frequencies: Optional frequency modulation
+            phases: Optional phase modulation
+
+        Returns:
+            Pulse data dictionary
+        """
+        pulse_data = {
+            "times": self._to_list(times),
+            "amplitudes": self._to_list(amplitudes),
+            "num_samples": len(times),
+            "duration": float(times[-1] - times[0]) if len(times) > 1 else 0.0,
+            "sample_rate": float(len(times) / (times[-1] - times[0]))
+            if len(times) > 1 and times[-1] != times[0]
+            else 0.0,
+        }
+
+        # Add optional fields
+        if frequencies is not None:
+            pulse_data["frequencies"] = self._to_list(frequencies)
+        if phases is not None:
+            pulse_data["phases"] = self._to_list(phases)
+
+        return pulse_data
+
+    def _compute_pulse_statistics(self, amplitudes: np.ndarray) -> dict:
+        """
+        Compute pulse statistics.
+
+        Args:
+            amplitudes: Pulse amplitude envelope
+
+        Returns:
+            Statistics dictionary
+        """
+        if len(amplitudes) > 0:
+            # For complex arrays, use absolute values for statistics
+            amp_abs = np.abs(amplitudes)
+            return {
+                "max_amplitude": float(np.max(amp_abs)),
+                "mean_amplitude": float(np.mean(amp_abs)),
+                "rms_amplitude": float(np.sqrt(np.mean(amp_abs**2))),
+                "peak_to_peak": float(np.ptp(amp_abs)),
+            }
+        else:
+            return {
+                "max_amplitude": 0.0,
+                "mean_amplitude": 0.0,
+                "rms_amplitude": 0.0,
+                "peak_to_peak": 0.0,
+            }
+
     def export_pulse_json(
         self,
         times: np.ndarray,
@@ -75,46 +139,18 @@ class PulseExporter:
         """
         filepath = Path(filepath)
 
-        # Prepare data structure
+        # Build pulse data
+        pulse_data = self._build_pulse_data_dict(times, amplitudes, frequencies, phases)
+
+        # Prepare complete data structure
         data = {
             "schema_version": self.VERSION,
             "export_timestamp": datetime.utcnow().isoformat() + "Z",
             "pulse_name": pulse_name,
             "metadata": {**self.metadata, **(additional_metadata or {})},
-            "pulse_data": {
-                "times": self._to_list(times),
-                "amplitudes": self._to_list(amplitudes),
-                "num_samples": len(times),
-                "duration": float(times[-1] - times[0]) if len(times) > 1 else 0.0,
-                "sample_rate": float(len(times) / (times[-1] - times[0]))
-                if len(times) > 1 and times[-1] != times[0]
-                else 0.0,
-            },
+            "pulse_data": pulse_data,
+            "statistics": self._compute_pulse_statistics(amplitudes),
         }
-
-        # Add optional fields
-        if frequencies is not None:
-            data["pulse_data"]["frequencies"] = self._to_list(frequencies)
-        if phases is not None:
-            data["pulse_data"]["phases"] = self._to_list(phases)
-
-        # Add statistics (handle empty arrays)
-        if len(amplitudes) > 0:
-            # For complex arrays, use absolute values for statistics
-            amp_abs = np.abs(amplitudes)
-            data["statistics"] = {
-                "max_amplitude": float(np.max(amp_abs)),
-                "mean_amplitude": float(np.mean(amp_abs)),
-                "rms_amplitude": float(np.sqrt(np.mean(amp_abs**2))),
-                "peak_to_peak": float(np.ptp(amp_abs)),
-            }
-        else:
-            data["statistics"] = {
-                "max_amplitude": 0.0,
-                "mean_amplitude": 0.0,
-                "rms_amplitude": 0.0,
-                "peak_to_peak": 0.0,
-            }
 
         # Write to file
         filepath.parent.mkdir(parents=True, exist_ok=True)
