@@ -632,20 +632,40 @@ class RobustnessTester:
 
         for i, param1 in enumerate(param1_range):
             for j, param2 in enumerate(param2_range):
-                # Apply parameter 1
-                H_drift_mod, pulse_mod = self._apply_parameter_modification(
-                    param1_name, param1
+                fidelities[i, j] = self._compute_2d_parameter_fidelity(
+                    param1_name, param1, param2_name, param2
                 )
 
-                # Apply parameter 2 (may override pulse_mod)
-                if param2_name == "amplitude_error":
-                    pulse_mod = pulse_mod * (1.0 + param2)
-                elif param2_name == "detuning" and param1_name != "detuning":
-                    H_drift_mod = H_drift_mod + 0.5 * param2 * qt.sigmaz()
-
-                fidelities[i, j] = self._compute_fidelity(H_drift_mod, pulse_mod)
-
         return fidelities
+
+    def _compute_2d_parameter_fidelity(
+        self, param1_name: str, param1: float, param2_name: str, param2: float
+    ) -> float:
+        """
+        Compute fidelity for a single point in 2D parameter space.
+
+        Parameters
+        ----------
+        param1_name, param2_name : str
+            Parameter names
+        param1, param2 : float
+            Parameter values
+
+        Returns
+        -------
+        float
+            Fidelity at this parameter point
+        """
+        # Apply parameter 1
+        H_drift_mod, pulse_mod = self._apply_parameter_modification(param1_name, param1)
+
+        # Apply parameter 2 (may override pulse_mod)
+        if param2_name == "amplitude_error":
+            pulse_mod = pulse_mod * (1.0 + param2)
+        elif param2_name == "detuning" and param1_name != "detuning":
+            H_drift_mod = H_drift_mod + 0.5 * param2 * qt.sigmaz()
+
+        return self._compute_fidelity(H_drift_mod, pulse_mod)
 
     def sweep_2d_parameters(
         self,

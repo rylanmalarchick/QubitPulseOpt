@@ -354,6 +354,37 @@ class RBExperiment:
         prob = np.real((self.measurement_basis * state_dm).tr())
         return np.clip(prob, 0, 1)
 
+    def _simulate_sequences_for_length(
+        self,
+        rb_sequences: dict,
+        length: int,
+        noise_model: Optional[Callable],
+        add_measurement_noise: bool,
+    ) -> float:
+        """
+        Simulate all sequences for a given length and return mean probability.
+
+        Args:
+            rb_sequences: Dictionary of sequences by length
+            length: Sequence length
+            noise_model: Optional noise model
+            add_measurement_noise: Whether to add measurement noise
+
+        Returns:
+            Mean survival probability
+        """
+        probs = []
+        for seq, recovery in rb_sequences[length]:
+            prob = self.simulate_sequence(seq, recovery, noise_model)
+
+            if add_measurement_noise:
+                prob += np.random.randn() * 0.01  # 1% measurement noise
+                prob = np.clip(prob, 0, 1)
+
+            probs.append(prob)
+
+        return np.mean(probs)
+
     def run_rb_experiment(
         self,
         sequence_lengths: List[int],
@@ -381,19 +412,10 @@ class RBExperiment:
         )
 
         for length in sequence_lengths:
-            probs = []
-            for seq, recovery in rb_sequences[length]:
-                prob = self.simulate_sequence(seq, recovery, noise_model)
-
-                # Optionally add measurement noise
-                if add_measurement_noise:
-                    prob += np.random.randn() * 0.01  # 1% measurement noise
-                    prob = np.clip(prob, 0, 1)
-
-                probs.append(prob)
-
-            # Average over samples
-            survival_probs.append(np.mean(probs))
+            mean_prob = self._simulate_sequences_for_length(
+                rb_sequences, length, noise_model, add_measurement_noise
+            )
+            survival_probs.append(mean_prob)
 
         survival_probs = np.array(survival_probs)
 
