@@ -449,7 +449,8 @@ class UniversalGates:
         **kwargs,
     ):
         """Run optimization with initial random guess."""
-        initial_pulses = 0.1 * np.random.randn(self.n_controls, n_timeslices)
+        # Use larger initial pulse amplitude for better exploration
+        initial_pulses = 0.5 * np.random.randn(self.n_controls, n_timeslices)
         return optimizer.optimize_unitary(
             U_target=target_unitary,
             u_init=initial_pulses,
@@ -500,13 +501,19 @@ class UniversalGates:
         max_iterations: int = 500,
         convergence_threshold: float = 1e-6,
         amplitude_limit: Optional[float] = None,
+        n_starts: int = 10,
         **kwargs,
     ) -> GateResult:
         """
         Internal method to optimize a gate using specified method.
 
         Orchestrates gate optimization by setting up optimizer, running
-        optimization, and assembling results.
+        optimization with multiple random starts, and returning best result.
+
+        Parameters
+        ----------
+        n_starts : int
+            Number of random initializations to try (default: 10)
         """
         u_limits = self._setup_amplitude_limits(amplitude_limit)
 
@@ -519,16 +526,29 @@ class UniversalGates:
             convergence_threshold,
         )
 
-        opt_result = self._run_gate_optimization(
-            optimizer, target_unitary, n_timeslices, **kwargs
-        )
+        # Try multiple random initializations and keep best result
+        best_result = None
+        best_fidelity = 0.0
+
+        for start_idx in range(n_starts):
+            opt_result = self._run_gate_optimization(
+                optimizer, target_unitary, n_timeslices, **kwargs
+            )
+
+            if opt_result.final_fidelity > best_fidelity:
+                best_fidelity = opt_result.final_fidelity
+                best_result = opt_result
+
+            # Early exit if we've achieved good fidelity
+            if best_fidelity >= self.fidelity_threshold:
+                break
 
         return self._build_gate_result(
             gate_name,
             target_unitary,
             gate_time,
             method,
-            opt_result,
+            best_result,
             n_timeslices,
             amplitude_limit,
         )
