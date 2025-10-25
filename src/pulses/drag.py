@@ -657,6 +657,83 @@ def leakage_error_estimate(
     return leakage
 
 
+def _setup_scan_hamiltonians(n_levels: int) -> Tuple[qt.Qobj, qt.Qobj, qt.Qobj]:
+    """Setup Hamiltonians and initial state for beta scan."""
+    H_x = qt.create(n_levels) + qt.destroy(n_levels)
+    H_y = 1j * (qt.create(n_levels) - qt.destroy(n_levels))
+    psi0 = qt.basis(n_levels, 0)
+    return H_x, H_y, psi0
+
+
+def _create_drag_coefficients(
+    times: np.ndarray, omega_I: np.ndarray, omega_Q: np.ndarray
+) -> Tuple:
+    """Create interpolated coefficient functions for QuTiP."""
+    from scipy.interpolate import interp1d
+
+    coeff_I_interp = interp1d(
+        times, omega_I, kind="linear", fill_value=0.0, bounds_error=False
+    )
+    coeff_Q_interp = interp1d(
+        times, omega_Q, kind="linear", fill_value=0.0, bounds_error=False
+    )
+
+    def coeff_I(t, args=None):
+        return float(coeff_I_interp(t))
+
+    def coeff_Q(t, args=None):
+        return float(coeff_Q_interp(t))
+
+    return coeff_I, coeff_Q
+
+
+def _embed_target_unitary(U_target: qt.Qobj, n_levels: int) -> qt.Qobj:
+    """Embed 2x2 target unitary into n_levels space."""
+    U_full_array = np.eye(n_levels, dtype=complex)
+    U_full_array[0:2, 0:2] = U_target.full()
+    return qt.Qobj(U_full_array, dims=[[n_levels], [n_levels]])
+
+
+def _evaluate_beta_value(
+    beta: float,
+    times: np.ndarray,
+    t_center: float,
+    amplitude: float,
+    sigma: float,
+    U_target: qt.Qobj,
+    H_drift: qt.Qobj,
+    H_x: qt.Qobj,
+    H_y: qt.Qobj,
+    psi0: qt.Qobj,
+    n_levels: int,
+) -> Tuple[float, float]:
+    """Evaluate fidelity and leakage for a single beta value."""
+    from qutip import mesolve
+
+    # Generate DRAG pulse
+    params = DRAGParameters(amplitude=amplitude, sigma=sigma, beta=beta)
+    drag = DRAGPulse(params)
+    omega_I, omega_Q = drag.envelope(times, t_center)
+
+    # Create coefficient functions
+    coeff_I, coeff_Q = _create_drag_coefficients(times, omega_I, omega_Q)
+
+    # Evolve
+    H = [H_drift, [H_x, coeff_I], [H_y, coeff_Q]]
+    result = mesolve(H, psi0, times, [], [])
+    psi_final = result.states[-1]
+
+    # Compute fidelity
+    U_target_full = _embed_target_unitary(U_target, n_levels)
+    psi_target = U_target_full * psi0
+    fidelity = qt.fidelity(psi_target, psi_final) ** 2
+
+    # Compute leakage
+    leakage = sum(np.abs(psi_final.full()[j, 0]) ** 2 for j in range(2, n_levels))
+
+    return fidelity, leakage
+
+
 def scan_beta_parameter(
     times: np.ndarray,
     t_center: float,
@@ -670,91 +747,31 @@ def scan_beta_parameter(
     """
     Scan β parameter to find optimal value for leakage suppression.
 
-    This performs a parameter sweep over β values and computes fidelity
-    and leakage for each, useful for calibrating DRAG pulses.
-
-    Parameters
-    ----------
-    times : np.ndarray
-        Time points for simulation
-    t_center : float
-        Center time of the pulse
-    amplitude : float
-        Peak Rabi frequency
-    sigma : float
-        Gaussian width
-    beta_range : np.ndarray
-        Array of β values to scan
-    U_target : qt.Qobj
-        Target unitary
-    H_drift : qt.Qobj
-        Drift Hamiltonian
-    n_levels : int
-        Number of qubit levels (must be >= 3 for leakage)
-
-    Returns
-    -------
-    results : dict
-        Dictionary with keys:
-        - 'beta_values': β values scanned
-        - 'fidelities': Gate fidelity for each β
-        - 'leakages': Leakage probability for each β (if n_levels >= 3)
-        - 'optimal_beta': β value with highest fidelity
+    Performs parameter sweep over β values and computes fidelity and leakage.
     """
-    from qutip import mesolve
-
     if n_levels < 3:
         raise ValueError("n_levels must be >= 3 for leakage analysis")
 
     fidelities = np.zeros_like(beta_range)
     leakages = np.zeros_like(beta_range)
 
-    # Control Hamiltonians
-    H_x = qt.create(n_levels) + qt.destroy(n_levels)
-    H_y = 1j * (qt.create(n_levels) - qt.destroy(n_levels))
+    # Setup Hamiltonians and initial state
+    H_x, H_y, psi0 = _setup_scan_hamiltonians(n_levels)
 
-    psi0 = qt.basis(n_levels, 0)
-
+    # Scan beta values
     for i, beta in enumerate(beta_range):
-        # Generate DRAG pulse
-        params = DRAGParameters(amplitude=amplitude, sigma=sigma, beta=beta)
-        drag = DRAGPulse(params)
-        omega_I, omega_Q = drag.envelope(times, t_center)
-
-        # Create coefficient functions for QuTiP (must return scalar)
-        from scipy.interpolate import interp1d
-
-        coeff_I_interp = interp1d(
-            times, omega_I, kind="linear", fill_value=0.0, bounds_error=False
-        )
-        coeff_Q_interp = interp1d(
-            times, omega_Q, kind="linear", fill_value=0.0, bounds_error=False
-        )
-
-        # Wrap to ensure scalar return
-        def coeff_I(t, args=None):
-            return float(coeff_I_interp(t))
-
-        def coeff_Q(t, args=None):
-            return float(coeff_Q_interp(t))
-
-        # Evolve
-        H = [H_drift, [H_x, coeff_I], [H_y, coeff_Q]]
-        result = mesolve(H, psi0, times, [], [])
-        psi_final = result.states[-1]
-
-        # Fidelity (computational subspace)
-        # Embed 2x2 target unitary into n_levels space
-        U_full_array = np.eye(n_levels, dtype=complex)
-        U_full_array[0:2, 0:2] = U_target.full()
-        U_target_full = qt.Qobj(U_full_array, dims=[[n_levels], [n_levels]])
-
-        psi_target = U_target_full * psi0
-        fidelities[i] = qt.fidelity(psi_target, psi_final) ** 2
-
-        # Leakage
-        leakages[i] = sum(
-            np.abs(psi_final.full()[j, 0]) ** 2 for j in range(2, n_levels)
+        fidelities[i], leakages[i] = _evaluate_beta_value(
+            beta,
+            times,
+            t_center,
+            amplitude,
+            sigma,
+            U_target,
+            H_drift,
+            H_x,
+            H_y,
+            psi0,
+            n_levels,
         )
 
     # Find optimal β
