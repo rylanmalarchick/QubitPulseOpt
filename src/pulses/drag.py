@@ -286,48 +286,22 @@ class DRAGPulse:
         """
         return self.envelope(times, t_center)
 
-    def compare_with_gaussian(
-        self,
-        times: np.ndarray,
-        t_center: float,
-        U_target: qt.Qobj,
-        H_drift: qt.Qobj,
-        n_levels: int = 2,
-    ) -> Dict[str, Any]:
+    def _create_control_hamiltonians(self, n_levels: int) -> tuple[qt.Qobj, qt.Qobj]:
         """
-        Compare DRAG pulse with standard Gaussian (β=0) in terms of fidelity.
-
-        This method simulates both pulses and compares:
-        - Gate fidelity
-        - Leakage to |2⟩ (if n_levels >= 3)
-        - Computational subspace fidelity
+        Create control Hamiltonians for given number of levels.
 
         Parameters
         ----------
-        times : np.ndarray
-            Time points for simulation
-        t_center : float
-            Center time of the pulse
-        U_target : qt.Qobj
-            Target unitary (typically for 2-level subspace)
-        H_drift : qt.Qobj
-            Drift Hamiltonian (n_levels × n_levels)
         n_levels : int
-            Number of qubit levels (2 for qubit-only, 3+ for leakage analysis)
+            Number of qubit levels.
 
         Returns
         -------
-        comparison : dict
-            Dictionary with keys:
-            - 'drag_fidelity': Gate fidelity with DRAG
-            - 'gaussian_fidelity': Gate fidelity without DRAG
-            - 'drag_leakage': Leakage error with DRAG (if n_levels >= 3)
-            - 'gaussian_leakage': Leakage error without DRAG (if n_levels >= 3)
-            - 'improvement': Relative fidelity improvement
+        tuple
+            (H_x, H_y) control Hamiltonians.
         """
-        from qutip import mesolve, sigmax, sigmay
+        from qutip import sigmax, sigmay
 
-        # Create control Hamiltonians
         if n_levels == 2:
             H_x = sigmax()
             H_y = sigmay()
@@ -336,11 +310,27 @@ class DRAGPulse:
             H_x = qt.create(n_levels) + qt.destroy(n_levels)
             H_y = 1j * (qt.create(n_levels) - qt.destroy(n_levels))
 
-        # DRAG pulse
-        omega_I, omega_Q = self.envelope(times, t_center)
+        return H_x, H_y
 
-        # Create coefficient functions for QuTiP (must return scalar)
+    def _create_pulse_coefficients(self, times: np.ndarray, t_center: float) -> tuple:
+        """
+        Create interpolated coefficient functions for QuTiP simulation.
+
+        Parameters
+        ----------
+        times : np.ndarray
+            Time points.
+        t_center : float
+            Pulse center time.
+
+        Returns
+        -------
+        tuple
+            (coeff_I, coeff_Q) functions that return scalar values.
+        """
         from scipy.interpolate import interp1d
+
+        omega_I, omega_Q = self.envelope(times, t_center)
 
         coeff_I_interp = interp1d(
             times, omega_I, kind="linear", fill_value=0.0, bounds_error=False
@@ -349,16 +339,51 @@ class DRAGPulse:
             times, omega_Q, kind="linear", fill_value=0.0, bounds_error=False
         )
 
-        # Wrap to ensure scalar return
         def coeff_I(t, args=None):
             return float(coeff_I_interp(t))
 
         def coeff_Q(t, args=None):
             return float(coeff_Q_interp(t))
 
+        return coeff_I, coeff_Q
+
+    def _simulate_drag_and_gaussian(
+        self,
+        H_drift: qt.Qobj,
+        H_x: qt.Qobj,
+        H_y: qt.Qobj,
+        coeff_I,
+        coeff_Q,
+        times: np.ndarray,
+        n_levels: int,
+    ) -> tuple[qt.Qobj, qt.Qobj]:
+        """
+        Simulate evolution with DRAG and Gaussian pulses.
+
+        Parameters
+        ----------
+        H_drift : qt.Qobj
+            Drift Hamiltonian.
+        H_x, H_y : qt.Qobj
+            Control Hamiltonians.
+        coeff_I, coeff_Q : callable
+            Coefficient functions.
+        times : np.ndarray
+            Time points.
+        n_levels : int
+            Number of levels.
+
+        Returns
+        -------
+        tuple
+            (U_drag, U_gauss) final states.
+        """
+        from qutip import mesolve
+
+        psi0 = qt.basis(n_levels, 0)
+
         # Evolve with DRAG
         H_drag = [H_drift, [H_x, coeff_I], [H_y, coeff_Q]]
-        psi0 = qt.basis(n_levels, 0)
         result_drag = mesolve(H_drag, psi0, times, [], [])
         U_drag = result_drag.states[-1]
 
@@ -367,7 +392,34 @@ class DRAGPulse:
         result_gauss = mesolve(H_gauss, psi0, times, [], [])
         U_gauss = result_gauss.states[-1]
 
-        # Calculate fidelities (computational subspace)
+        return U_drag, U_gauss
+
+    def _compute_fidelities(
+        self,
+        U_drag: qt.Qobj,
+        U_gauss: qt.Qobj,
+        U_target: qt.Qobj,
+        n_levels: int,
+    ) -> tuple[float, float]:
+        """
+        Compute fidelities for DRAG and Gaussian pulses.
+
+        Parameters
+        ----------
+        U_drag, U_gauss : qt.Qobj
+            Evolved states.
+        U_target : qt.Qobj
+            Target unitary.
+        n_levels : int
+            Number of levels.
+
+        Returns
+        -------
+        tuple
+            (fid_drag, fid_gauss) fidelity values.
+        """
+        psi0 = qt.basis(n_levels, 0)
+
         if n_levels > 2:
             # Project to computational subspace
             proj = qt.tensor([qt.basis(n_levels, i) for i in range(2)])
@@ -378,6 +430,75 @@ class DRAGPulse:
         fid_drag = qt.fidelity(U_target_full * psi0, U_drag) ** 2
         fid_gauss = qt.fidelity(U_target_full * psi0, U_gauss) ** 2
 
+        return fid_drag, fid_gauss
+
+    def _compute_leakage(
+        self, U_drag: qt.Qobj, U_gauss: qt.Qobj, n_levels: int
+    ) -> dict:
+        """
+        Compute leakage errors for multi-level systems.
+
+        Parameters
+        ----------
+        U_drag, U_gauss : qt.Qobj
+            Evolved states.
+        n_levels : int
+            Number of levels.
+
+        Returns
+        -------
+        dict
+            Leakage metrics.
+        """
+        leakage_drag = sum(np.abs(U_drag.full()[i, 0]) ** 2 for i in range(2, n_levels))
+        leakage_gauss = sum(
+            np.abs(U_gauss.full()[i, 0]) ** 2 for i in range(2, n_levels)
+        )
+
+        return {
+            "drag_leakage": leakage_drag,
+            "gaussian_leakage": leakage_gauss,
+            "leakage_suppression": (
+                (leakage_gauss - leakage_drag) / leakage_gauss
+                if leakage_gauss > 0
+                else 0.0
+            ),
+        }
+
+    def compare_with_gaussian(
+        self,
+        times: np.ndarray,
+        t_center: float,
+        U_target: qt.Qobj,
+        H_drift: qt.Qobj,
+        n_levels: int = 2,
+    ) -> Dict[str, Any]:
+        """
+        Compare DRAG pulse with standard Gaussian (β=0).
+
+        Simulates both pulses and compares gate fidelity, leakage (if n_levels>=3),
+        and computational subspace fidelity.
+
+        Returns dict with: drag_fidelity, gaussian_fidelity, improvement,
+        drag_leakage, gaussian_leakage (if n_levels>=3), leakage_suppression.
+        """
+        # Create control Hamiltonians
+        H_x, H_y = self._create_control_hamiltonians(n_levels)
+
+        # Create pulse coefficient functions
+        coeff_I, coeff_Q = self._create_pulse_coefficients(times, t_center)
+
+        # Simulate both pulses
+        U_drag, U_gauss = self._simulate_drag_and_gaussian(
+            H_drift, H_x, H_y, coeff_I, coeff_Q, times, n_levels
+        )
+
+        # Compute fidelities
+        fid_drag, fid_gauss = self._compute_fidelities(
+            U_drag, U_gauss, U_target, n_levels
+        )
+
+        # Assemble results
         comparison = {
             "drag_fidelity": fid_drag,
             "gaussian_fidelity": fid_gauss,
@@ -386,23 +507,9 @@ class DRAGPulse:
             else 0.0,
         }
 
-        # Calculate leakage if 3+ levels
+        # Add leakage metrics if applicable
         if n_levels >= 3:
-            # Leakage is population outside computational subspace {|0⟩, |1⟩}
-            leakage_drag = sum(
-                np.abs(U_drag.full()[i, 0]) ** 2 for i in range(2, n_levels)
-            )
-            leakage_gauss = sum(
-                np.abs(U_gauss.full()[i, 0]) ** 2 for i in range(2, n_levels)
-            )
-
-            comparison["drag_leakage"] = leakage_drag
-            comparison["gaussian_leakage"] = leakage_gauss
-            comparison["leakage_suppression"] = (
-                (leakage_gauss - leakage_drag) / leakage_gauss
-                if leakage_gauss > 0
-                else 0.0
-            )
+            comparison.update(self._compute_leakage(U_drag, U_gauss, n_levels))
 
         return comparison
 
