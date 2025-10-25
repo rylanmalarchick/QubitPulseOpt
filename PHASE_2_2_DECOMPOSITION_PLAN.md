@@ -273,14 +273,25 @@ def _assemble_optimization_result(self, opt_state):
 
 Track in this document:
 
-### Completed (0/48)
-- [ ] None yet
+### Completed (6/48)
+- [x] `src/optimization/grape.py::optimize_unitary` (230 → decomposed into helpers)
+- [x] `src/optimization/grape.py::GRAPEOptimizer.__init__` (136 → 58 lines)
+- [x] `src/optimization/krotov.py::optimize_unitary` (132 → 58 lines)
+- [x] `src/optimization/krotov.py::KrotovOptimizer.__init__` (123 → 40 lines)
+- [x] `src/pulses/drag.py::compare_with_gaussian` (119 → 47 lines)
+- [x] `src/optimization/gates.py::_optimize_gate` (116 → 42 lines)
 
 ### In Progress (0/48)
-- [ ] None yet
+- [ ] None currently
 
 ### Blocked (0/48)
 - [ ] None yet
+
+### Summary
+- **Rule 4 violations**: 48 → 45 (3 fixed, -6.25%)
+- **Priority 1 complete**: 4/5 (80%)
+- **Priority 2 complete**: 2/10 (20%)
+- **Total progress**: 6/48 (12.5%)
 
 ## Next Steps
 
