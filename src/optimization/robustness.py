@@ -443,6 +443,79 @@ class RobustnessTester:
             parameter_name="gaussian_noise",
         )
 
+    def _apply_parameter_modification(
+        self, param_name: str, param_value: float
+    ) -> tuple:
+        """
+        Apply parameter modification based on name.
+
+        Parameters
+        ----------
+        param_name : str
+            Name of parameter to modify
+        param_value : float
+            Value of parameter
+
+        Returns
+        -------
+        H_drift_mod : qt.Qobj
+            Modified drift Hamiltonian
+        pulse_mod : np.ndarray
+            Modified pulse amplitudes
+        """
+        if param_name == "detuning":
+            H_drift_mod = self.H_drift + 0.5 * param_value * qt.sigmaz()
+        else:
+            H_drift_mod = self.H_drift
+
+        if param_name == "amplitude_error":
+            pulse_mod = self.pulse_amplitudes * (1.0 + param_value)
+        else:
+            pulse_mod = self.pulse_amplitudes
+
+        return H_drift_mod, pulse_mod
+
+    def _sweep_2d_grid(
+        self,
+        param1_range: np.ndarray,
+        param2_range: np.ndarray,
+        param1_name: str,
+        param2_name: str,
+    ) -> np.ndarray:
+        """
+        Sweep over 2D parameter grid.
+
+        Parameters
+        ----------
+        param1_range, param2_range : np.ndarray
+            Parameter ranges
+        param1_name, param2_name : str
+            Parameter names
+
+        Returns
+        -------
+        np.ndarray
+            2D array of fidelities
+        """
+        fidelities = np.zeros((len(param1_range), len(param2_range)))
+
+        for i, param1 in enumerate(param1_range):
+            for j, param2 in enumerate(param2_range):
+                # Apply parameter 1
+                H_drift_mod, pulse_mod = self._apply_parameter_modification(
+                    param1_name, param1
+                )
+
+                # Apply parameter 2 (may override pulse_mod)
+                if param2_name == "amplitude_error":
+                    pulse_mod = pulse_mod * (1.0 + param2)
+                elif param2_name == "detuning" and param1_name != "detuning":
+                    H_drift_mod = H_drift_mod + 0.5 * param2 * qt.sigmaz()
+
+                fidelities[i, j] = self._compute_fidelity(H_drift_mod, pulse_mod)
+
+        return fidelities
+
     def sweep_2d_parameters(
         self,
         param1_range: np.ndarray,
@@ -489,23 +562,9 @@ class RobustnessTester:
         ... ], aspect='auto', origin='lower')
         >>> plt.colorbar(label='Fidelity')
         """
-        fidelities = np.zeros((len(param1_range), len(param2_range)))
-
-        for i, param1 in enumerate(param1_range):
-            for j, param2 in enumerate(param2_range):
-                # Apply both parameter errors
-                if param1_name == "detuning":
-                    H_drift_mod = self.H_drift + 0.5 * param1 * qt.sigmaz()
-                else:
-                    H_drift_mod = self.H_drift
-
-                if param2_name == "amplitude_error":
-                    pulse_mod = self.pulse_amplitudes * (1.0 + param2)
-                else:
-                    pulse_mod = self.pulse_amplitudes
-
-                # Compute fidelity
-                fidelities[i, j] = self._compute_fidelity(H_drift_mod, pulse_mod)
+        fidelities = self._sweep_2d_grid(
+            param1_range, param2_range, param1_name, param2_name
+        )
 
         return {
             "param1": param1_range,
