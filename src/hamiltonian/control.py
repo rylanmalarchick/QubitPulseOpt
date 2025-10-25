@@ -79,49 +79,9 @@ class ControlHamiltonian:
         If True, use rotating-wave approximation.
     """
 
-    def __init__(
-        self,
-        pulse_func: Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]],
-        drive_axis: str = "x",
-        phase: float = 0.0,
-        detuning: float = 0.0,
-        rotating_frame: bool = True,
-    ):
-        """
-        Initialize control Hamiltonian.
-
-        Parameters
-        ----------
-        pulse_func : callable
-            Function Ω(t) that returns pulse amplitude at time(s) t.
-            Signature: pulse_func(t) -> float or array.
-        drive_axis : str, optional
-            Drive axis: 'x', 'y', or 'xy' (default 'x').
-            - 'x': H_c = Ω(t) σ_x
-            - 'y': H_c = Ω(t) σ_y
-            - 'xy': H_c = Ω_x(t) σ_x + Ω_y(t) σ_y (for DRAG)
-        phase : float, optional
-            Pulse phase in radians (default 0.0).
-            Rotates control in x-y plane: cos(φ)σ_x + sin(φ)σ_y.
-        detuning : float, optional
-            Detuning Δ = ω_0 - ω_d from resonance (default 0.0).
-            Positive detuning: drive below transition frequency.
-        rotating_frame : bool, optional
-            Use rotating-wave approximation (default True).
-            If False, returns lab-frame Hamiltonian (oscillating).
-
-        Examples
-        --------
-        >>> # Constant Rabi driving at 5 MHz
-        >>> pulse = lambda t: 2*np.pi*5  # MHz
-        >>> H_ctrl = ControlHamiltonian(pulse, drive_axis='x')
-        >>>
-        >>> # Gaussian pulse with phase shift
-        >>> from pulses import gaussian_pulse
-        >>> pulse = lambda t: gaussian_pulse(t, amplitude=10, t_center=50, sigma=10)
-        >>> H_ctrl = ControlHamiltonian(pulse, phase=np.pi/2)  # Y-drive
-        """
-        # Rule 5: Parameter validation with proper exceptions
+    @staticmethod
+    def _validate_pulse_func(pulse_func) -> None:
+        """Validate pulse function."""
         if pulse_func is None:
             raise ValueError("pulse_func cannot be None")
         if not callable(pulse_func):
@@ -138,11 +98,21 @@ class ControlHamiltonian:
         except Exception as e:
             raise ValueError(f"pulse_func failed at t=0: {e}")
 
+    @staticmethod
+    def _validate_drive_axis(drive_axis: str) -> None:
+        """Validate drive axis parameter."""
         if drive_axis is None:
             raise ValueError("drive_axis cannot be None")
         if not isinstance(drive_axis, str):
             raise TypeError(f"drive_axis must be string, got {type(drive_axis)}")
+        if drive_axis.lower() not in ["x", "y", "xy"]:
+            raise ValueError(
+                f"Invalid drive_axis '{drive_axis}'. Must be 'x', 'y', or 'xy'."
+            )
 
+    @staticmethod
+    def _validate_phase(phase: float) -> None:
+        """Validate phase parameter."""
         if not isinstance(phase, (int, float)):
             raise TypeError(f"phase must be numeric, got {type(phase)}")
         if not np.isfinite(phase):
@@ -150,6 +120,9 @@ class ControlHamiltonian:
         if not (-2 * np.pi <= phase <= 2 * np.pi):
             raise ValueError(f"phase {phase} outside reasonable range [-2π, 2π]")
 
+    @staticmethod
+    def _validate_detuning(detuning: float) -> None:
+        """Validate detuning parameter."""
         if not isinstance(detuning, (int, float)):
             raise TypeError(f"detuning must be numeric, got {type(detuning)}")
         if not np.isfinite(detuning):
@@ -159,20 +132,39 @@ class ControlHamiltonian:
                 f"detuning {detuning} outside reasonable bounds [{MIN_ENERGY}, {MAX_ENERGY}]"
             )
 
+    @staticmethod
+    def _validate_rotating_frame(rotating_frame: bool) -> None:
+        """Validate rotating_frame parameter."""
         if not isinstance(rotating_frame, bool):
             raise TypeError(f"rotating_frame must be bool, got {type(rotating_frame)}")
 
+    def __init__(
+        self,
+        pulse_func: Callable[[Union[float, np.ndarray]], Union[float, np.ndarray]],
+        drive_axis: str = "x",
+        phase: float = 0.0,
+        detuning: float = 0.0,
+        rotating_frame: bool = True,
+    ):
+        """
+        Initialize control Hamiltonian.
+
+        Validates parameters and sets up Pauli operator cache for efficient
+        time-dependent Hamiltonian evaluation.
+        """
+        # Validate all parameters
+        self._validate_pulse_func(pulse_func)
+        self._validate_drive_axis(drive_axis)
+        self._validate_phase(phase)
+        self._validate_detuning(detuning)
+        self._validate_rotating_frame(rotating_frame)
+
+        # Set attributes
         self.pulse_func = pulse_func
         self.drive_axis = drive_axis.lower()
         self.phase = phase
         self.detuning = detuning
         self.rotating_frame = rotating_frame
-
-        # Validate drive axis
-        if self.drive_axis not in ["x", "y", "xy"]:
-            raise ValueError(
-                f"Invalid drive_axis '{drive_axis}'. Must be 'x', 'y', or 'xy'."
-            )
 
         # Cache Pauli operators
         self._sigma_x = qt.sigmax()
