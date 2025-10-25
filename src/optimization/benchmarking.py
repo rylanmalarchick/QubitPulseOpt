@@ -92,87 +92,89 @@ class CliffordGroup:
     def _generate_clifford_group(self) -> List[qt.Qobj]:
         """Generate all 24 single-qubit Clifford gates.
 
-        Uses the fact that Cliffords map Paulis to Paulis under conjugation.
+        Uses systematic enumeration based on S and H generators.
+        The 24 Cliffords can be organized into equivalence classes.
         """
         cliffords = []
 
-        # Identity and Paulis (4 elements)
-        paulis = [self.I, self.X, self.Y, self.Z]
+        # Sdg = S^3 (conjugate of S)
+        Sdg = self.S * self.S * self.S
 
-        # Powers of S (S^0, S^1, S^2, S^3) combined with H
-        # This generates representatives of all 24 Cliffords
-        for i in range(4):  # S^i
-            for j in range(2):  # H^j
-                for k in range(3):  # S^k after H
-                    gate = self.I
-                    # Apply S^i
-                    for _ in range(i):
-                        gate = self.S * gate
-                    # Apply H^j
-                    if j == 1:
-                        gate = self.H * gate
-                    # Apply S^k
-                    for _ in range(k):
-                        gate = self.S * gate
+        # Generate using the presentation: C_1 = <H, S | H^2 = S^4 = (HS)^3 = I>
+        # This gives 24 elements organized as:
+        # - 6 cosets of the Pauli group (which has 4 elements)
 
-                    # Check if this is a new Clifford (up to global phase)
-                    is_new = True
-                    for existing in cliffords:
-                        # Two unitaries are equivalent up to global phase if
-                        # their inner product has |<U|V>| = dimension
-                        overlap = np.abs((gate.dag() * existing).tr())
-                        if np.abs(overlap - 2) < 1e-10:
-                            is_new = False
-                            break
+        # Coset 1: {I, S, S^2, S^3}
+        gates_coset1 = [
+            self.I,
+            self.S,
+            self.S * self.S,
+            Sdg,
+        ]
 
-                    if is_new and len(cliffords) < 24:
-                        cliffords.append(gate)
+        # Coset 2: {H, HS, HS^2, HS^3}
+        gates_coset2 = [
+            self.H,
+            self.H * self.S,
+            self.H * self.S * self.S,
+            self.H * Sdg,
+        ]
 
-        # If we didn't get all 24, use explicit construction
-        if len(cliffords) < 24:
-            cliffords = self._explicit_clifford_construction()
+        # Coset 3: {SH, SHS, SHS^2, SHS^3}
+        gates_coset3 = [
+            self.S * self.H,
+            self.S * self.H * self.S,
+            self.S * self.H * self.S * self.S,
+            self.S * self.H * Sdg,
+        ]
 
-        return cliffords[:24]  # Ensure exactly 24
+        # Coset 4: {S^2H, S^2HS, S^2HS^2, S^2HS^3}
+        S2 = self.S * self.S
+        gates_coset4 = [
+            S2 * self.H,
+            S2 * self.H * self.S,
+            S2 * self.H * self.S * self.S,
+            S2 * self.H * Sdg,
+        ]
 
-    def _explicit_clifford_construction(self) -> List[qt.Qobj]:
-        """Explicit construction of all 24 Clifford gates."""
-        C = []
+        # Coset 5: {S^3H, S^3HS, S^3HS^2, S^3HS^3}
+        gates_coset5 = [
+            Sdg * self.H,
+            Sdg * self.H * self.S,
+            Sdg * self.H * self.S * self.S,
+            Sdg * self.H * Sdg,
+        ]
 
-        # Group 1: I, X, Y, Z (4 gates)
-        C.extend([self.I, self.X, self.Y, self.Z])
+        # Coset 6: {HS^2H, HS^2HS, HS^2HS^2, HS^2HS^3}
+        gates_coset6 = [
+            self.H * S2 * self.H,
+            self.H * S2 * self.H * self.S,
+            self.H * S2 * self.H * self.S * self.S,
+            self.H * S2 * self.H * Sdg,
+        ]
 
-        # Group 2: Hadamard-like (4 gates)
-        C.extend([self.H, self.H * self.X, self.H * self.Y, self.H * self.Z])
-
-        # Group 3: S and variants (8 gates)
-        C.extend(
-            [
-                self.S,
-                self.S * self.X,
-                self.S * self.Y,
-                self.S * self.Z,
-                self.S * self.H,
-                self.S * self.H * self.X,
-                self.S * self.H * self.Y,
-                self.S * self.H * self.Z,
-            ]
+        # Combine all cosets
+        all_gates = (
+            gates_coset1
+            + gates_coset2
+            + gates_coset3
+            + gates_coset4
+            + gates_coset5
+            + gates_coset6
         )
 
-        # Group 4: Additional combinations (8 gates)
-        C.extend(
-            [
-                self.H * self.S,
-                self.H * self.S * self.X,
-                self.H * self.S * self.Y,
-                self.H * self.S * self.Z,
-                self.S * self.S * self.H,
-                self.S * self.S * self.H * self.X,
-                self.S * self.S * self.H * self.Y,
-                self.S * self.S * self.H * self.Z,
-            ]
-        )
+        # Remove duplicates (up to global phase)
+        for gate in all_gates:
+            is_new = True
+            for existing in cliffords:
+                overlap = np.abs((gate.dag() * existing).tr())
+                if np.abs(overlap - 2) < 1e-10:
+                    is_new = False
+                    break
+            if is_new:
+                cliffords.append(gate)
 
-        return C[:24]
+        return cliffords[:24]
 
     def get_random_clifford(self) -> qt.Qobj:
         """Sample a random Clifford gate."""
