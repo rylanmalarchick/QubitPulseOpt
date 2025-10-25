@@ -234,6 +234,68 @@ class RobustnessTester:
             fidelity = qt.fidelity(psi_final, self.psi_target) ** 2
             return fidelity
 
+    def _sweep_detuning_range(self, detuning_range: np.ndarray) -> tuple:
+        """
+        Sweep over detuning range and compute fidelities.
+
+        Parameters
+        ----------
+        detuning_range : np.ndarray
+            Array of detuning values
+
+        Returns
+        -------
+        fidelities : np.ndarray
+            Fidelities for each detuning
+        nominal_fidelity : float or None
+            Fidelity at zero detuning
+        """
+        fidelities = []
+        nominal_fidelity = None
+
+        for detuning in detuning_range:
+            # Add detuning to drift Hamiltonian: δH = (δω/2) σ_z
+            H_drift_detuned = self.H_drift + 0.5 * detuning * qt.sigmaz()
+
+            # Compute fidelity
+            fid = self._compute_fidelity(H_drift_detuned, self.pulse_amplitudes)
+            fidelities.append(fid)
+
+            # Store nominal fidelity (at zero detuning)
+            if np.abs(detuning) < 1e-10:
+                nominal_fidelity = fid
+
+        return np.array(fidelities), nominal_fidelity
+
+    def _compute_robustness_radius(
+        self,
+        parameter_range: np.ndarray,
+        fidelities: np.ndarray,
+        fidelity_threshold: float,
+    ) -> Optional[float]:
+        """
+        Compute robustness radius from sweep results.
+
+        Parameters
+        ----------
+        parameter_range : np.ndarray
+            Parameter values
+        fidelities : np.ndarray
+            Fidelities at each parameter value
+        fidelity_threshold : float
+            Threshold fidelity
+
+        Returns
+        -------
+        float or None
+            Maximum parameter magnitude where F > threshold
+        """
+        valid_indices = np.where(fidelities >= fidelity_threshold)[0]
+        if len(valid_indices) > 0:
+            valid_params = np.abs(parameter_range[valid_indices])
+            return np.max(valid_params)
+        return None
+
     def sweep_detuning(
         self,
         detuning_range: np.ndarray,
@@ -268,31 +330,15 @@ class RobustnessTester:
         >>> plt.xlabel('Detuning (MHz)')
         >>> plt.ylabel('Fidelity')
         """
-        fidelities = []
-        nominal_fidelity = None
-
-        for detuning in detuning_range:
-            # Add detuning to drift Hamiltonian: δH = (δω/2) σ_z
-            H_drift_detuned = self.H_drift + 0.5 * detuning * qt.sigmaz()
-
-            # Compute fidelity
-            fid = self._compute_fidelity(H_drift_detuned, self.pulse_amplitudes)
-            fidelities.append(fid)
-
-            # Store nominal fidelity (at zero detuning)
-            if np.abs(detuning) < 1e-10:
-                nominal_fidelity = fid
-
-        fidelities = np.array(fidelities)
+        # Sweep detuning range
+        fidelities, nominal_fidelity = self._sweep_detuning_range(detuning_range)
 
         # Compute robustness radius
         robustness_radius = None
         if nominal_fidelity is not None:
-            # Find maximum |δ| where F > threshold
-            valid_indices = np.where(fidelities >= fidelity_threshold)[0]
-            if len(valid_indices) > 0:
-                valid_detunings = np.abs(detuning_range[valid_indices])
-                robustness_radius = np.max(valid_detunings)
+            robustness_radius = self._compute_robustness_radius(
+                detuning_range, fidelities, fidelity_threshold
+            )
 
         return RobustnessResult(
             parameter_values=detuning_range,
@@ -304,6 +350,39 @@ class RobustnessTester:
             robustness_radius=robustness_radius,
             parameter_name="detuning",
         )
+
+    def _sweep_amplitude_error_range(self, amplitude_error_range: np.ndarray) -> tuple:
+        """
+        Sweep over amplitude error range and compute fidelities.
+
+        Parameters
+        ----------
+        amplitude_error_range : np.ndarray
+            Array of amplitude errors
+
+        Returns
+        -------
+        fidelities : np.ndarray
+            Fidelities for each error
+        nominal_fidelity : float or None
+            Fidelity at zero error
+        """
+        fidelities = []
+        nominal_fidelity = None
+
+        for error in amplitude_error_range:
+            # Scale pulse amplitudes: u → u * (1 + ε)
+            pulse_scaled = self.pulse_amplitudes * (1.0 + error)
+
+            # Compute fidelity
+            fid = self._compute_fidelity(self.H_drift, pulse_scaled)
+            fidelities.append(fid)
+
+            # Nominal fidelity
+            if np.abs(error) < 1e-10:
+                nominal_fidelity = fid
+
+        return np.array(fidelities), nominal_fidelity
 
     def sweep_amplitude_error(
         self,
@@ -338,30 +417,17 @@ class RobustnessTester:
         >>> result = tester.sweep_amplitude_error(errors)
         >>> print(f"Worst-case fidelity: {result.min_fidelity:.4f}")
         """
-        fidelities = []
-        nominal_fidelity = None
+        # Sweep amplitude error range
+        fidelities, nominal_fidelity = self._sweep_amplitude_error_range(
+            amplitude_error_range
+        )
 
-        for error in amplitude_error_range:
-            # Scale pulse amplitudes: u → u * (1 + ε)
-            pulse_scaled = self.pulse_amplitudes * (1.0 + error)
-
-            # Compute fidelity
-            fid = self._compute_fidelity(self.H_drift, pulse_scaled)
-            fidelities.append(fid)
-
-            # Nominal fidelity
-            if np.abs(error) < 1e-10:
-                nominal_fidelity = fid
-
-        fidelities = np.array(fidelities)
-
-        # Robustness radius
+        # Compute robustness radius
         robustness_radius = None
         if nominal_fidelity is not None:
-            valid_indices = np.where(fidelities >= fidelity_threshold)[0]
-            if len(valid_indices) > 0:
-                valid_errors = np.abs(amplitude_error_range[valid_indices])
-                robustness_radius = np.max(valid_errors)
+            robustness_radius = self._compute_robustness_radius(
+                amplitude_error_range, fidelities, fidelity_threshold
+            )
 
         return RobustnessResult(
             parameter_values=amplitude_error_range,
