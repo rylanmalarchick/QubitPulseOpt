@@ -59,27 +59,34 @@
 \contentsline {subsubsection}{\numberline {5.3.1}Gradient Computation}{19}{subsubsection.5.3.1}%
 \contentsline {subsubsection}{\numberline {5.3.2}Update Rule}{19}{subsubsection.5.3.2}%
 \contentsline {subsection}{\numberline {5.4}Krotov's Method}{20}{subsection.5.4}%
-\contentsline {subsection}{\numberline {5.5}Robustness Analysis}{20}{subsection.5.5}%
-\contentsline {subsubsection}{\numberline {5.5.1}Parameter Sensitivity}{20}{subsubsection.5.5.1}%
-\contentsline {subsubsection}{\numberline {5.5.2}Noise Robustness}{20}{subsubsection.5.5.2}%
-\contentsline {subsection}{\numberline {5.6}Implementation}{20}{subsection.5.6}%
-\contentsline {section}{\numberline {6}Phase 3: Advanced Pulse Shaping and Benchmarking}{21}{section.6}%
-\contentsline {subsection}{\numberline {6.1}Overview}{21}{subsection.6.1}%
-\contentsline {subsection}{\numberline {6.2}Task 1: Advanced Pulse Shaping}{21}{subsection.6.2}%
-\contentsline {subsubsection}{\numberline {6.2.1}DRAG Pulses}{21}{subsubsection.6.2.1}%
-\contentsline {subsubsection}{\numberline {6.2.2}Composite Pulses}{21}{subsubsection.6.2.2}%
-\contentsline {subsubsection}{\numberline {6.2.3}Adiabatic Techniques}{21}{subsubsection.6.2.3}%
-\contentsline {subsection}{\numberline {6.3}Task 2: Gate Library and Compilation}{22}{subsection.6.3}%
-\contentsline {subsubsection}{\numberline {6.3.1}Universal Single-Qubit Gates}{22}{subsubsection.6.3.1}%
-\contentsline {subsubsection}{\numberline {6.3.2}Euler Decomposition}{22}{subsubsection.6.3.2}%
-\contentsline {subsubsection}{\numberline {6.3.3}Gate Compilation}{22}{subsubsection.6.3.3}%
-\contentsline {subsection}{\numberline {6.4}Task 3: Enhanced Robustness and Benchmarking}{22}{subsection.6.4}%
-\contentsline {subsubsection}{\numberline {6.4.1}Filter Functions}{22}{subsubsection.6.4.1}%
-\contentsline {subsubsection}{\numberline {6.4.2}Randomized Benchmarking}{23}{subsubsection.6.4.2}%
-\contentsline {subsubsection}{\numberline {6.4.3}Fisher Information}{23}{subsubsection.6.4.3}%
-\contentsline {subsection}{\numberline {6.5}Implementation Summary}{23}{subsection.6.5}%
-\contentsline {section}{\numberline {7}Future Work}{24}{section.7}%
-\contentsline {subsection}{\numberline {7.1}Planned Extensions}{24}{subsection.7.1}%
-\contentsline {section}{\numberline {8}Conclusion}{24}{section.8}%
-\contentsline {section}{References}{25}{section*.2}%
-\contentsline {section}{\numberline {A}Appendix: QuTiP API Reference}{25}{appendix.A}%
+\contentsline {subsubsection}{\numberline {5.4.1}Theoretical Foundation}{20}{subsubsection.5.4.1}%
+\contentsline {subsubsection}{\numberline {5.4.2}Update Equation Derivation}{20}{subsubsection.5.4.2}%
+\contentsline {subsubsection}{\numberline {5.4.3}Monotonic Convergence Theorem}{21}{subsubsection.5.4.3}%
+\contentsline {subsubsection}{\numberline {5.4.4}Discrete-Time Implementation}{21}{subsubsection.5.4.4}%
+\contentsline {subsubsection}{\numberline {5.4.5}Parameter Tuning Guidelines}{21}{subsubsection.5.4.5}%
+\contentsline {subsubsection}{\numberline {5.4.6}Numerical Stability Considerations}{22}{subsubsection.5.4.6}%
+\contentsline {subsubsection}{\numberline {5.4.7}Comparison with GRAPE}{22}{subsubsection.5.4.7}%
+\contentsline {subsection}{\numberline {5.5}Robustness Analysis}{23}{subsection.5.5}%
+\contentsline {subsubsection}{\numberline {5.5.1}Parameter Sensitivity}{23}{subsubsection.5.5.1}%
+\contentsline {subsubsection}{\numberline {5.5.2}Noise Robustness}{23}{subsubsection.5.5.2}%
+\contentsline {subsection}{\numberline {5.6}Implementation}{23}{subsection.5.6}%
+\contentsline {section}{\numberline {6}Phase 3: Advanced Pulse Shaping and Benchmarking}{24}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Overview}{24}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Task 1: Advanced Pulse Shaping}{24}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}DRAG Pulses}{24}{subsubsection.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Composite Pulses}{24}{subsubsection.6.2.2}%
+\contentsline {subsubsection}{\numberline {6.2.3}Adiabatic Techniques}{27}{subsubsection.6.2.3}%
+\contentsline {subsection}{\numberline {6.3}Task 2: Gate Library and Compilation}{27}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Universal Single-Qubit Gates}{27}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Euler Decomposition}{27}{subsubsection.6.3.2}%
+\contentsline {subsubsection}{\numberline {6.3.3}Gate Compilation}{27}{subsubsection.6.3.3}%
+\contentsline {subsection}{\numberline {6.4}Task 3: Enhanced Robustness and Benchmarking}{28}{subsection.6.4}%
+\contentsline {subsubsection}{\numberline {6.4.1}Filter Functions}{28}{subsubsection.6.4.1}%
+\contentsline {subsubsection}{\numberline {6.4.2}Randomized Benchmarking}{31}{subsubsection.6.4.2}%
+\contentsline {subsubsection}{\numberline {6.4.3}Fisher Information}{34}{subsubsection.6.4.3}%
+\contentsline {subsection}{\numberline {6.5}Implementation Summary}{34}{subsection.6.5}%
+\contentsline {section}{\numberline {7}Future Work}{35}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Planned Extensions}{35}{subsection.7.1}%
+\contentsline {section}{\numberline {8}Conclusion}{35}{section.8}%
+\contentsline {section}{References}{36}{section*.2}%
+\contentsline {section}{\numberline {A}Appendix: QuTiP API Reference}{37}{appendix.A}%
