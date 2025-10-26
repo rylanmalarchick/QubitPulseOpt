@@ -471,6 +471,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## How This Was Made
+
+This project was built using AI and LLM-driven workflows (Zed IDE + Copilot/Claude), but all system modeling, physics, and code architecture decisions were reviewed and tuned for scientific and compliance rigor. See [`docs/POWER_OF_10_COMPLIANCE.md`](docs/POWER_OF_10_COMPLIANCE.md) for details.
+
+---
+
 ## Project Status
 
 **Version**: 1.0.0 (Production Ready)  
