@@ -501,7 +501,7 @@ class UniversalGates:
         max_iterations: int = 500,
         convergence_threshold: float = 1e-6,
         amplitude_limit: Optional[float] = None,
-        n_starts: int = 10,
+        n_starts: int = 1,
         **kwargs,
     ) -> GateResult:
         """
@@ -513,7 +513,8 @@ class UniversalGates:
         Parameters
         ----------
         n_starts : int
-            Number of random initializations to try (default: 10)
+            Number of random initializations to try (default: 1).
+            For production use, consider n_starts=5-10 for better convergence.
         """
         u_limits = self._setup_amplitude_limits(amplitude_limit)
 
@@ -535,9 +536,13 @@ class UniversalGates:
                 optimizer, target_unitary, n_timeslices, **kwargs
             )
 
-            if opt_result.final_fidelity > best_fidelity:
-                best_fidelity = opt_result.final_fidelity
-                best_result = opt_result
+            # Safety check for NaN/invalid fidelity
+            if opt_result.final_fidelity is not None and not np.isnan(
+                opt_result.final_fidelity
+            ):
+                if opt_result.final_fidelity > best_fidelity:
+                    best_fidelity = opt_result.final_fidelity
+                    best_result = opt_result
 
             # Early exit if we've achieved good fidelity
             if best_fidelity >= self.fidelity_threshold:
