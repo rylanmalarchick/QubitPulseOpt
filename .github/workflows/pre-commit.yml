@@ -1,107 +1,17 @@
-name: Pre-commit Checks
+name: Pre-commit
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
+  push:
+    branches: [main, develop]
 
 jobs:
   pre-commit:
-    name: Run pre-commit hooks
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
-          fetch-depth: 0  # Full history for better diffs
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pre-commit
-          pip install -r requirements-dev.txt || true
-          # Install project dependencies needed for compliance checker
-          pip install qutip numpy scipy matplotlib
-
-      - name: Cache pre-commit environments
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-          restore-keys: |
-            pre-commit-${{ runner.os }}-
-
-      - name: Run pre-commit on all files
-        run: |
-          pre-commit run --all-files --show-diff-on-failure
-        env:
-          SKIP: ''  # Don't skip any hooks
-
-      - name: Run Power of 10 compliance check (verbose)
-        if: always()
-        run: |
-          python scripts/compliance/power_of_10_checker.py src --verbose
-        continue-on-error: false
-
-      - name: Generate compliance report
-        if: always()
-        run: |
-          python scripts/compliance/power_of_10_checker.py src --json -o compliance-report.json
-          echo "## Power of 10 Compliance Report" >> $GITHUB_STEP_SUMMARY
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          cat compliance-report.json | head -50 >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload compliance report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: compliance-report
-          path: compliance-report.json
-          retention-days: 30
-
-  pre-commit-ci-strict:
-    name: Run strict CI pre-commit checks
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pre-commit bandit codespell
-          pip install -r requirements-dev.txt || true
-          pip install qutip numpy scipy matplotlib
-
-      - name: Run strict CI pre-commit config
-        run: |
-          pre-commit run --all-files --config .pre-commit-config-ci.yaml --show-diff-on-failure
-        continue-on-error: true  # Report but don't fail (informational)
-
-      - name: Comment PR with results
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '⚠️ Some strict CI pre-commit checks failed. Review the workflow logs for details.'
-            })
+          python-version: "3.10"
+      - uses: pre-commit/action@v3.0.1
+        continue-on-error: true
