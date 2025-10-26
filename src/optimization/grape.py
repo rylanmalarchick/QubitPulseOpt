@@ -711,6 +711,14 @@ class GRAPEOptimizer:
 
     def _initialize_optimization_state(self, u: np.ndarray, U_target: qt.Qobj) -> dict:
         """Initialize optimization state variables."""
+        # Validate inputs
+        assert len(u) == self.n_steps, (
+            f"Control array length {len(u)} != n_steps {self.n_steps}"
+        )
+        assert U_target.shape == (self.dim, self.dim), (
+            f"Target unitary shape {U_target.shape} invalid"
+        )
+
         propagators = self._compute_propagators(u)
         forward_unitaries, U_final = self._forward_propagation(propagators)
         fidelity = self._compute_fidelity_unitary(U_final, U_target)
@@ -776,6 +784,7 @@ class GRAPEOptimizer:
         assert iteration < MAX_ITERATIONS, (
             f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
         )
+        assert "fidelity" in opt_state, "opt_state missing required 'fidelity' key"
 
         opt_state["fidelity_history"].append(opt_state["fidelity"])
         self._track_best_solution(opt_state)
@@ -853,6 +862,12 @@ class GRAPEOptimizer:
         iteration: int,
     ) -> np.ndarray:
         """Compute and validate gradients for current iteration."""
+        # Validate inputs
+        assert len(propagators) == self.n_steps, "Propagators list length mismatch"
+        assert len(forward_unitaries) == self.n_steps + 1, (
+            "Forward unitaries length mismatch"
+        )
+
         backward_unitaries = self._backward_propagation(propagators)
 
         gradients = self._compute_gradients_unitary(
@@ -875,6 +890,7 @@ class GRAPEOptimizer:
         assert np.isfinite(grad_norm), (
             f"Gradient norm is not finite at iteration {iteration}: {grad_norm}"
         )
+        assert 0 <= fidelity <= 1.0, f"Fidelity {fidelity} out of valid range [0,1]"
 
         if grad_norm < self.convergence_threshold:
             if self.verbose:

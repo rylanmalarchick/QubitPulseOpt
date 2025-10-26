@@ -1,3 +1,45 @@
+Metadata-Version: 2.4
+Name: qubitpulseopt
+Version: 1.0.0
+Summary: Optimal pulse engineering for single-qubit gates with quantum control theory
+Author: QubitPulseOpt Development Team
+License: MIT
+Project-URL: Homepage, https://github.com/YOUR_USERNAME/QubitPulseOpt
+Project-URL: Documentation, https://qubitpulseopt.readthedocs.io
+Project-URL: Repository, https://github.com/YOUR_USERNAME/QubitPulseOpt
+Project-URL: Issues, https://github.com/YOUR_USERNAME/QubitPulseOpt/issues
+Keywords: quantum,control,optimization,qutip,grape,pulse-engineering
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: qutip>=4.8.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: scipy>=1.10
+Requires-Dist: matplotlib>=3.7
+Provides-Extra: dev
+Requires-Dist: pytest>=7.3; extra == "dev"
+Requires-Dist: pytest-cov>=4.1; extra == "dev"
+Requires-Dist: pytest-rerunfailures>=12.0; extra == "dev"
+Requires-Dist: black>=24.1; extra == "dev"
+Requires-Dist: flake8>=7.0; extra == "dev"
+Requires-Dist: isort>=5.13; extra == "dev"
+Requires-Dist: pre-commit>=3.5; extra == "dev"
+Requires-Dist: flake8-docstrings; extra == "dev"
+Requires-Dist: flake8-bugbear; extra == "dev"
+Provides-Extra: notebooks
+Requires-Dist: jupyter>=1.0; extra == "notebooks"
+Requires-Dist: ipykernel; extra == "notebooks"
+Provides-Extra: docs
+Requires-Dist: sphinx>=7.0; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+
 # QubitPulseOpt: Quantum Optimal Control for High-Fidelity Gates
 
 <div align="center">

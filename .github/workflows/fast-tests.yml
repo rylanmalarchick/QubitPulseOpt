@@ -1,0 +1,77 @@
+name: Fast Tests (Deterministic Only)
+
+# Run fast deterministic tests on every push for quick feedback
+# Target: < 5 minutes execution time
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  fast-tests:
+    name: Fast Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-rerunfailures pytest-cov
+
+    - name: Run fast deterministic tests
+      run: |
+        pytest -m "deterministic and not slow" \
+          --maxfail=5 \
+          --tb=short \
+          -v \
+          --durations=10
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: fast-test-results
+        path: |
+          .pytest_cache/
+          tests/pytest.log
+        retention-days: 7
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install linting tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install ruff black isort mypy
+
+    - name: Run ruff
+      run: ruff check src/ tests/
+      continue-on-error: true
+
+    - name: Check formatting
+      run: black --check src/ tests/
+      continue-on-error: true
