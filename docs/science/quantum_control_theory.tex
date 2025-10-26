@@ -961,18 +961,180 @@ The GRAPE algorithm iterates:
 
 \subsection{Krotov's Method}
 
-Krotov's method provides monotonic convergence guarantees through a penalty-based update:
-\begin{equation}
-u_j^{(n+1)}(t) = u_j^{(n)}(t) + \frac{1}{\lambda} \Im\left[\bra{\chi^{(n)}(t)} H_j \ket{\psi^{(n)}(t)}\right]
-\end{equation}
-where $\lambda > 0$ is a step-size parameter controlling convergence rate.
+\subsubsection{Theoretical Foundation}
 
-\textbf{Advantages over GRAPE:}
+Krotov's method is an optimal control algorithm that guarantees monotonic convergence of the fidelity functional through a penalty-based approach. Unlike gradient ascent methods (GRAPE), Krotov's method directly constructs an update that ensures improvement at each iteration.
+
+\textbf{Functional Optimization Framework:}
+
+Consider the optimization functional:
+\begin{equation}
+J[u] = F[u] - \sum_j \int_0^T \lambda_j(t) \left|u_j^{(n+1)}(t) - u_j^{(n)}(t)\right|^2 dt
+\end{equation}
+where $F[u]$ is the gate fidelity and the second term is a penalty preventing large pulse changes. The key insight is that maximizing $J$ with respect to $u^{(n+1)}$ yields an update that monotonically increases $F$.
+
+\subsubsection{Update Equation Derivation}
+
+For unitary gate optimization with target $U_{\text{target}}$ and propagator $U(T) = \mathcal{T}\exp\left[-i\int_0^T H(t)dt\right]$, the fidelity is:
+\begin{equation}
+F = \frac{1}{d}\left|\Tr\left[U_{\text{target}}^\dagger U(T)\right]\right|^2
+\end{equation}
+
+Taking the functional derivative of $J$ with respect to $u_j(t)$ and setting it to zero:
+\begin{equation}
+\frac{\delta J}{\delta u_j(t)} = \frac{\delta F}{\delta u_j(t)} - 2\lambda_j(t)\left[u_j^{(n+1)}(t) - u_j^{(n)}(t)\right] = 0
+\end{equation}
+
+Using the chain rule and the equations of motion $i\dot{\psi}(t) = H(t)\psi(t)$:
+\begin{equation}
+\frac{\delta F}{\delta u_j(t)} = \frac{2}{d}\Re\left[\Tr\left[U_{\text{target}}^\dagger \frac{\delta U(T)}{\delta u_j(t)}\right]\Tr\left[U_{\text{target}}^\dagger U(T)\right]^*\right]
+\end{equation}
+
+Introducing the backward-propagated state $\ket{\chi(t)}$ defined by:
+\begin{equation}
+\ket{\chi(T)} = U_{\text{target}}\ket{\psi(T)}, \quad i\dot{\chi}(t) = -H(t)\chi(t)
+\end{equation}
+
+The functional derivative becomes:
+\begin{equation}
+\frac{\delta F}{\delta u_j(t)} = \frac{2}{d}\Im\left[\bra{\chi(t)}H_j\ket{\psi(t)}\right]
+\end{equation}
+
+Solving for the update:
+\begin{equation}
+u_j^{(n+1)}(t) = u_j^{(n)}(t) + \frac{1}{\lambda_j(t)}\Im\left[\bra{\chi^{(n)}(t)} H_j \ket{\psi^{(n)}(t)}\right]
+\end{equation}
+
+\subsubsection{Monotonic Convergence Theorem}
+
+\begin{theorem}[Krotov Monotonic Convergence]
+For sufficiently large penalty parameters $\lambda_j(t) > 0$, the Krotov update equation guarantees:
+\begin{equation}
+F^{(n+1)} \geq F^{(n)}
+\end{equation}
+\end{theorem}
+
+\begin{proof}[Sketch]
+The change in fidelity can be bounded using the Taylor expansion:
+\begin{equation}
+\Delta F = F^{(n+1)} - F^{(n)} = \int_0^T \sum_j \frac{\delta F}{\delta u_j(t)}\Delta u_j(t) dt + O(\Delta u^2)
+\end{equation}
+
+Substituting the update $\Delta u_j(t) = \frac{1}{\lambda_j(t)}\frac{\delta F}{\delta u_j(t)}$:
+\begin{equation}
+\Delta F = \int_0^T \sum_j \frac{1}{\lambda_j(t)}\left|\frac{\delta F}{\delta u_j(t)}\right|^2 dt + O(\lambda^{-2})
+\end{equation}
+
+For sufficiently large $\lambda_j(t)$, the second-order terms are negligible, and $\Delta F \geq 0$.
+\end{proof}
+
+\subsubsection{Discrete-Time Implementation}
+
+For numerical implementation with time discretization $t_k = k\Delta t$, the update becomes:
+\begin{equation}
+u_j^{(n+1)}(t_k) = u_j^{(n)}(t_k) + \frac{\Delta t}{\lambda_j}\Im\left[\bra{\chi^{(n)}_k} H_j \ket{\psi^{(n)}_k}\right]
+\end{equation}
+
+\textbf{Algorithm Steps:}
+\begin{enumerate}
+    \item Initialize pulses $u_j^{(0)}(t_k)$ (e.g., random or GRAPE solution)
+    \item Forward propagate: $\ket{\psi_0} = \ket{\psi_{\text{init}}}$
+    \begin{equation}
+    \ket{\psi_{k+1}} = \exp\left[-i H(t_k)\Delta t\right]\ket{\psi_k}
+    \end{equation}
+    \item Backward propagate: $\ket{\chi_N} = U_{\text{target}}\ket{\psi_N}$
+    \begin{equation}
+    \ket{\chi_k} = \exp\left[-i H(t_k)\Delta t\right]\ket{\chi_{k+1}}
+    \end{equation}
+    \item Update controls:
+    \begin{equation}
+    u_j(t_k) \leftarrow u_j(t_k) + \frac{\Delta t}{\lambda_j}\Im\left[\bra{\chi_k} H_j \ket{\psi_k}\right]
+    \end{equation}
+    \item Apply amplitude constraints: $u_j(t_k) \leftarrow \text{clip}(u_j(t_k), -\Omega_{\max}, \Omega_{\max})$
+    \item Repeat until convergence or maximum iterations
+\end{enumerate}
+
+\subsubsection{Parameter Tuning Guidelines}
+
+\textbf{Lambda Parameter Selection:}
+
+The penalty parameter $\lambda$ controls the trade-off between convergence speed and monotonicity:
 \begin{itemize}
-    \item Monotonic convergence: $F^{(n+1)} \geq F^{(n)}$
-    \item No line search required
-    \item Smooth pulse updates
+    \item \textbf{Large $\lambda$}: Guaranteed monotonicity, slow convergence, smooth pulses
+    \item \textbf{Small $\lambda$}: Fast convergence, risk of non-monotonic behavior, rough pulses
 \end{itemize}
+
+\textbf{Recommended Values:}
+\begin{equation}
+\lambda = \alpha \cdot \frac{T}{N_{\text{steps}}} \cdot \max_j\|H_j\|
+\end{equation}
+with $\alpha \in [0.1, 10]$ adjusted based on problem:
+\begin{itemize}
+    \item Simple gates (X, Z): $\alpha \approx 0.1$ (fast convergence)
+    \item Complex gates (Hadamard, arbitrary): $\alpha \approx 1-10$ (stability)
+    \item High noise sensitivity: $\alpha \approx 10-100$ (smooth pulses)
+\end{itemize}
+
+\textbf{Adaptive Lambda Scheduling:}
+\begin{equation}
+\lambda^{(n)} = \lambda_0 \cdot \left(1 + \frac{n}{N_{\text{max}}}\right)^\beta
+\end{equation}
+Start with small $\lambda_0$ for fast initial progress, increase for convergence stability.
+
+\subsubsection{Numerical Stability Considerations}
+
+\textbf{State Normalization:}
+Due to numerical errors in exponentiation, re-normalize states every $N_{\text{norm}}$ steps:
+\begin{equation}
+\ket{\psi_k} \leftarrow \frac{\ket{\psi_k}}{\|\ket{\psi_k}\|}
+\end{equation}
+
+\textbf{Gradient Clipping:}
+For very large gradients, clip to prevent instability:
+\begin{equation}
+\Delta u_j(t_k) \leftarrow \text{clip}\left(\Delta u_j(t_k), -\Delta u_{\max}, \Delta u_{\max}\right)
+\end{equation}
+
+\textbf{Convergence Criteria:}
+\begin{itemize}
+    \item Fidelity threshold: $F > 1 - \epsilon$ (e.g., $\epsilon = 10^{-4}$)
+    \item Gradient norm: $\|\nabla F\| < \delta$ (e.g., $\delta = 10^{-6}$)
+    \item Pulse change: $\|u^{(n+1)} - u^{(n)}\| < \gamma$ (e.g., $\gamma = 10^{-8}$)
+\end{itemize}
+
+\subsubsection{Comparison with GRAPE}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Property} & \textbf{GRAPE} & \textbf{Krotov} \\
+\midrule
+Convergence & Non-monotonic & Monotonic (with large $\lambda$) \\
+Line search & Required & Not required \\
+Step size & Adaptive & Fixed by $\lambda$ \\
+Pulse smoothness & Depends on regularization & Inherent via penalty \\
+Computational cost/iteration & Lower & Slightly higher \\
+Convergence speed & Faster (optimal step) & Slower but guaranteed \\
+Implementation complexity & Moderate & Low \\
+\bottomrule
+\end{tabular}
+\caption{GRAPE vs Krotov comparison}
+\end{table}
+
+\textbf{When to use each method:}
+\begin{itemize}
+    \item \textbf{GRAPE}: When computational budget is limited, fast prototyping, when local optima are acceptable
+    \item \textbf{Krotov}: When guaranteed convergence is critical, when smooth pulses are required, for publication-quality results
+\end{itemize}
+
+\textbf{Hybrid Approach:}
+Use GRAPE for fast initial optimization, then refine with Krotov for guaranteed convergence:
+\begin{enumerate}
+    \item Run GRAPE for $N_{\text{GRAPE}}$ iterations (fast convergence to $F \approx 0.95$)
+    \item Initialize Krotov with GRAPE solution
+    \item Run Krotov to final fidelity (guaranteed $F > 0.999$)
+\end{enumerate}
 
 \subsection{Robustness Analysis}
 
@@ -1043,17 +1205,180 @@ where $\beta = 1/\delta$ with $\delta$ the anharmonicity.
 
 \subsubsection{Composite Pulses}
 
-Composite pulses achieve robustness through sequences of imperfect operations that cancel systematic errors. For example, the BB1 (Broadband 1) sequence:
-\begin{equation}
-U_{\text{BB1}} = X_{\phi_3} X_{\phi_2} X_{\phi_1} X_{\phi_0}
-\end{equation}
-with phases $\phi = [\pi, 3\pi, 3\pi, \pi]$ compensates for pulse amplitude errors to second order.
+\textbf{Introduction and Error Model:}
 
-\textbf{Key Composite Sequences:}
+Composite pulses achieve robustness through sequences of imperfect operations that systematically cancel errors. Unlike optimal control methods that require detailed knowledge of the system, composite pulses provide robustness with simple sequences based on symmetry principles.
+
+\textbf{Systematic Error Model:}
+
+Consider a rotation about axis $\hat{n}$ with intended angle $\theta$ but actual angle $\theta(1+\epsilon)$ due to systematic amplitude error $\epsilon$:
+\begin{equation}
+R_{\hat{n}}[\theta(1+\epsilon)] = e^{-i\theta(1+\epsilon)\hat{n}\cdot\vec{\sigma}/2}
+\end{equation}
+
+Expanding to second order in $\epsilon$:
+\begin{equation}
+R_{\hat{n}}[\theta(1+\epsilon)] \approx R_{\hat{n}}(\theta) - i\epsilon\frac{\theta}{2}(\hat{n}\cdot\vec{\sigma})R_{\hat{n}}(\theta) - \epsilon^2\frac{\theta^2}{8}(\hat{n}\cdot\vec{\sigma})^2 R_{\hat{n}}(\theta)
+\end{equation}
+
+The goal is to construct sequences where error terms cancel while the intended rotation is preserved.
+
+\textbf{BB1 (Broadband 1) Pulse Derivation:}
+
+The BB1 sequence corrects amplitude and detuning errors to second order. For a target $\pi$-rotation about $X$:
+\begin{equation}
+U_{\text{BB1}} = X(\phi_3, \theta_3) X(\phi_2, \theta_2) X(\phi_1, \theta_1) X(\phi_0, \theta_0)
+\end{equation}
+
+where $X(\phi, \theta)$ denotes rotation by angle $\theta$ about axis in the $xy$-plane at azimuthal angle $\phi$.
+
+\textbf{Derivation via Error Cancellation:}
+
+For amplitude error $\epsilon$, each pulse becomes $\theta_i \rightarrow \theta_i(1+\epsilon)$. The composite error is:
+\begin{equation}
+U_{\text{err}} = U_{\text{BB1}}(\epsilon) U_{\text{BB1}}(0)^\dagger
+\end{equation}
+
+Expanding the error to first order:
+\begin{equation}
+U_{\text{err}} \approx I + i\epsilon \sum_{j=0}^3 \theta_j A_j
+\end{equation}
+
+where $A_j$ are error operators. Setting $\sum \theta_j A_j = 0$ eliminates first-order errors.
+
+\textbf{BB1 Parameters:}
+
+The standard BB1 sequence uses:
+\begin{align}
+\theta_0 &= \pi, \quad \phi_0 = 0 \\
+\theta_1 &= 2\pi, \quad \phi_1 = \pi/2 \\
+\theta_2 &= 2\pi, \quad \phi_2 = 3\pi/2 \\
+\theta_3 &= \pi, \quad \phi_3 = \pi
+\end{align}
+
+This gives:
+\begin{equation}
+U_{\text{BB1}} = X_\pi Y_{2\pi} Y_{-2\pi} X_{-\pi} = X_\pi \text{ (ideal)}
+\end{equation}
+
+\textbf{Error Suppression Performance:}
+
+For amplitude error $\epsilon$:
 \begin{itemize}
-    \item \textbf{BB1}: Broadband, compensates amplitude and detuning errors
-    \item \textbf{CORPSE}: Compensation for Off-Resonance with Pulse Sequence
-    \item \textbf{SCROFULOUS}: Short Composite Rotation For Undoing Length Over- and Under-Shoot
+    \item Single pulse: Error $\propto \epsilon$
+    \item BB1: Error $\propto \epsilon^3$ (two orders of improvement)
+\end{itemize}
+
+For detuning error $\Delta$:
+\begin{itemize}
+    \item Single pulse: Error $\propto \Delta$
+    \item BB1: Error $\propto \Delta^2$ (one order of improvement)
+\end{itemize}
+
+\textbf{CORPSE (Compensation for Off-Resonance with a Pulse SEquence) Theory:}
+
+CORPSE specifically targets off-resonance (detuning) errors. The sequence for a $\pi$ rotation:
+\begin{equation}
+U_{\text{CORPSE}} = X(\theta_3) \bar{X}(\theta_2) X(\theta_1)
+\end{equation}
+
+where $\bar{X}$ denotes rotation about $-X$ axis.
+
+\textbf{CORPSE Parameter Calculation:}
+
+For detuning $\Delta$, the effective rotation axis tilts from $X$ toward $Z$. The CORPSE angles satisfy:
+\begin{align}
+\theta_1 &= \frac{2\pi + \arcsin(K)}{2} \\
+\theta_2 &= 2\pi - 2\arcsin(K) \\
+\theta_3 &= \frac{\theta_1}{2}
+\end{align}
+
+where $K = \sin(\pi/2)/\sqrt{1+\Delta^2/\Omega^2}$ depends on detuning-to-Rabi ratio.
+
+\textbf{Simplified CORPSE (for small detuning):}
+
+For $|\Delta| \ll \Omega$:
+\begin{align}
+\theta_1 &\approx 2\pi + \pi\Delta/(2\Omega) \\
+\theta_2 &\approx 2\pi - \pi\Delta/\Omega \\
+\theta_3 &\approx \pi + \pi\Delta/(4\Omega)
+\end{align}
+
+\textbf{Error Cancellation Mechanisms:}
+
+The CORPSE sequence works by geometric phase compensation:
+\begin{enumerate}
+    \item First pulse: Overshoots due to detuning, accumulates geometric phase
+    \item Second pulse: Reverses overshooting, but in opposite direction
+    \item Third pulse: Completes target rotation while canceling residual phase
+\end{enumerate}
+
+Result: Detuning error suppressed from $O(\Delta)$ to $O(\Delta^3)$.
+
+\textbf{Robustness vs Efficiency Tradeoffs:}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Sequence} & \textbf{Pulses} & \textbf{Time} & \textbf{Amplitude} & \textbf{Detuning} \\
+\midrule
+Single pulse & 1 & $T$ & $O(\epsilon)$ & $O(\Delta)$ \\
+BB1 & 4 & $6T$ & $O(\epsilon^3)$ & $O(\Delta^2)$ \\
+CORPSE & 3 & $5T$ & $O(\epsilon)$ & $O(\Delta^3)$ \\
+SCROFULOUS & 3 & $3T$ & $O(\epsilon^2)$ & $O(\Delta^2)$ \\
+SK1 & 4 & $4T$ & $O(\epsilon^2)$ & $O(\Delta^2)$ \\
+\bottomrule
+\end{tabular}
+\caption{Composite pulse comparison: time cost vs error suppression}
+\end{table}
+
+\textbf{Trade-offs:}
+\begin{itemize}
+    \item \textbf{Time overhead}: Composite pulses are 3-6× slower than single pulses
+    \item \textbf{Decoherence}: Longer sequences accumulate more $T_1$, $T_2$ errors
+    \item \textbf{Error types}: Each sequence optimizes for specific error sources
+    \item \textbf{Optimization}: Best choice depends on dominant error mechanism
+\end{itemize}
+
+\textbf{Practical Implementation Guidelines:}
+
+\begin{enumerate}
+    \item \textbf{Characterize errors}: Measure amplitude vs detuning error magnitudes
+    \item \textbf{Select sequence}:
+    \begin{itemize}
+        \item Amplitude-dominated: Use BB1 or SK1
+        \item Detuning-dominated: Use CORPSE
+        \item Mixed errors: Use BB1 (corrects both)
+    \end{itemize}
+    \item \textbf{Gate time budget}: If $T_2$ is short, shorter sequences (SCROFULOUS) may be better despite less error suppression
+    \item \textbf{Cascade sequences}: For very high fidelity, nest composite pulses
+\end{enumerate}
+
+\textbf{Advanced Sequences:}
+
+\begin{itemize}
+    \item \textbf{SCROFULOUS}: Optimized for short duration, moderate error suppression
+    \begin{equation}
+    U_{\text{SCROF}} = X(\theta+\pi) Y(2\theta+\pi) X(\theta)
+    \end{equation}
+
+    \item \textbf{SK1 (Solovay-Kitaev level 1)}: Balanced performance
+    \begin{equation}
+    U_{\text{SK1}} = Z(\pi/2) X(\pi) Z(\pi/2) X(\pi)
+    \end{equation}
+
+    \item \textbf{Knill sequences}: Dynamical decoupling while performing rotation
+\end{itemize}
+
+\textbf{Experimental Validation:}
+
+In QubitPulseOpt, composite pulses are validated via:
+\begin{itemize}
+    \item Fidelity vs amplitude error sweeps: Verify $O(\epsilon^3)$ scaling for BB1
+    \item Fidelity vs detuning sweeps: Verify $O(\Delta^3)$ scaling for CORPSE
+    \item Comparison with uncompensated pulses: Demonstrate robustness improvement
+    \item Randomized benchmarking: Measure average composite gate fidelity
 \end{itemize}
 
 \subsubsection{Adiabatic Techniques}
@@ -1114,42 +1439,412 @@ with:
 
 \subsubsection{Filter Functions}
 
-Filter functions characterize pulse sensitivity to noise at different frequencies:
-\begin{equation}
-F(\omega) = \left|\int_0^T y(t)e^{i\omega t}dt\right|^2
-\end{equation}
-where $y(t)$ is the control modulation.
+\textbf{Theoretical Foundation:}
 
-\textbf{Noise Infidelity:}
+Filter functions provide a frequency-domain characterization of how control pulses interact with environmental noise. They quantify the susceptibility of a quantum gate to noise at different frequencies, enabling pulse design that minimizes sensitivity in frequency bands where noise is strong.
+
+\textbf{Hamiltonian Decomposition:}
+
+Consider the total Hamiltonian with noise:
 \begin{equation}
-\chi = \frac{1}{2\pi}\int F(\omega)S(\omega)d\omega
+H(t) = H_0 + \sum_j u_j(t) H_j + \sum_\alpha n_\alpha(t) B_\alpha
+\end{equation}
+where $n_\alpha(t)$ are stochastic noise processes and $B_\alpha$ are noise operators.
+
+In the interaction picture with respect to the noiseless evolution, the noise effects are captured by:
+\begin{equation}
+\tilde{B}_\alpha(t) = U_0^\dagger(t) B_\alpha U_0(t)
+\end{equation}
+
+\textbf{Filter Function Definition:}
+
+The filter function for noise channel $\alpha$ is defined as:
+\begin{equation}
+F_\alpha(\omega) = \left|\int_0^T y_\alpha(t)e^{i\omega t}dt\right|^2
+\end{equation}
+where the control modulation is:
+\begin{equation}
+y_\alpha(t) = \Tr\left[\tilde{B}_\alpha(t)\rho_{\text{sys}}(t)\right]
+\end{equation}
+
+For single-qubit systems with dephasing noise ($B = \sigma_z$), this simplifies to:
+\begin{equation}
+F(\omega) = \left|\int_0^T \beta(t)e^{i\omega t}dt\right|^2
+\end{equation}
+where $\beta(t)$ is the time-dependent Bloch vector z-component.
+
+\textbf{Spectral Decomposition of Control Hamiltonian:}
+
+For a control pulse $u(t) = \Omega(t)\cos(\omega_d t + \phi(t))$, decompose into spectral components:
+\begin{equation}
+u(t) = \sum_{k=-\infty}^{\infty} c_k e^{ik\omega_d t}
+\end{equation}
+
+Each spectral component contributes to the filter function:
+\begin{equation}
+F(\omega) = \sum_k |c_k|^2 \delta(\omega - k\omega_d) * W(\omega)
+\end{equation}
+where $W(\omega)$ is the window function from pulse envelope $\Omega(t)$.
+
+\textbf{Noise Infidelity from Filter Functions:}
+
+The average gate infidelity due to noise is:
+\begin{equation}
+\chi = \frac{1}{2\pi}\int_{-\infty}^{\infty} F(\omega)S(\omega)d\omega
 \end{equation}
 for noise power spectral density $S(\omega)$.
 
+For discrete noise sources (e.g., environmental qubits):
+\begin{equation}
+\chi = \sum_j F(\omega_j) \cdot \text{coupling strength}_j
+\end{equation}
+
+\textbf{Filter Function Sum Rule:}
+
+A fundamental constraint on filter functions is the sum rule:
+\begin{equation}
+\int_{-\infty}^{\infty} F(\omega) d\omega = 2\pi T \langle y^2 \rangle
+\end{equation}
+where $\langle y^2 \rangle$ is the time-averaged control power.
+
+\textbf{Derivation from First Principles:}
+
+Starting from Parseval's theorem:
+\begin{equation}
+\int_{-\infty}^{\infty} |y(t)|^2 dt = \frac{1}{2\pi}\int_{-\infty}^{\infty} |\tilde{y}(\omega)|^2 d\omega
+\end{equation}
+
+Since $F(\omega) = |\tilde{y}(\omega)|^2$:
+\begin{equation}
+\int_{-\infty}^{\infty} F(\omega) d\omega = 2\pi \int_0^T |y(t)|^2 dt = 2\pi T \langle y^2 \rangle
+\end{equation}
+
+This sum rule implies that reducing noise sensitivity at one frequency necessarily increases it at others—a fundamental constraint in pulse design.
+
 \textbf{Common Noise Models:}
+
 \begin{itemize}
-    \item White noise: $S(\omega) = S_0$
-    \item $1/f$ noise: $S(\omega) = A/|\omega|^\alpha$
-    \item Lorentzian: $S(\omega) = A/(1 + (\omega/\omega_c)^2)$
+    \item \textbf{White noise}: $S(\omega) = S_0$ (constant across all frequencies)
+    \begin{equation}
+    \chi_{\text{white}} = \frac{S_0}{2\pi}\int F(\omega)d\omega = S_0 T \langle y^2 \rangle
+    \end{equation}
+
+    \item \textbf{$1/f$ noise}: $S(\omega) = A/|\omega|^\alpha$ (dominant at low frequencies)
+    \begin{equation}
+    \chi_{1/f} = \frac{A}{2\pi}\int \frac{F(\omega)}{|\omega|^\alpha}d\omega
+    \end{equation}
+    Strategy: High-pass filtering—minimize $F(\omega)$ at low $\omega$
+
+    \item \textbf{Lorentzian noise}: $S(\omega) = A/(1 + (\omega/\omega_c)^2)$ (resonant environment)
+    \begin{equation}
+    \chi_{\text{Lor}} = \frac{A}{2\pi}\int \frac{F(\omega)}{1 + (\omega/\omega_c)^2}d\omega
+    \end{equation}
+    Strategy: Notch filtering—suppress $F(\omega)$ near $\omega_c$
 \end{itemize}
+
+\textbf{Pulse Shaping for Noise Filtering:}
+
+Different pulse shapes have different filter function characteristics:
+
+\begin{enumerate}
+    \item \textbf{Square pulse}: Broad spectrum, susceptible to all noise frequencies
+    \begin{equation}
+    F(\omega) \propto \left|\frac{\sin(\omega T/2)}{\omega}\right|^2
+    \end{equation}
+
+    \item \textbf{Gaussian pulse}: $\Omega(t) = \Omega_0 \exp[-(t-T/2)^2/(2\sigma^2)]$
+    \begin{equation}
+    F(\omega) \propto \exp[-\sigma^2\omega^2]
+    \end{equation}
+    Suppresses high-frequency noise, smoother than square.
+
+    \item \textbf{DRAG pulse}: Adds derivative term to suppress specific frequencies
+    \begin{equation}
+    F_{\text{DRAG}}(\omega_{\text{leakage}}) \ll F_{\text{std}}(\omega_{\text{leakage}})
+    \end{equation}
+
+    \item \textbf{Dynamical decoupling}: Engineered spectral notches
+    \begin{equation}
+    F(\omega_{\text{noise}}) \approx 0 \text{ at targeted frequencies}
+    \end{equation}
+\end{enumerate}
+
+\textbf{Worked Example: Gaussian Pulse Filter Function}
+
+Consider a Gaussian pulse driving a qubit:
+\begin{equation}
+\Omega(t) = \Omega_0 \exp\left[-\frac{(t-T/2)^2}{2\sigma^2}\right]
+\end{equation}
+
+For a $\pi$-rotation, $\int_0^T \Omega(t)dt = \pi$, giving:
+\begin{equation}
+\Omega_0 = \frac{\pi}{\sigma\sqrt{2\pi}}
+\end{equation}
+
+The control modulation in the rotating frame:
+\begin{equation}
+y(t) = \Omega(t)\sin(\theta(t))
+\end{equation}
+where $\theta(t) = \int_0^t \Omega(t')dt'$ is the rotation angle.
+
+For small noise perturbations, $\sin(\theta) \approx \theta$ for early times:
+\begin{equation}
+y(t) \approx \Omega(t) \cdot \int_0^t \Omega(t')dt'
+\end{equation}
+
+The Fourier transform:
+\begin{equation}
+\tilde{y}(\omega) = \int_0^T y(t)e^{i\omega t}dt
+\end{equation}
+
+For $\sigma \ll T$ (well-localized pulse):
+\begin{equation}
+F(\omega) \approx \frac{\pi^2}{4\sigma^2}\exp[-\sigma^2\omega^2]
+\end{equation}
+
+\textbf{Noise infidelity for $1/f$ noise:}
+\begin{equation}
+\chi_{1/f} = \frac{A\pi^2}{8\pi\sigma^2}\int_{-\infty}^{\infty} \frac{\exp[-\sigma^2\omega^2]}{|\omega|}d\omega
+\end{equation}
+
+Using $\int_{-\infty}^{\infty} \frac{e^{-a\omega^2}}{|\omega|}d\omega = \frac{2\sqrt{\pi}}{\sqrt{a}}$:
+\begin{equation}
+\chi_{1/f} = \frac{A\pi^{3/2}}{4\sigma} = \frac{A\pi^{3/2}}{4}\sqrt{\frac{T_{\text{gate}}}{\ln(T_{\text{gate}}/t_0)}}
+\end{equation}
+
+This shows that Gaussian pulses provide $\chi \propto 1/\sqrt{T_{\text{gate}}}$ scaling, better than square pulses' $\chi \propto T_{\text{gate}}$.
+
+\textbf{Noise PSD Overlay Interpretation:}
+
+When plotting filter functions with noise PSDs:
+\begin{itemize}
+    \item \textbf{Overlap regions}: High $F(\omega) \times S(\omega)$ → dominant noise contribution
+    \item \textbf{Spectral holes}: Regions where $F(\omega) \approx 0$ → noise suppression
+    \item \textbf{Peak shifts}: Moving $F(\omega)$ peaks away from $S(\omega)$ peaks reduces infidelity
+\end{itemize}
+
+\textbf{Optimization Strategy:}
+\begin{equation}
+\min_{u(t)} \chi = \min_{u(t)} \int F[u](\omega)S(\omega)d\omega
+\end{equation}
+subject to gate fidelity constraint $F_{\text{gate}} > 1 - \epsilon$.
+
+This is implemented as a weighted cost in optimal control:
+\begin{equation}
+J[u] = F_{\text{gate}}[u] - \lambda_{\text{noise}}\chi[u]
+\end{equation}
 
 \subsubsection{Randomized Benchmarking}
 
-Randomized Benchmarking (RB) extracts average gate fidelity via decay of survival probability:
+\textbf{Introduction and Motivation:}
+
+Randomized Benchmarking (RB) is a scalable protocol for characterizing the average error rate of a gate set without requiring state tomography or precise state preparation. It provides a hardware-independent measure of gate performance that is robust to state preparation and measurement (SPAM) errors.
+
+\textbf{Clifford Group Algebra and Representation:}
+
+The single-qubit Clifford group $\mathcal{C}_1$ consists of 24 unitary operators that:
+\begin{itemize}
+    \item Normalize the Pauli group: $C \sigma_j C^\dagger \in \{\pm\sigma_x, \pm\sigma_y, \pm\sigma_z, \pm I\}$
+    \item Form a finite group under matrix multiplication
+    \item Can be efficiently simulated classically (Gottesman-Knill theorem)
+\end{itemize}
+
+\textbf{Generator Construction:}
+
+The Clifford group is generated by two elements:
+\begin{align}
+H &= \frac{1}{\sqrt{2}}\begin{pmatrix} 1 & 1 \\ 1 & -1 \end{pmatrix} \quad \text{(Hadamard)} \\
+S &= \begin{pmatrix} 1 & 0 \\ 0 & i \end{pmatrix} \quad \text{(Phase gate)}
+\end{align}
+
+\textbf{Complete 24-Element Enumeration:}
+
+The group elements can be organized by cosets of the Pauli group:
 \begin{equation}
-F_{\text{seq}}(m) = A p^m + B
+\mathcal{C}_1 = \{I, X, Y, Z\} \times \{I, H, S, HS, SH, HSH\}
 \end{equation}
-for sequence length $m$, with depolarizing parameter $p$ related to average gate fidelity:
+
+Explicit construction via systematic enumeration:
+\begin{itemize}
+    \item Identity coset: $\{I, S, S^2, S^3, HS, HS^3\}$ (6 elements)
+    \item $H$ coset: $\{H, SH, S^2H, S^3H, HSH, HS^2H\}$ (6 elements)
+    \item $X$ coset: $\{X, XS, XS^2, XS^3, XHS, XHS^3\}$ (6 elements)
+    \item $Y$ coset: $\{Y, YS, YS^2, YS^3, YHS, YHS^3\}$ (6 elements)
+\end{itemize}
+
+Total: $4 \times 6 = 24$ elements (modulo global phase).
+
+\textbf{RB Protocol Description:}
+
+The standard RB experiment proceeds as follows:
+
+\begin{enumerate}
+    \item \textbf{Sequence Generation}: For each sequence length $m$, generate $K$ random sequences:
+    \begin{itemize}
+        \item Sample $m$ Clifford gates uniformly: $C_1, C_2, \ldots, C_m \in \mathcal{C}_1$
+        \item Compute the inverse: $C_{\text{inv}} = (C_m \cdots C_2 C_1)^{-1}$
+        \item Full sequence: $C_{\text{seq}} = C_{\text{inv}} C_m \cdots C_2 C_1 = I$
+    \end{itemize}
+
+    \item \textbf{Execution}: Prepare initial state $\ket{0}$, apply sequence, measure in computational basis
+
+    \item \textbf{Survival Probability}: Average over $K$ sequences at each $m$:
+    \begin{equation}
+    P_{\text{surv}}(m) = \frac{1}{K}\sum_{k=1}^K P(\text{measure } \ket{0} | \text{sequence } k)
+    \end{equation}
+
+    \item \textbf{Fitting}: Extract decay parameter $p$ from exponential fit
+\end{enumerate}
+
+\textbf{RB Decay Curve Derivation (Exponential Model):}
+
+Under the assumption of gate-independent, depolarizing noise, the RB decay follows:
+\begin{equation}
+P_{\text{surv}}(m) = A p^m + B
+\end{equation}
+
+\textbf{Derivation:}
+
+For a noisy gate implementation $\tilde{C}$ of ideal Clifford $C$, the error channel is:
+\begin{equation}
+\mathcal{E}(\rho) = (1-\epsilon) \rho + \epsilon \frac{I}{d}
+\end{equation}
+where $\epsilon$ is the depolarizing probability and $d=2$ for qubits.
+
+After $m$ gates, the average fidelity decays as:
+\begin{equation}
+F(m) = (1-\epsilon)^m \approx e^{-m\epsilon} \text{ for small } \epsilon
+\end{equation}
+
+The survival probability relates to fidelity via:
+\begin{equation}
+P_{\text{surv}}(m) = F(m) + \text{SPAM offset}
+\end{equation}
+
+Accounting for SPAM errors with asymptotic behavior:
+\begin{align}
+A &= P(\text{correct prep}) \times P(\text{correct meas}) \\
+B &= P(\text{asymptotic depolarized state measured as } \ket{0})
+\end{align}
+
+For perfect SPAM: $A = 1$, $B = 1/d = 1/2$ for qubits.
+
+\textbf{Average Gate Fidelity Extraction from Decay Constant:}
+
+The depolarizing parameter $p$ is related to the average gate fidelity by:
 \begin{equation}
 F_{\text{avg}} = 1 - \frac{(1-p)(d-1)}{d}
 \end{equation}
 
-\textbf{Clifford Group:} The 24-element single-qubit Clifford group is generated by Hadamard $H$ and phase gate $S = \text{diag}(1, i)$.
+For qubits ($d=2$):
+\begin{equation}
+F_{\text{avg}} = \frac{1 + p}{2}
+\end{equation}
 
-\textbf{Interleaved RB:} Characterizes specific gate $G$ by interleaving it between random Cliffords:
+Inverting:
+\begin{equation}
+p = 2F_{\text{avg}} - 1 = 1 - 2\epsilon
+\end{equation}
+
+The average gate infidelity (error rate):
+\begin{equation}
+r = 1 - F_{\text{avg}} = \frac{1-p}{2}
+\end{equation}
+
+\textbf{Interleaved RB Mathematical Framework:}
+
+Interleaved RB characterizes a specific gate $G$ by interleaving it between random Cliffords:
+\begin{equation}
+\text{Sequence: } C_{\text{inv}} \cdot G \cdot C_m \cdot G \cdot C_{m-1} \cdots G \cdot C_2 \cdot G \cdot C_1
+\end{equation}
+
+This produces a decay curve:
+\begin{equation}
+P_{\text{int}}(m) = A_{\text{int}} p_{\text{int}}^m + B_{\text{int}}
+\end{equation}
+
+The gate fidelity is extracted from the ratio:
 \begin{equation}
 F_G = 1 - \frac{(1 - p_{\text{int}}/p_{\text{std}})(d-1)}{d}
 \end{equation}
+
+For qubits:
+\begin{equation}
+F_G = 1 - \frac{1 - p_{\text{int}}/p_{\text{std}}}{2}
+\end{equation}
+
+\textbf{Statistical Analysis and Confidence Intervals:}
+
+The uncertainty in the decay parameter $p$ arises from:
+\begin{enumerate}
+    \item \textbf{Shot noise}: Finite measurement samples per sequence
+    \item \textbf{Sequence sampling}: Finite number of random sequences $K$
+    \item \textbf{Fitting uncertainty}: Nonlinear least-squares error propagation
+\end{enumerate}
+
+\textbf{Variance from Shot Noise:}
+
+For $N$ measurements per sequence, binomial statistics give:
+\begin{equation}
+\sigma^2_{P(m)} = \frac{P(m)(1-P(m))}{N}
+\end{equation}
+
+\textbf{Variance from Sequence Sampling:}
+
+With $K$ sequences at each $m$:
+\begin{equation}
+\sigma^2_{\text{seq}}(m) = \frac{\text{Var}[P_k(m)]}{K}
+\end{equation}
+
+\textbf{Total Variance:}
+\begin{equation}
+\sigma^2_{\text{total}}(m) = \sigma^2_{\text{shot}}(m) + \sigma^2_{\text{seq}}(m)
+\end{equation}
+
+\textbf{Fitting with Weighted Least Squares:}
+
+Minimize:
+\begin{equation}
+\chi^2 = \sum_m \frac{[P_{\text{data}}(m) - (Ap^m + B)]^2}{\sigma^2_{\text{total}}(m)}
+\end{equation}
+
+\textbf{Confidence Intervals on $p$:}
+
+Using the Jacobian of the fit parameters:
+\begin{equation}
+\sigma_p^2 = (\mathbf{J}^T \mathbf{W} \mathbf{J})^{-1}_{pp}
+\end{equation}
+where $\mathbf{W}$ is the weight matrix and $\mathbf{J}$ is the Jacobian.
+
+For exponential decay, the 95\% confidence interval on $p$:
+\begin{equation}
+p \pm 1.96\sigma_p
+\end{equation}
+
+\textbf{Error Propagation to Gate Fidelity:}
+
+Using $F_{\text{avg}} = (1+p)/2$:
+\begin{equation}
+\sigma_{F_{\text{avg}}} = \frac{1}{2}\sigma_p
+\end{equation}
+
+\textbf{Recommended Experimental Parameters:}
+
+\begin{itemize}
+    \item Sequence lengths: $m \in \{1, 2, 4, 8, 16, 32, 64, 128, 256\}$ (logarithmic spacing)
+    \item Number of sequences: $K \geq 30$ per length (for central limit theorem)
+    \item Measurements per sequence: $N \geq 1000$ (shot noise $< 3\%$)
+    \item Total experiment: $\sim 10^4$ to $10^5$ gate executions
+\end{itemize}
+
+\textbf{Common Pitfalls and Best Practices:}
+
+\begin{itemize}
+    \item \textbf{Insufficient sequence lengths}: Need $m_{\max}$ such that $p^{m_{\max}} \approx 0.1$ for good fit
+    \item \textbf{Correlated errors}: RB assumes gate-independent errors; coherent errors can violate this
+    \item \textbf{SPAM errors}: Can be partially canceled with reference sequences
+    \item \textbf{Finite gate set}: Native gate compilation can introduce overhead
+\end{itemize}
 
 \subsubsection{Fisher Information}
 
@@ -1237,17 +1932,52 @@ This document serves as the authoritative reference for all physics, mathematics
 
 \begin{enumerate}[label={[\arabic*]}]
     \item M.~A. Nielsen and I.~L. Chuang, \emph{Quantum Computation and Quantum Information}, Cambridge University Press (2010).
+
     \item J.~Johansson, P.~Nation, and F.~Nori, ``QuTiP: An open-source Python framework for the dynamics of open quantum systems,'' \emph{Computer Physics Communications} \textbf{183}, 1760 (2012).
+
     \item N.~Khaneja, T.~Reiss, C.~Kehlet, T.~Schulte-Herbr\"uggen, and S.~J. Glaser, ``Optimal control of coupled spin dynamics: Design of NMR pulse sequences by gradient ascent algorithms,'' \emph{Journal of Magnetic Resonance} \textbf{172}, 296 (2005).
+
     \item D.~M. Reich, M.~Ndong, and C.~P. Koch, ``Monotonically convergent optimization in quantum control using Krotov's method,'' \emph{The Journal of Chemical Physics} \textbf{136}, 104103 (2012).
+
+    \item V.~F. Krotov, \emph{Global Methods in Optimal Control Theory}, Marcel Dekker, New York (1996).
+
     \item F.~Motzoi, J.~M. Gambetta, P.~Rebentrost, and F.~K. Wilhelm, ``Simple pulses for elimination of leakage in weakly nonlinear qubits,'' \emph{Physical Review Letters} \textbf{103}, 110501 (2009).
+
+    \item J.~M. Gambetta, F.~Motzoi, S.~T. Merkel, and F.~K. Wilhelm, ``Analytic control methods for high-fidelity unitary operations in a weakly nonlinear oscillator,'' \emph{Physical Review A} \textbf{83}, 012308 (2011).
+
     \item S.~Machnes, U.~Sander, S.~J. Glaser, P.~de Fouquières, A.~Gruslys, S.~Schirmer, and T.~Schulte-Herbr\"uggen, ``Comparing, optimizing, and benchmarking quantum-control algorithms in a unifying programming framework,'' \emph{Physical Review A} \textbf{84}, 022305 (2011).
+
     \item T.~J. Green, J.~Sastrawan, H.~Uys, and M.~J. Biercuk, ``Arbitrary quantum control of qubits in the presence of universal noise,'' \emph{New Journal of Physics} \textbf{15}, 095004 (2013).
+
+    \item L.~Viola and S.~Lloyd, ``Dynamical suppression of decoherence in two-state quantum systems,'' \emph{Physical Review A} \textbf{58}, 2733 (1998).
+
     \item E.~Knill et al., ``Randomized benchmarking of quantum gates,'' \emph{Physical Review A} \textbf{77}, 012307 (2008).
+
     \item E.~Magesan, J.~M. Gambetta, and J.~Emerson, ``Scalable and robust randomized benchmarking of quantum processes,'' \emph{Physical Review Letters} \textbf{109}, 080505 (2012).
+
+    \item E.~Magesan, J.~M. Gambetta, and J.~Emerson, ``Characterizing quantum gates via randomized benchmarking,'' \emph{Physical Review A} \textbf{85}, 042311 (2012).
+
     \item K.~Bergmann, H.~Theuer, and B.~W. Shore, ``Coherent population transfer among quantum states of atoms and molecules,'' \emph{Reviews of Modern Physics} \textbf{70}, 1003 (1998).
+
     \item H.~K. Cummins, G.~Llewellyn, and J.~A. Jones, ``Tackling systematic errors in quantum logic gates with composite rotations,'' \emph{Physical Review A} \textbf{67}, 042308 (2003).
+
+    \item M.~H. Levitt, ``Composite pulses,'' \emph{Progress in Nuclear Magnetic Resonance Spectroscopy} \textbf{18}, 61 (1986).
+
+    \item S.~Wimperis, ``Broadband, narrowband, and passband composite pulses for use in advanced NMR experiments,'' \emph{Journal of Magnetic Resonance, Series A} \textbf{109}, 221 (1994).
+
     \item S.~L. Braunstein and C.~M. Caves, ``Statistical distance and the geometry of quantum states,'' \emph{Physical Review Letters} \textbf{72}, 3439 (1994).
+
+    \item T.~Caneva, T.~Calarco, and S.~Montangero, ``Chopped random-basis quantum optimization,'' \emph{Physical Review A} \textbf{84}, 022326 (2011).
+
+    \item G.~T. Genov, D.~Schraft, N.~V. Vitanov, and T.~Halfmann, ``Arbitrarily accurate pulse sequences for robust dynamical decoupling,'' \emph{Physical Review Letters} \textbf{118}, 133202 (2017).
+
+    \item L.~M.~K. Vandersypen and I.~L. Chuang, ``NMR techniques for quantum control and computation,'' \emph{Reviews of Modern Physics} \textbf{76}, 1037 (2005).
+
+    \item D.~J. Egger and F.~K. Wilhelm, ``Adaptive hybrid optimal quantum control for imprecisely characterized systems,'' \emph{Physical Review Letters} \textbf{112}, 240503 (2014).
+
+    \item C.~Zu, W.-B. Wang, L.~He, W.-G. Zhang, C.-Y. Dai, F.~Wang, and L.-M. Duan, ``Experimental realization of universal geometric quantum gates with solid-state spins,'' \emph{Nature} \textbf{514}, 72 (2014).
+
+    \item J.~Kelly et al., ``Optimal quantum control using randomized benchmarking,'' \emph{Physical Review Letters} \textbf{112}, 240504 (2014).
 \end{enumerate}
 
 %==============================================================================
