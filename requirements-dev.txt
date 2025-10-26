@@ -1,0 +1,35 @@
+# Development Dependencies for QubitPulseOpt
+# Install with: pip install -r requirements-dev.txt
+
+# Code Quality Tools
+black>=24.1.1
+flake8>=7.0.0
+flake8-docstrings>=1.7.0
+flake8-bugbear>=24.1.0
+isort>=5.13.2
+pre-commit>=3.5.0
+
+# Testing Tools
+pytest>=7.3.0
+pytest-cov>=4.1.0
+pytest-rerunfailures>=12.0
+pytest-xdist>=3.3.0  # For parallel test execution
+
+# Notebook Tools
+nbqa>=1.7.1  # For running code quality tools on notebooks
+jupyter>=1.0.0
+ipykernel>=6.0.0
+
+# Documentation Tools (optional)
+# Uncomment if building documentation locally
+# sphinx>=7.0.0
+# sphinx-rtd-theme>=2.0.0
+# sphinx-autodoc-typehints>=1.24.0
+
+# Type Checking (optional)
+# mypy>=1.0.0
+# types-setuptools
+
+# Additional Development Utilities
+ipdb>=0.13.13  # Interactive debugger
+twine>=4.0.0  # For package distribution (future use)

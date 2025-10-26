@@ -31,3 +31,35 @@ agent_logs/*.json
 
 # OS
 .DS_Store
+
+# Temporary working files and summaries
+COMPLETION_SUMMARY.txt
+WHAT_I_JUST_DID.md
+V1.0_RELEASE_CHECKLIST.md
+.cleanup_plan.txt
+
+# Archive directory (historical tracking)
+docs/archive/
+
+# Build artifacts
+setup.cfg
+*.egg-info/
+build/
+dist/
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Generated demos
+generate_demos.py
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz

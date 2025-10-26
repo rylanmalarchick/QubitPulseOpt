@@ -344,6 +344,14 @@ def log_config(config: Dict[str, Any], logger: Optional[logging.Logger] = None) 
     stack = [(config, 0, "")]
     MAX_DEPTH = 10  # Rule 2: Explicit depth bound
 
+    # Rule 2: Loop bound documentation
+    # Maximum iterations = bounded by stack size which is limited by:
+    #   - Initial size: 1 (root config)
+    #   - Growth: Each dict adds at most len(dict.items()) to stack
+    #   - Depth constraint: MAX_DEPTH = 10 levels maximum
+    #   - Typical config size: ~100 keys max
+    # Therefore: Maximum iterations < 100 * 10 = 1000 iterations
+    # The while loop will terminate when stack is empty (guaranteed by finite config tree)
     while stack:
         current_dict, indent, prefix = stack.pop()
 

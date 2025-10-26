@@ -1,0 +1,249 @@
+name: Compliance Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  power-of-10-compliance:
+    name: Power of 10 Compliance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comparison
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy scipy matplotlib
+          pip install qutip>=4.7.0
+
+      - name: Run Power of 10 compliance check
+        id: compliance-check
+        run: |
+          echo "Running Power of 10 compliance checker..."
+          python scripts/compliance/power_of_10_checker.py src --verbose --json -o compliance-report.json
+
+          # Extract compliance score from JSON
+          SCORE=$(python -c "import json; data=json.load(open('compliance-report.json')); print(data.get('compliance_score', 0))")
+          echo "compliance_score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Compliance Score: $SCORE%"
+
+          # Count Rule 4 violations (no recursion)
+          RULE4_VIOLATIONS=$(python -c "import json; data=json.load(open('compliance-report.json')); print(sum(1 for v in data.get('violations', []) if v.get('rule') == 4))")
+          echo "rule4_violations=$RULE4_VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "Rule 4 Violations: $RULE4_VIOLATIONS"
+
+          # Count total errors vs warnings
+          ERROR_COUNT=$(python -c "import json; data=json.load(open('compliance-report.json')); print(data.get('error_count', 0))")
+          WARNING_COUNT=$(python -c "import json; data=json.load(open('compliance-report.json')); print(data.get('warning_count', 0))")
+          echo "error_count=$ERROR_COUNT" >> $GITHUB_OUTPUT
+          echo "warning_count=$WARNING_COUNT" >> $GITHUB_OUTPUT
+          echo "Errors: $ERROR_COUNT, Warnings: $WARNING_COUNT"
+
+      - name: Check compliance score threshold
+        run: |
+          SCORE=${{ steps.compliance-check.outputs.compliance_score }}
+          THRESHOLD=97.0
+
+          echo "## Power of 10 Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Compliance Score**: ${SCORE}%" >> $GITHUB_STEP_SUMMARY
+          echo "- **Threshold**: ${THRESHOLD}%" >> $GITHUB_STEP_SUMMARY
+          echo "- **Errors**: ${{ steps.compliance-check.outputs.error_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Warnings**: ${{ steps.compliance-check.outputs.warning_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rule 4 Violations**: ${{ steps.compliance-check.outputs.rule4_violations }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if (( $(echo "$SCORE < $THRESHOLD" | bc -l) )); then
+            echo "❌ **FAILED**: Compliance score ($SCORE%) is below threshold ($THRESHOLD%)" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "✅ **PASSED**: Compliance score meets threshold" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check Rule 4 violations (no recursion)
+        run: |
+          RULE4=${{ steps.compliance-check.outputs.rule4_violations }}
+
+          if [ "$RULE4" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **FAILED**: Found $RULE4 Rule 4 violations (recursion is forbidden)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Rule 4 violations are critical and must be fixed immediately." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ No Rule 4 violations detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Generate detailed compliance report
+        if: always()
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Detailed Compliance Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```json' >> $GITHUB_STEP_SUMMARY
+          cat compliance-report.json | python -m json.tool | head -100 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload compliance report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report
+          path: compliance-report.json
+          retention-days: 90
+
+      - name: Compare with baseline (if exists)
+        if: always()
+        run: |
+          if [ -f "compliance_baseline.json" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Compliance Comparison with Baseline" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            BASELINE_SCORE=$(python -c "import json; data=json.load(open('compliance_baseline.json')); print(data.get('compliance_score', 0))")
+            CURRENT_SCORE=${{ steps.compliance-check.outputs.compliance_score }}
+
+            echo "- **Baseline Score**: ${BASELINE_SCORE}%" >> $GITHUB_STEP_SUMMARY
+            echo "- **Current Score**: ${CURRENT_SCORE}%" >> $GITHUB_STEP_SUMMARY
+
+            DELTA=$(python -c "print(round($CURRENT_SCORE - $BASELINE_SCORE, 2))")
+            if (( $(echo "$DELTA >= 0" | bc -l) )); then
+              echo "- **Change**: +${DELTA}% 📈" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "- **Change**: ${DELTA}% 📉" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "No baseline compliance report found at compliance_baseline.json"
+          fi
+
+  pr-comment:
+    name: Post PR Comment
+    runs-on: ubuntu-latest
+    needs: power-of-10-compliance
+    if: github.event_name == 'pull_request' && always()
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Download compliance report
+        uses: actions/download-artifact@v4
+        with:
+          name: compliance-report
+
+      - name: Post compliance report as PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('compliance-report.json', 'utf8'));
+
+            const score = report.compliance_score || 0;
+            const errors = report.error_count || 0;
+            const warnings = report.warning_count || 0;
+            const threshold = 97.0;
+
+            const statusEmoji = score >= threshold ? '✅' : '❌';
+            const scoreStatus = score >= threshold ? 'PASSED' : 'FAILED';
+
+            // Count violations by rule
+            const violationsByRule = {};
+            for (const violation of (report.violations || [])) {
+              const rule = violation.rule || 'unknown';
+              violationsByRule[rule] = (violationsByRule[rule] || 0) + 1;
+            }
+
+            let comment = `## ${statusEmoji} Power of 10 Compliance Report\n\n`;
+            comment += `**Status**: ${scoreStatus}\n\n`;
+            comment += `| Metric | Value |\n`;
+            comment += `|--------|-------|\n`;
+            comment += `| Compliance Score | **${score.toFixed(2)}%** |\n`;
+            comment += `| Threshold | ${threshold}% |\n`;
+            comment += `| Errors | ${errors} |\n`;
+            comment += `| Warnings | ${warnings} |\n`;
+            comment += `| Total Violations | ${(report.violations || []).length} |\n\n`;
+
+            if (Object.keys(violationsByRule).length > 0) {
+              comment += `### Violations by Rule\n\n`;
+              comment += `| Rule | Count | Description |\n`;
+              comment += `|------|-------|-------------|\n`;
+
+              const ruleDescriptions = {
+                1: 'Restrict to simple control flow',
+                2: 'Give all loops a fixed upper bound',
+                3: 'Do not use dynamic memory allocation',
+                4: 'Limit functions to 60 lines',
+                5: 'Use minimum two assertions per function',
+                6: 'Declare data at smallest scope',
+                7: 'Check return values',
+                8: 'Limit preprocessor use',
+                9: 'Limit pointer use',
+                10: 'Compile with all warnings enabled'
+              };
+
+              for (const [rule, count] of Object.entries(violationsByRule).sort()) {
+                const desc = ruleDescriptions[rule] || 'Unknown rule';
+                const emoji = rule === '4' ? '🚨' : (count > 5 ? '⚠️' : '');
+                comment += `| ${emoji} Rule ${rule} | ${count} | ${desc} |\n`;
+              }
+              comment += `\n`;
+            }
+
+            if (violationsByRule['4'] && violationsByRule['4'] > 0) {
+              comment += `\n⚠️ **Critical**: Rule 4 violations detected (recursion). These must be fixed.\n`;
+            }
+
+            comment += `\n---\n`;
+            comment += `📊 [View full compliance report in workflow artifacts](${context.payload.pull_request.html_url}/checks)\n`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Power of 10 Compliance Report')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: comment
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+            }

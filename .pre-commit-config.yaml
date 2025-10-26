@@ -1,0 +1,119 @@
+# Pre-commit hooks for QubitPulseOpt
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        description: Trims trailing whitespace from all files
+      - id: end-of-file-fixer
+        name: Fix end of files
+        description: Ensures files end with a newline
+      - id: check-yaml
+        name: Check YAML syntax
+        description: Validates YAML file syntax
+      - id: check-json
+        name: Check JSON syntax
+        description: Validates JSON file syntax
+      - id: check-added-large-files
+        name: Check for large files
+        description: Prevents accidentally committing large files (>500KB)
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+        description: Checks for files that contain merge conflict strings
+      - id: check-case-conflict
+        name: Check for case conflicts
+        description: Checks for files that would conflict in case-insensitive filesystems
+      - id: mixed-line-ending
+        name: Fix mixed line endings
+        description: Ensures consistent line endings
+        args: ['--fix=lf']
+      - id: check-ast
+        name: Check Python AST
+        description: Validates Python syntax by parsing AST
+      - id: debug-statements
+        name: Check for debug statements
+        description: Checks for debugger imports and breakpoint() calls
+
+  # Black - Python code formatter
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        name: Format code with Black
+        description: Formats Python code to Black style (88 char line length)
+        language_version: python3
+        args: ['--line-length=88', '--target-version=py39']
+
+  # Flake8 - Python linter
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        name: Lint with Flake8
+        description: Lints Python code for style and potential errors
+        args:
+          - '--max-line-length=88'
+          - '--extend-ignore=E203,W503,E501'
+          - '--max-complexity=10'
+          - '--exclude=venv,__pycache__,.git,.pytest_cache,build,dist'
+        additional_dependencies: [flake8-docstrings, flake8-bugbear]
+
+  # isort - Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        name: Sort imports with isort
+        description: Sorts Python imports alphabetically and by section
+        args: ['--profile=black', '--line-length=88']
+
+  # Custom hook: Power of 10 Compliance Checker
+  - repo: local
+    hooks:
+      - id: power-of-10-compliance
+        name: Power of 10 Compliance Check
+        description: Checks Python code against NASA/JPL Power of 10 rules
+        entry: python scripts/compliance/power_of_10_checker.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        args: ['--pre-commit']
+        # Only fail on errors, not warnings
+        # To make this stricter, remove the --pre-commit flag
+
+  # Notebook-specific hooks
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.7.1
+    hooks:
+      - id: nbqa-black
+        name: Format notebooks with Black
+        description: Formats code cells in Jupyter notebooks
+        args: ['--line-length=88']
+      - id: nbqa-isort
+        name: Sort imports in notebooks
+        description: Sorts imports in Jupyter notebook code cells
+        args: ['--profile=black']
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        name: Lint Markdown files
+        description: Lints Markdown files for style consistency
+        args: ['--fix', '--disable', 'MD013', 'MD033', 'MD041']
+        # MD013: Line length (we allow long lines)
+        # MD033: Inline HTML (used in badges)
+        # MD041: First line should be top-level heading (not always needed)
+
+# Configuration for pre-commit.ci (optional CI service)
+ci:
+  autofix_prs: true
+  autoupdate_schedule: quarterly
+  skip: [power-of-10-compliance]  # Skip custom hook in CI, run in GitHub Actions instead

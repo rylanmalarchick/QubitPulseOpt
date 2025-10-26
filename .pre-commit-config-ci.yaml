@@ -1,0 +1,113 @@
+# Pre-commit hooks for QubitPulseOpt - CI Configuration
+# This is a stricter version for CI/CD pipelines
+# For local development, use .pre-commit-config.yaml instead
+#
+# To use this in CI:
+# pre-commit run --all-files --config .pre-commit-config-ci.yaml
+
+repos:
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      - id: check-ast
+      - id: debug-statements
+      - id: check-builtin-literals
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-toml
+      - id: detect-private-key
+
+  # Black - Python code formatter
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        language_version: python3
+        args: ['--line-length=88', '--target-version=py39', '--check']
+        # In CI, only check (don't auto-fix)
+
+  # Flake8 - Python linter (stricter settings for CI)
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        args:
+          - '--max-line-length=88'
+          - '--extend-ignore=E203,W503'
+          - '--max-complexity=10'
+          - '--exclude=venv,__pycache__,.git,.pytest_cache,build,dist'
+          # Stricter: E501 NOT ignored (catch overly long lines Black missed)
+        additional_dependencies: [flake8-docstrings, flake8-bugbear, flake8-comprehensions]
+
+  # isort - Import sorting
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ['--profile=black', '--line-length=88', '--check-only']
+        # In CI, only check (don't auto-fix)
+
+  # Power of 10 Compliance Checker (STRICT MODE)
+  - repo: local
+    hooks:
+      - id: power-of-10-compliance-ci
+        name: Power of 10 Compliance Check (Strict)
+        description: Checks Python code against NASA/JPL Power of 10 rules (strict mode)
+        entry: python scripts/compliance/power_of_10_checker.py
+        language: system
+        types: [python]
+        pass_filenames: true
+        # NO --pre-commit flag: fail on warnings too
+        verbose: true
+
+  # Notebook-specific hooks
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.7.1
+    hooks:
+      - id: nbqa-black
+        args: ['--line-length=88', '--check']
+      - id: nbqa-isort
+        args: ['--profile=black', '--check-only']
+      - id: nbqa-flake8
+        args: ['--max-line-length=88', '--extend-ignore=E203,W503']
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.39.0
+    hooks:
+      - id: markdownlint
+        args: ['--disable', 'MD013', 'MD033', 'MD041']
+        # No --fix in CI, just report issues
+
+  # Python security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: ['-r', 'src/', '-ll']  # Low severity and up
+        exclude: ^tests/
+
+  # Check for common spelling errors
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.2.6
+    hooks:
+      - id: codespell
+        args: ['--ignore-words-list=nd,te,thsi,ot']
+        exclude: ^(notebooks/.*\.ipynb|docs/science/.*\.tex)$
+
+# CI-specific configuration
+ci:
+  autofix_prs: false  # Don't auto-fix in CI
+  autoupdate_schedule: monthly
+  skip: []  # Don't skip any hooks in CI

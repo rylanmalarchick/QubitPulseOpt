@@ -601,26 +601,39 @@ def main():
         description="Check Python code for Power of 10 compliance"
     )
     parser.add_argument(
-        "path", nargs="?", default="src", help="Path to check (file or directory)"
+        "path", nargs="*", default=["src"], help="Path(s) to check (file or directory)"
     )
     parser.add_argument("--json", action="store_true", help="Output results as JSON")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     parser.add_argument("--output", "-o", help="Output file for JSON report")
+    parser.add_argument(
+        "--pre-commit",
+        action="store_true",
+        help="Pre-commit mode: check only specified files and only fail on errors",
+    )
 
     args = parser.parse_args()
 
-    path = Path(args.path)
+    # Handle multiple paths (for pre-commit hook)
+    paths = args.path if isinstance(args.path, list) else [args.path]
+    project_report = ProjectReport()
 
-    if not path.exists():
-        print(f"Error: Path {path} does not exist", file=sys.stderr)
-        sys.exit(1)
+    for path_str in paths:
+        path = Path(path_str)
 
-    if path.is_file():
-        report = check_file(path, verbose=args.verbose)
-        project_report = ProjectReport()
-        project_report.add_module(report)
-    else:
-        project_report = check_directory(path, verbose=args.verbose)
+        if not path.exists():
+            print(f"Error: Path {path} does not exist", file=sys.stderr)
+            sys.exit(1)
+
+        if path.is_file():
+            report = check_file(path, verbose=args.verbose and not args.pre_commit)
+            project_report.add_module(report)
+        else:
+            dir_report = check_directory(
+                path, verbose=args.verbose and not args.pre_commit
+            )
+            for mod_path, mod_report in dir_report.modules.items():
+                project_report.add_module(mod_report)
 
     if args.json:
         # Convert to JSON-serializable format
@@ -659,15 +672,40 @@ def main():
         else:
             print(json_str)
     else:
-        print_summary(project_report)
+        if not args.pre_commit:
+            print_summary(project_report)
+        else:
+            # Pre-commit mode: minimal output
+            errors = project_report.summary["errors"]
+            warnings = project_report.summary["warnings"]
+            if errors > 0:
+                print(f"❌ Power of 10 compliance check failed: {errors} error(s)")
+                for mod_path, mod_report in project_report.modules.items():
+                    for v in mod_report.violations:
+                        if v.severity == "error":
+                            print(
+                                f"  {mod_path}:{v.line}:{v.column} Rule {v.rule}: {v.message}"
+                            )
+            elif warnings > 0:
+                print(
+                    f"⚠️  Power of 10 compliance warnings: {warnings} warning(s) (not blocking)"
+                )
 
     # Exit code based on compliance
-    if project_report.summary["errors"] > 0:
-        sys.exit(1)
-    elif project_report.summary["warnings"] > 10:
-        sys.exit(1)
+    if args.pre_commit:
+        # In pre-commit mode, only fail on errors
+        if project_report.summary["errors"] > 0:
+            sys.exit(1)
+        else:
+            sys.exit(0)
     else:
-        sys.exit(0)
+        # In normal mode, fail on errors or excessive warnings
+        if project_report.summary["errors"] > 0:
+            sys.exit(1)
+        elif project_report.summary["warnings"] > 10:
+            sys.exit(1)
+        else:
+            sys.exit(0)
 
 
 if __name__ == "__main__":
