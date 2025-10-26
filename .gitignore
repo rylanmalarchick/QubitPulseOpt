@@ -63,3 +63,14 @@ generate_demos.py
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# Temp summary files
+.READY_TO_PUSH.txt
+.commit_summary.txt
+.cleanup_plan.txt
+
+# Test and build outputs
+.coverage
+.flake8
+test_output.log
+compliance_baseline.json
