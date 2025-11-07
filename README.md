@@ -377,7 +377,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 ## Contact
 
 **Rylan Malarchick**  
-Email: [your-email@university.edu]  
+Email: [rylan1012@gmail.com]  
 GitHub: [@rylanmalarchick](https://github.com/rylanmalarchick)  
 Project: [QubitPulseOpt](https://github.com/rylanmalarchick/QubitPulseOpt)
 
