@@ -38,16 +38,16 @@ pytest tests/ -v --maxfail=3
 
 ```bash
 # Phase 1: Hamiltonian simulation
-python phase1_demo.py
+python examples/phase1_demo.py
 
 # Phase 2: GRAPE pulse optimization (recommended starting point)
-python phase2_demo.py
+python examples/phase2_demo.py
 
 # Phase 3: DRAG pulse implementation
-python phase3_demo.py
+python examples/phase3_demo.py
 
 # Phase 4: Benchmarking
-python phase4_demo.py
+python examples/phase4_demo.py
 ```
 
 ### Option 2: Interactive Python
@@ -138,10 +138,10 @@ print(f"✓ Connected to: {backend}")
 
 ```bash
 # Dry-run (emulator, no credits consumed)
-python hardware_validation_async.py --dry-run
+python scripts/hardware_validation_async.py --dry-run
 
 # Real hardware (requires IQM credits)
-# python hardware_validation_async.py --submit-only
+# python scripts/hardware_validation_async.py --submit-only
 ```
 
 ---
@@ -170,7 +170,7 @@ QubitPulseOpt/
 ### Generate Figures
 
 ```bash
-python generate_figures.py
+python scripts/generate_figures.py
 # Output: docs/figures/*.png
 ```
 
@@ -256,4 +256,4 @@ backend = manager.get_backend(use_emulator=True)
 
 **You're ready to optimize quantum gates! 🚀**
 
-Start with: `python phase2_demo.py`
+Start with: `python examples/phase2_demo.py`

@@ -88,16 +88,16 @@ print(f"Optimized pulse shape: {result['pulse']}")
 
 ```bash
 # Phase 1: Hamiltonian simulation and Bloch dynamics
-python phase1_demo.py
+python examples/phase1_demo.py
 
 # Phase 2: GRAPE pulse optimization
-python phase2_demo.py
+python examples/phase2_demo.py
 
 # Phase 3: DRAG pulse implementation
-python phase3_demo.py
+python examples/phase3_demo.py
 
 # Phase 4: Benchmarking and fidelity analysis
-python phase4_demo.py
+python examples/phase4_demo.py
 ```
 
 ---
@@ -215,13 +215,13 @@ result = job_manager.get_result(job_id)
 
 ```bash
 # Run full validation suite on IQM hardware
-python hardware_validation_async.py --submit-only
+python scripts/hardware_validation_async.py --submit-only
 
 # Monitor progress (non-blocking)
-python hardware_validation_async.py --resume session.json --status-only
+python scripts/hardware_validation_async.py --resume session.json --status-only
 
 # Retrieve results and generate report
-python hardware_validation_async.py --resume session.json
+python scripts/hardware_validation_async.py --resume session.json
 ```
 
 ---
