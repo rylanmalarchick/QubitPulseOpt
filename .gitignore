@@ -93,3 +93,14 @@ compliance_baseline.json
 
 # Demo generation script
 generate_demos.py
+
+# Root-level agent artifacts
+.commit_message.txt
+COMMIT_SUMMARY.md
+FINAL_CHECKLIST.md
+Scope\ of\ Work*.md
+WORKFLOW_*.md
+
+# Agent development directories
+src/agent/
+notebooks/agents/
