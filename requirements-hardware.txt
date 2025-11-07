@@ -1,0 +1,31 @@
+# Hardware Integration Dependencies for QubitPulseOpt
+# Install with: pip install -r requirements-hardware.txt
+
+# IQM SDK Components
+# Note: Install with Cython first for Python 3.12+ compatibility
+# pip install Cython && pip install -r requirements-hardware.txt
+iqm-client>=32.0  # Base client for IQM Resonance authentication and API access
+iqm-pulse>=12.0    # Pulse definition library for custom waveforms
+iqm-pulla>=11.0  # Pulse execution library (qiskit extra deprecated in v11+)
+
+# Qiskit Ecosystem
+qiskit>=1.0.0  # Core Qiskit framework
+qiskit-experiments>=0.6.0  # Characterization and benchmarking experiments (T1, T2, RB)
+qiskit-aer>=0.13.0  # Simulator backend for emulation and testing
+
+# Additional Dependencies for Agent Framework
+python-dotenv>=1.0.0  # For secure .env file management of IQM_TOKEN
+pydantic>=2.0.0  # For data validation in agent tools
+requests>=2.31.0  # For HTTP API interactions
+
+# Logging and Monitoring
+structlog>=23.0.0  # Structured logging for agent ReAct traces
+rich>=13.0.0  # Rich console output for debugging
+
+# Data Serialization
+orjson>=3.9.0  # Fast JSON serialization for experiment results
+
+# Optional: LLM Integration (for ReAct agent reasoning)
+# Uncomment if using OpenAI or Anthropic for agent reasoning
+# openai>=1.0.0
+# anthropic>=0.18.0

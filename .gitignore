@@ -10,6 +10,9 @@ ENV/
 .venv
 *.venv
 
+# Environment variables (contains secrets)
+.env
+
 # Jupyter
 .ipynb_checkpoints
 *.ipynb_checkpoints/
@@ -25,24 +28,42 @@ data/raw/*.csv
 data/processed/*.npy
 data/plots/*.png
 
-# Agent logs (keep structure, but track init log for traceability)
-agent_logs/*.json
-!agent_logs/init_log.json
+# Pulse data (generated waveforms)
+pulses/
+!pulses/.gitkeep
+
+# Agent logs
+agent_logs/
 
 # OS
 .DS_Store
 
-# Temporary working files and summaries
+# AI agent documentation artifacts (not for production repo)
+ASYNC_*.md
+PHASE*.md
+HARDWARE_*SUMMARY.md
+HARDWARE_*STATUS.md
+HARDWARE_*CHECKLIST.md
+HARDWARE_SESSION_*.md
+HARDWARE_SESSION_*.txt
+ALLOWLIST_*.md
+CORRECT_API_*.md
+DELIVERY_*.md
+FILES_CREATED.md
 COMPLETION_SUMMARY.txt
 WHAT_I_JUST_DID.md
+WORKFLOW_*.md
 V1.0_RELEASE_CHECKLIST.md
 .cleanup_plan.txt
+README_ASYNC_SYSTEM.md
+newscopeofwork.md
+Scope\ of\ Work*.md
 
-# Archive directory (historical tracking)
-docs/archive/
+# Hardware validation session files
+session_*.json
+hardware_validation_results/session_*.json
 
 # Build artifacts
-setup.cfg
 *.egg-info/
 build/
 dist/
@@ -51,9 +72,6 @@ dist/
 .coverage
 htmlcov/
 .pytest_cache/
-
-# Generated demos
-generate_demos.py
 
 # LaTeX build artifacts
 *.aux
@@ -64,13 +82,14 @@ generate_demos.py
 *.fdb_latexmk
 *.synctex.gz
 
-# Temp summary files
-.READY_TO_PUSH.txt
-.commit_summary.txt
-.cleanup_plan.txt
-
-# Test and build outputs
-.coverage
-.flake8
+# Test and diagnostic scripts (not for production)
+test_*.py
+diagnose_*.py
+explore_*.py
+find_*.py
+validate_async_system.py
 test_output.log
 compliance_baseline.json
+
+# Demo generation script
+generate_demos.py
