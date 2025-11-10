@@ -1,6 +1,6 @@
 # Preprint Verification - COMPLETE DATA PROVENANCE
 
-**Generated:** 2025-11-09T19:03:34.530982
+**Generated:** 2025-11-09T19:26:16.254845
 **Script:** verify_grape_performance.py
 **Status:** ✅ ALL RESULTS FROM ACTUAL OPTIMIZATION RUNS
 
@@ -22,7 +22,7 @@ arXiv preprint. Every number comes from actual code execution, not synthetic dat
 - Gate Error: 0.008630 (0.8630%)
 - Iterations: 200
 - Converged: False
-- Optimization Time: 12.56s
+- Optimization Time: 11.79s
 
 **Gaussian Baseline (Unitary Evolution):**
 - Final Fidelity: 0.334030 (33.4030%)
@@ -115,7 +115,7 @@ I, Rylan Malarchick, verify that:
 
 **These results are suitable for peer-reviewed publication.**
 
-Timestamp: 2025-11-09T19:03:34.530982
+Timestamp: 2025-11-09T19:26:16.254845
 
 ---
 
@@ -162,7 +162,7 @@ Timestamp: 2025-11-09T19:03:34.530982
 - QuTiP: 5.2.1
 - NumPy: 2.3.4
 - Random Seed: 42
-- Timestamp: 2025-11-09T19:03:34.530982
+- Timestamp: 2025-11-09T19:26:16.254845
 
 **To Reproduce:**
 ```bash

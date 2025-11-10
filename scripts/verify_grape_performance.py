@@ -417,19 +417,56 @@ def generate_figures(grape_result, gauss_result, decoherence_result):
         label="Gaussian",
         alpha=0.7,
     )
+
+    # Plot GRAPE pulse with interpolation for smoother visualization
+    # Note: This is interpolated for display only - actual optimization used discrete points
+    from scipy.interpolate import interp1d
+
+    grape_norm = grape_pulse / np.max(np.abs(grape_pulse))
+
+    # Create interpolation function
+    interp_func = interp1d(t_grape, grape_norm, kind="cubic", fill_value="extrapolate")
+    t_grape_smooth = np.linspace(0, grape_result["parameters"]["total_time_ns"], 200)
+    grape_norm_smooth = interp_func(t_grape_smooth)
+
     ax.plot(
-        t_grape,
-        grape_pulse / np.max(np.abs(grape_pulse)),
+        t_grape_smooth,
+        grape_norm_smooth,
         linewidth=2,
         color="#004E89",
-        label="GRAPE Optimized",
+        label=f"GRAPE Optimized ({len(grape_pulse)} control points)",
+        alpha=0.9,
+    )
+
+    # Optionally show the actual discrete control points
+    ax.scatter(
+        t_grape,
+        grape_norm,
+        s=20,
+        color="#004E89",
+        alpha=0.3,
+        zorder=3,
     )
 
     ax.set_xlabel("Time (ns)", fontweight="bold", fontsize=11)
     ax.set_ylabel("Normalized Amplitude", fontweight="bold", fontsize=11)
     ax.set_title("Pulse Shape Comparison", fontweight="bold", fontsize=12)
-    ax.legend(frameon=True, shadow=True)
+    ax.legend(frameon=True, shadow=True, fontsize=9)
     ax.grid(True, alpha=0.3, linestyle=":")
+
+    # Add annotation explaining the complex pulse
+    ax.text(
+        0.98,
+        0.02,
+        f"GRAPE discovers non-intuitive pulse shapes\nto maximize fidelity (50 time slices, {grape_result['parameters']['total_time_ns']:.0f}ns)",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=8,
+        bbox=dict(
+            boxstyle="round,pad=0.5", facecolor="white", alpha=0.7, edgecolor="gray"
+        ),
+    )
 
     plt.tight_layout()
     fig_path = FIGURE_DIR / "verified_pulse_comparison.png"
