@@ -200,7 +200,7 @@ The GRAPE optimization was executed for a target X-gate ($\pi$-rotation about th
         \centering
         \includegraphics[width=\textwidth]{figures/verified_pulse_comparison.png}
     \end{minipage}
-    \caption{Left: GRAPE optimization convergence showing fidelity improvement over iterations. The algorithm converges to near-unity fidelity within $\sim$200 iterations. Right: Comparison of pulse envelopes between a standard Gaussian pulse (orange) and the GRAPE-optimized pulse (blue), highlighting the complex, non-intuitive structure discovered by the optimizer. The GRAPE pulse is discretized into 50 time slices (shown interpolated for visualization); this non-smooth, rapidly-modulating structure is characteristic of optimal control solutions that exploit quantum interference effects.}
+    \caption{\textbf{Left:} GRAPE optimization convergence over 200 iterations, starting from random initial pulse and reaching 99.14\% fidelity. \textbf{Right:} Pulse amplitude comparison. The smooth Gaussian baseline (orange) achieves only 33.4\% fidelity, while the GRAPE-optimized pulse (blue) achieves 99.14\% through a complex, non-intuitive shape. The GRAPE pulse consists of 50 piecewise-constant time slices (0.4 ns each), shown here with cubic interpolation for visualization clarity. The rapid amplitude modulation is not noise—it represents the optimizer exploiting quantum interference and the full control Hamiltonian to cancel errors. Each discrete time interval is independently tuned to maximize gate fidelity. This complexity is characteristic of optimal control: counterintuitive pulse shapes that cannot be derived analytically but emerge from gradient-based optimization.}
     \label{fig:optimization}
 \end{figure}
 
