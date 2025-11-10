@@ -1,6 +1,6 @@
 # Preprint Verification - COMPLETE DATA PROVENANCE
 
-**Generated:** 2025-11-09T20:51:06.521954
+**Generated:** 2025-11-09T21:07:39.968043
 **Script:** verify_grape_performance.py
 **Status:** ✅ ALL RESULTS FROM ACTUAL OPTIMIZATION RUNS
 
@@ -22,7 +22,7 @@ arXiv preprint. Every number comes from actual code execution, not synthetic dat
 - Gate Error: 0.008630 (0.8630%)
 - Iterations: 200
 - Converged: False
-- Optimization Time: 11.62s
+- Optimization Time: 13.12s
 
 **Gaussian Baseline (Unitary Evolution):**
 - Final Fidelity: 0.334030 (33.4030%)
@@ -42,12 +42,12 @@ arXiv preprint. Every number comes from actual code execution, not synthetic dat
 - Gate Duration: 20 ns
 
 **GRAPE (with T1/T2):**
-- Final Fidelity: 0.019998 (1.9998%)
-- Gate Error: 0.980002 (98.0002%)
+- Final Fidelity: 0.000000 (0.0000%)
+- Gate Error: 1.000000 (100.0000%)
 
 **Gaussian (with T1/T2):**
-- Final Fidelity: 0.019998 (1.9998%)
-- Gate Error: 0.980002 (98.0002%)
+- Final Fidelity: 0.000000 (0.0000%)
+- Gate Error: 1.000000 (100.0000%)
 
 **Performance Improvement (With Decoherence):**
 - Error Reduction Factor: 1.00×
@@ -115,7 +115,7 @@ I, Rylan Malarchick, verify that:
 
 **These results are suitable for peer-reviewed publication.**
 
-Timestamp: 2025-11-09T20:51:06.521954
+Timestamp: 2025-11-09T21:07:39.968043
 
 ---
 
@@ -129,8 +129,8 @@ Timestamp: 2025-11-09T20:51:06.521954
 - Error Reduction: 77.17×
 
 **With Decoherence (T₁=50µs, T₂=70µs):**
-- GRAPE Fidelity: 1.9998%
-- Gaussian Fidelity: 1.9998%
+- GRAPE Fidelity: 0.0000%
+- Gaussian Fidelity: 0.0000%
 - Error Reduction: 1.00×
 
 **Replace ALL figure paths with:**
@@ -162,7 +162,7 @@ Timestamp: 2025-11-09T20:51:06.521954
 - QuTiP: 5.2.1
 - NumPy: 2.3.4
 - Random Seed: 42
-- Timestamp: 2025-11-09T20:51:06.521954
+- Timestamp: 2025-11-09T21:07:39.968043
 
 **To Reproduce:**
 ```bash
