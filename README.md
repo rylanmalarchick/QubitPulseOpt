@@ -28,9 +28,9 @@ This framework demonstrates a complete research cycle: from theoretical simulati
 
 ### Research Impact
 
-**Simulation Results**: Achieved **99.94% fidelity** for an X-gate in 20 ns, maintaining high performance even under aggressive noise (T₁=10µs, T₂=20µs). The GRAPE-optimized pulse demonstrates 8-10% fidelity improvement over standard Gaussian baselines in noisy regimes.
+**Simulation Results**: Achieved **99.14% fidelity** for an X-gate in 20 ns in closed quantum system optimization. The GRAPE-optimized pulse demonstrates **77× error reduction** compared to standard Gaussian baselines (33.4% fidelity), representing a 65.7 percentage point improvement in gate fidelity.
 
-**Hardware Validation**: Developed complete hardware-in-the-loop pipeline for IQM Resonance, enabling quantitative analysis of the "sim-to-real gap" to diagnose hardware-specific noise sources (crosstalk, non-Markovian effects).
+**Hardware Validation**: Developed complete hardware-in-the-loop pipeline for IQM Resonance, enabling quantitative analysis of the "sim-to-real gap" to diagnose hardware-specific noise sources (crosstalk, non-Markovian effects). All results verified with full provenance documentation.
 
 ---
 

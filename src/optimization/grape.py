@@ -712,8 +712,8 @@ class GRAPEOptimizer:
     def _initialize_optimization_state(self, u: np.ndarray, U_target: qt.Qobj) -> dict:
         """Initialize optimization state variables."""
         # Validate inputs
-        assert len(u) == self.n_steps, (
-            f"Control array length {len(u)} != n_steps {self.n_steps}"
+        assert u.shape[1] == self.n_timeslices, (
+            f"Control array length {u.shape[1]} != n_timeslices {self.n_timeslices}"
         )
         assert U_target.shape == (self.dim, self.dim), (
             f"Target unitary shape {U_target.shape} invalid"
@@ -863,8 +863,8 @@ class GRAPEOptimizer:
     ) -> np.ndarray:
         """Compute and validate gradients for current iteration."""
         # Validate inputs
-        assert len(propagators) == self.n_steps, "Propagators list length mismatch"
-        assert len(forward_unitaries) == self.n_steps + 1, (
+        assert len(propagators) == self.n_timeslices, "Propagators list length mismatch"
+        assert len(forward_unitaries) == self.n_timeslices, (
             "Forward unitaries length mismatch"
         )
 
