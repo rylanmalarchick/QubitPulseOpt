@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-09T20:51:06.521954",
+  "timestamp": "2025-11-09T21:07:39.968043",
   "system": "single_qubit_closed_system",
   "target_gate": "X_gate",
   "parameters": {
@@ -17,7 +17,7 @@
     "gate_error_percent": 0.863040893191036,
     "n_iterations": 200,
     "converged": false,
-    "optimization_time_seconds": 11.624547719955444,
+    "optimization_time_seconds": 13.11701512336731,
     "message": "Max iterations reached"
   },
   "convergence_history": [
