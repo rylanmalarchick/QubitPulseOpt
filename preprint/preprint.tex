@@ -130,7 +130,7 @@ where $\epsilon$ is the learning rate (or determined adaptively by the optimizer
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.7\textwidth]{figures/bloch_trajectory.png}
+    \includegraphics[width=0.7\textwidth]{../figures/bloch_trajectory.png}
     \caption{Bloch sphere trajectory showing the optimized pulse evolution from initial state $|0\rangle$ to target state, demonstrating the complex path taken by the GRAPE-optimized control sequence.}
     \label{fig:bloch}
 \end{figure}
@@ -163,7 +163,7 @@ The central innovation of QubitPulseOpt is the implementation of an automated, h
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.9\textwidth]{figures/architecture_workflow.png}
+    \includegraphics[width=0.9\textwidth]{../figures/architecture_workflow.png}
     \caption{Architecture diagram of the QubitPulseOpt workflow. System topology and architecture can be queried from IQM quantum processors via the Resonance cloud API, used to instantiate a hardware-representative Lindblad simulation (``digital twin''), and fed into the GRAPE optimizer to produce optimized control pulses.}
     \label{fig:workflow}
 \end{figure}
@@ -197,12 +197,12 @@ The GRAPE optimization was executed for a target X-gate ($\pi$-rotation about th
     \centering
     \begin{minipage}{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{figures/verified_fidelity_convergence.png}
+        \includegraphics[width=\textwidth]{../figures/verified_fidelity_convergence.png}
     \end{minipage}
     \hfill
     \begin{minipage}{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{figures/verified_pulse_comparison.png}
+        \includegraphics[width=\textwidth]{../figures/verified_pulse_comparison.png}
     \end{minipage}
     \caption{\textbf{Left:} GRAPE optimization convergence over 200 iterations, starting from random initial pulse and reaching 99.14\% fidelity. \textbf{Right:} Pulse amplitude comparison. The smooth Gaussian baseline (orange) achieves only 33.4\% fidelity, while the GRAPE-optimized pulse (blue) achieves 99.14\% through a complex, non-intuitive shape. The GRAPE pulse consists of 50 piecewise-constant time slices (0.4 ns each), shown here with cubic interpolation for visualization clarity. The rapid amplitude modulation represents the optimizer exploiting quantum interference effects and independently exploring the full control Hamiltonian parameter space through discrete time-slice optimization. Each time interval's amplitude is independently tuned to maximize gate fidelity. This complexity is characteristic of optimal control: counterintuitive pulse shapes that cannot be derived analytically but emerge from gradient-based optimization.}
     \label{fig:optimization}
@@ -237,7 +237,7 @@ Both the GRAPE-optimized pulse and a standard Gaussian pulse were then simulated
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.7\textwidth]{figures/verified_error_comparison.png}
+    \includegraphics[width=0.7\textwidth]{../figures/verified_error_comparison.png}
     \caption{Gate error comparison for closed quantum system (unitary evolution without decoherence). The standard Gaussian pulse achieves 66.60\% error (33.4\% fidelity), while the GRAPE-optimized pulse achieves 0.86\% error (99.14\% fidelity), demonstrating a 77$\times$ reduction in gate error. The GRAPE pulse's superior performance results from exploiting the full control Hamiltonian through gradient-based optimization.}
     \label{fig:hardware_validation}
 \end{figure}
@@ -280,7 +280,7 @@ Finally, experimental validation on multiple hardware platforms (superconducting
 
 \section*{Acknowledgments}
 
-I gratefully acknowledge the Embry-Riddle Aeronautical University Engineering Physics Propulsion Lab for computational resources and research support. I thank NASA Goddard Space Flight Center for training in safety-critical software development practices that informed the verification and validation methodology. I thank IQM Quantum Computers for providing API access to the Garnet quantum processor topology data through the IQM Resonance cloud platform. The QubitPulseOpt framework is open source and available at \url{https://github.com/username/QubitPulseOpt}.
+I gratefully acknowledge Embry-Riddle Aeronautical University for research support. The QubitPulseOpt framework is open source and available at \url{https://github.com/rylanmalarchick/QubitPulseOpt}.
 
 \begin{thebibliography}{99}
 
