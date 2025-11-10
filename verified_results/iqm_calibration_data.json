@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-11-09T21:38:43.078605",
+  "server_url": "https://cocos.resonance.meetiqm.com/garnet",
+  "system_name": "IQM Garnet",
+  "architecture": {
+    "qubits": [
+      "QB1",
+      "QB2",
+      "QB3",
+      "QB4",
+      "QB5",
+      "QB6",
+      "QB7",
+      "QB8",
+      "QB9",
+      "QB10",
+      "QB11",
+      "QB12",
+      "QB13",
+      "QB14",
+      "QB15",
+      "QB16",
+      "QB17",
+      "QB18",
+      "QB19",
+      "QB20"
+    ],
+    "qubit_count": 20
+  },
+  "qubit_parameters": {
+    "T1_seconds": 5e-05,
+    "T1_us": 50.0,
+    "T2_seconds": 7e-05,
+    "T2_us": 70.0,
+    "frequency_Hz": 5000000000.0,
+    "frequency_GHz": 5.0,
+    "source": "representative_values",
+    "note": "Typical values for IQM superconducting transmon qubits (calibration API not accessible)"
+  }
+}

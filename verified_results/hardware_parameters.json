@@ -1,0 +1,10 @@
+{
+  "system": "IQM Garnet",
+  "qubit_id": "QB1",
+  "T1_us": 50.0,
+  "T2_us": 70.0,
+  "frequency_GHz": 5.0,
+  "timestamp": "2025-11-09T21:38:43.079129",
+  "source": "representative_values",
+  "note": "Typical values for IQM superconducting transmon qubits (calibration API not accessible)"
+}

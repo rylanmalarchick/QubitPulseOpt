@@ -1,14 +1,15 @@
 # QubitPulseOpt: Quantum Optimal Control for High-Fidelity Gates
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Code Coverage](https://img.shields.io/badge/coverage-95.8%25-brightgreen.svg)](tests/)
+[![Code Coverage](https://img.shields.io/badge/coverage-59%25-yellow.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Hardware Ready](https://img.shields.io/badge/Hardware-IQM%20Resonance-orange.svg)](src/hardware/)
 
 **A professional-grade quantum optimal control framework for designing noise-robust quantum gates through gradient-based pulse optimization.**
 
-> *"Designing and Validating High-Fidelity Quantum Gates via Sim-to-Real Optimal Control"*  
-> Rylan Malarchick | Independent Research Project | 2024-2025
+> *"Verified Implementation of GRAPE Pulse Optimization for Quantum Gates with Hardware-Representative Noise Models"*  
+> Rylan Malarchick | Independent Research Project | 2024-2025  
+> 📄 [Read the preprint](preprint/preprint.pdf)
 
 ---
 
@@ -16,21 +17,21 @@
 
 Quantum computers promise to solve problems intractable for classical machines, but their fundamental units—qubits—are incredibly fragile. Environmental noise causes quantum gates to fail at rates that prevent meaningful computation. **QubitPulseOpt** addresses this challenge by discovering complex, non-intuitive pulse shapes that execute perfect gate operations while actively canceling noise effects.
 
-This framework demonstrates a complete research cycle: from theoretical simulation using the Lindblad master equation to experimental validation on IQM's 16-qubit Sirius quantum processor.
+This framework demonstrates a complete software pipeline from theoretical simulation using the Lindblad master equation to infrastructure for hardware validation on IQM quantum processors (demonstrated with IQM Garnet, a 20-qubit superconducting system).
 
 ### Key Features
 
 - **GRAPE Optimization**: Gradient Ascent Pulse Engineering algorithm for discovering optimal control pulses
 - **High-Fidelity Simulation**: Full Lindblad master equation solver with T₁ (relaxation) and T₂ (dephasing) decoherence
-- **Hardware Integration**: Production-ready pipeline for IQM Resonance quantum processors
+- **Hardware Integration**: API connectivity confirmed with IQM Garnet quantum processor (20-qubit system)
 - **Sim-to-Real Calibration**: Hardware-in-the-loop workflow with real-time parameter extraction
-- **Professional V&V**: 570+ unit/integration tests (95.8% code coverage), NASA JPL Power-of-10 compliant
+- **Professional V&V**: 659 unit/integration tests (59% code coverage), NASA JPL Power-of-10 compliant
 
 ### Research Impact
 
-**Simulation Results**: Achieved **99.14% fidelity** for an X-gate in 20 ns in closed quantum system optimization. The GRAPE-optimized pulse demonstrates **77× error reduction** compared to standard Gaussian baselines (33.4% fidelity), representing a 65.7 percentage point improvement in gate fidelity.
+**Simulation Results**: Achieved **99.14% fidelity** for an X-gate in 20 ns in closed quantum system optimization (unitary evolution without decoherence during optimization). The GRAPE-optimized pulse demonstrates **77× error reduction** compared to standard Gaussian baselines (33.4% fidelity) in the idealized closed-system regime. Note: IQM Garnet achieves 99.92% median single-qubit fidelity with standard pulses in hardware; the low Gaussian baseline here reflects suboptimal pulse calibration in our simulation setup. Literature-typical GRAPE improvements over properly calibrated baselines are 2-10×.
 
-**Hardware Validation**: Developed complete hardware-in-the-loop pipeline for IQM Resonance, enabling quantitative analysis of the "sim-to-real gap" to diagnose hardware-specific noise sources (crosstalk, non-Markovian effects). All results verified with full provenance documentation.
+**Hardware Integration**: Confirmed API connectivity to IQM Garnet quantum processor (20-qubit system, qubits QB1-QB20). Developed infrastructure for hardware-in-the-loop optimization workflow using hardware-representative parameters. All results verified with full provenance documentation.
 
 ---
 
