@@ -474,15 +474,15 @@ def generate_figures(grape_result, gauss_result, decoherence_result):
     plt.close()
     print(f"  ✓ {fig_path.name}")
 
-    # Figure 3: Error Comparison (Closed System)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4.5))
+    # Figure 3: Error Comparison (Closed System Only)
+    fig, ax = plt.subplots(1, 1, figsize=(7, 4.5))
 
     # Closed system
     methods = ["Gaussian\nBaseline", "GRAPE\nOptimized"]
     errors_closed = [gauss_err * 100, grape_err * 100]
     colors = ["#FF6B35", "#004E89"]
 
-    bars1 = ax1.bar(
+    bars = ax.bar(
         methods,
         errors_closed,
         color=colors,
@@ -491,9 +491,9 @@ def generate_figures(grape_result, gauss_result, decoherence_result):
         linewidth=1.5,
     )
 
-    for bar, err, fid in zip(bars1, errors_closed, [gauss_fid * 100, grape_fid * 100]):
+    for bar, err, fid in zip(bars, errors_closed, [gauss_fid * 100, grape_fid * 100]):
         height = bar.get_height()
-        ax1.text(
+        ax.text(
             bar.get_x() + bar.get_width() / 2.0,
             height,
             f"{err:.3f}%\n(F={fid:.2f}%)",
@@ -503,7 +503,7 @@ def generate_figures(grape_result, gauss_result, decoherence_result):
             fontsize=9,
         )
 
-    ax1.annotate(
+    ax.annotate(
         f"{error_reduction:.1f}× error\nreduction",
         xy=(0.5, max(errors_closed) * 0.5),
         fontsize=11,
@@ -512,58 +512,11 @@ def generate_figures(grape_result, gauss_result, decoherence_result):
         bbox=dict(boxstyle="round,pad=0.5", facecolor="yellow", alpha=0.3),
     )
 
-    ax1.set_ylabel("Gate Error (%)", fontweight="bold", fontsize=11)
-    ax1.set_title(
-        "Closed Quantum System\n(Unitary Evolution)", fontweight="bold", fontsize=11
+    ax.set_ylabel("Gate Error (%)", fontweight="bold", fontsize=11)
+    ax.set_title(
+        "Gate Error Comparison\n(Closed Quantum System)", fontweight="bold", fontsize=12
     )
-    ax1.grid(True, alpha=0.3, axis="y")
-
-    # With decoherence
-    grape_err_noisy = decoherence_result["grape_error_with_noise"] * 100
-    gauss_err_noisy = decoherence_result["gaussian_error_with_noise"] * 100
-
-    errors_noisy = [gauss_err_noisy, grape_err_noisy]
-
-    if grape_err_noisy > 0:
-        error_reduction_noisy = gauss_err_noisy / grape_err_noisy
-    else:
-        error_reduction_noisy = float("inf")
-
-    bars2 = ax2.bar(
-        methods, errors_noisy, color=colors, alpha=0.8, edgecolor="black", linewidth=1.5
-    )
-
-    grape_fid_noisy = decoherence_result["grape_fidelity_with_noise"] * 100
-    gauss_fid_noisy = decoherence_result["gaussian_fidelity_with_noise"] * 100
-
-    for bar, err, fid in zip(bars2, errors_noisy, [gauss_fid_noisy, grape_fid_noisy]):
-        height = bar.get_height()
-        ax2.text(
-            bar.get_x() + bar.get_width() / 2.0,
-            height,
-            f"{err:.3f}%\n(F={fid:.2f}%)",
-            ha="center",
-            va="bottom",
-            fontweight="bold",
-            fontsize=9,
-        )
-
-    ax2.annotate(
-        f"{error_reduction_noisy:.1f}× error\nreduction",
-        xy=(0.5, max(errors_noisy) * 0.5),
-        fontsize=11,
-        fontweight="bold",
-        ha="center",
-        bbox=dict(boxstyle="round,pad=0.5", facecolor="yellow", alpha=0.3),
-    )
-
-    ax2.set_ylabel("Gate Error (%)", fontweight="bold", fontsize=11)
-    ax2.set_title(
-        f"With Decoherence\n(T₁={decoherence_result['T1_us']:.0f}µs, T₂={decoherence_result['T2_us']:.0f}µs)",
-        fontweight="bold",
-        fontsize=11,
-    )
-    ax2.grid(True, alpha=0.3, axis="y")
+    ax.grid(True, alpha=0.3, axis="y")
 
     plt.tight_layout()
     fig_path = FIGURE_DIR / "verified_error_comparison.png"
