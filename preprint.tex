@@ -230,13 +230,11 @@ Both the GRAPE-optimized pulse and a standard Gaussian pulse were then simulated
 \begin{figure}[t]
     \centering
     \includegraphics[width=0.7\textwidth]{figures/verified_error_comparison.png}
-    \caption{Comparison of gate fidelities for standard Gaussian pulse versus GRAPE-optimized pulse when simulated in the hardware-calibrated noise environment. The optimized pulse demonstrates significantly higher fidelity (lower error) due to its tailored noise-compensation structure, achieving a 77$\times$ reduction in gate error.}
+    \caption{Gate error comparison for closed quantum system (unitary evolution without decoherence). The standard Gaussian pulse achieves 66.60\% error (33.4\% fidelity), while the GRAPE-optimized pulse achieves 0.86\% error (99.14\% fidelity), demonstrating a 77$\times$ reduction in gate error. The GRAPE pulse's superior performance results from exploiting the full control Hamiltonian through gradient-based optimization.}
     \label{fig:hardware_validation}
 \end{figure}
 
-Figure~\ref{fig:hardware_validation} visualizes this comparison, clearly illustrating the fidelity advantage conferred by hardware-calibrated optimization. This result validates the core hypothesis: pulses optimized against device-specific noise parameters significantly outperform generic solutions, and this advantage can be quantitatively predicted through high-fidelity simulation.
-
-Figure~\ref{fig:hardware_validation} visualizes this comparison, clearly illustrating the fidelity advantage conferred by hardware-calibrated optimization. The GRAPE-optimized pulse achieves 99.14\% fidelity under realistic noise conditions (T$_1$=50~$\mu$s, T$_2$=70~$\mu$s), representing a 77$\times$ reduction in gate error compared to the standard Gaussian implementation. This result validates the core hypothesis: pulses optimized against device-specific noise parameters significantly outperform generic solutions, and this advantage can be quantitatively predicted through high-fidelity simulation.
+Figure~\ref{fig:hardware_validation} visualizes this comparison in the closed quantum system regime, demonstrating the substantial performance advantage of gradient-based pulse optimization over standard analytical pulse shapes. The GRAPE-optimized pulse achieves 99.14\% fidelity in the idealized closed-system limit, representing a 77$\times$ reduction in gate error compared to the standard Gaussian implementation. This result validates that GRAPE optimization successfully exploits the available control degrees of freedom to maximize gate fidelity, even when optimized without explicit consideration of decoherence.
 
 Critically, this validation demonstrates the \textit{asynchronous} capability of the framework---the optimization and validation were conducted using hardware-representative calibration data, without requiring direct experimental access to the QPU. This approach is feasible for researchers without dedicated hardware access, leveraging publicly available calibration APIs and emulator platforms.
 
