@@ -1,8 +1,0 @@
-{
-  "T1_us": 50.0,
-  "T2_us": 70.0,
-  "grape_fidelity_with_noise": 0.0,
-  "gaussian_fidelity_with_noise": 0.0,
-  "grape_error_with_noise": 1.0,
-  "gaussian_error_with_noise": 1.0
-}
