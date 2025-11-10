@@ -143,87 +143,59 @@ QubitPulseOpt/
 
 ## Key Results
 
-### 1. GRAPE-Optimized Pulse Discovery
+### 1. GRAPE Optimization Convergence
 
-The GRAPE algorithm discovered a complex, non-intuitive pulse shape that achieves **99.94% simulated fidelity** for an X-gate:
+The GRAPE algorithm converges to **99.14% fidelity** in 200 iterations for an X-gate in the closed quantum system (unitary evolution):
 
-![Pulse Comparison](docs/figures/pulse_comparison.png)
+![Fidelity Convergence](figures/verified_fidelity_convergence.png)
 
-*Figure 1: GRAPE-optimized pulse (blue) vs. simple Gaussian baseline (orange). The complex shape includes pre-compensating features and error-canceling undershoots that actively suppress noise effects.*
+*Figure 1: GRAPE optimization convergence starting from random initial pulse. The algorithm reaches 99.14% fidelity in the idealized closed-system regime.*
 
-### 2. Optimization Convergence
+### 2. GRAPE-Optimized Pulse Discovery
 
-![Fidelity Convergence](docs/figures/fidelity_convergence.png)
+The GRAPE algorithm discovered a complex, non-intuitive pulse shape with rapid amplitude modulation that exploits the full control Hamiltonian:
 
-*Figure 2: GRAPE optimization converges to 99.94% fidelity in ~150 iterations. Initial rapid improvement is followed by fine-tuning phase.*
+![Pulse Comparison](figures/verified_pulse_comparison.png)
 
-### 3. Noise Robustness
+*Figure 2: GRAPE-optimized pulse (blue) vs. Gaussian baseline (orange). The GRAPE pulse achieves 99.14% fidelity while the Gaussian baseline achieves only 33.4% fidelity. The complex piecewise-constant structure (50 time slices) emerges from independent optimization of each discrete time interval.*
 
-![Noise Robustness](docs/figures/noise_robustness.png)
+### 3. Gate Error Comparison
 
-*Figure 3: GRAPE-optimized pulse maintains >99% fidelity even under aggressive noise (T₁=10µs), demonstrating 8-10% improvement over Gaussian baseline in noisy regimes.*
+![Error Comparison](figures/verified_error_comparison.png)
 
-### 4. Hardware-in-the-Loop Workflow
+*Figure 3: Gate error comparison in closed quantum system. The GRAPE-optimized pulse achieves 0.86% error (99.14% fidelity) compared to 66.60% error (33.4% fidelity) for the Gaussian baseline, demonstrating a 77× error reduction. Note: This comparison is in the idealized closed-system regime; IQM Garnet achieves 99.92% median single-qubit fidelity with standard pulses in hardware.*
 
-![Architecture](docs/figures/architecture_workflow.png)
+### 4. Bloch Sphere Visualization
 
-*Figure 4: Three-step calibration workflow: (1) Query live hardware parameters, (2) Generate optimized pulse, (3) Execute and measure fidelity on IQM QPU.*
+![Bloch Trajectory](figures/bloch_trajectory.png)
 
-### 5. Sim-to-Real Analysis
-
-![Sim vs Hardware](docs/figures/sim_vs_hardware.png)
-
-*Figure 5: Comparison of simulation predictions (orange) vs. measured hardware fidelity (blue) reveals the "sim-to-real gap"—the focus of ongoing research to diagnose hardware-specific noise sources.*
+*Figure 4: Quantum state trajectory on the Bloch sphere during GRAPE-optimized X-gate execution, showing smooth rotation from |0⟩ to |1⟩.*
 
 ---
 
 ## Hardware Integration
 
-### IQM Resonance Support
+### IQM Garnet Connectivity
 
-QubitPulseOpt includes production-ready integration with IQM's quantum processors:
+QubitPulseOpt demonstrates API connectivity with IQM's Garnet quantum processor (20-qubit system):
 
 ```python
-from src.hardware import IQMBackendManager
-from src.hardware.job_management import AsyncJobManager
+from scripts.query_iqm_calibration import query_iqm_system
 
-# Connect to IQM hardware
-manager = IQMBackendManager()
-backend = manager.get_backend(backend_name='sirius')
-
-# Submit optimized pulse for execution
-job_manager = AsyncJobManager(backend)
-job_id = job_manager.submit_job(
-    circuit=optimized_circuit,
-    shots=1024,
-    metadata={'experiment': 'GRAPE_validation'}
-)
-
-# Hardware-in-the-loop: disconnect-safe operation
-job_manager.save_session('session.json')
-# ... disconnect, return hours later ...
-job_manager = AsyncJobManager.load_session('session.json', backend)
-result = job_manager.get_result(job_id)
+# Query IQM Garnet system information
+system_info = query_iqm_system()
+print(f"Connected to: {system_info['name']}")
+print(f"Qubits: {system_info['qubits']}")
+# Output: IQM Garnet, qubits QB1-QB20
 ```
 
-**Key Features**:
-- Asynchronous job submission (disconnect-safe)
-- Real-time parameter calibration
-- Session persistence across network interruptions
-- Full REST API v1 integration
+**Verified Capabilities**:
+- ✅ API connectivity to IQM Garnet confirmed (20-qubit system)
+- ✅ System topology retrieved (qubits QB1-QB20)
+- ✅ Hardware-representative parameters for simulation (T₁=50µs, T₂=70µs)
+- ⚠️ Hardware execution infrastructure implemented but not yet validated with physical QPU runs
 
-### Hardware Validation
-
-```bash
-# Run full validation suite on IQM hardware
-python scripts/hardware_validation_async.py --submit-only
-
-# Monitor progress (non-blocking)
-python scripts/hardware_validation_async.py --resume session.json --status-only
-
-# Retrieve results and generate report
-python scripts/hardware_validation_async.py --resume session.json
-```
+**Note**: All results in this work are from simulation using hardware-representative parameters. No quantum circuits were executed on physical hardware. The framework provides the infrastructure for hardware-in-the-loop optimization pending access to quantum execution credits.
 
 ---
 
@@ -332,12 +304,15 @@ This work represents a complete research cycle in quantum optimal control:
 - **Quantum Theory**: Hamiltonian dynamics, Lindblad master equation, open quantum systems
 - **Optimal Control**: GRAPE algorithm, gradient-based optimization, cost function design
 - **Software Engineering**: Test-driven development, CI/CD, version control, documentation
-- **Hardware Integration**: REST APIs, asynchronous programming, session management
-- **Data Analysis**: Parameter sweeps, fidelity metrics, sim-to-real gap quantification
+- **Hardware Integration**: REST APIs, quantum platform connectivity (IQM Garnet)
+- **Data Analysis**: Fidelity metrics, optimization convergence, reproducible provenance
 
 ### Future Work
 
-**Adaptive Feedback Loop**: Use measured sim-to-real gap as error signal for machine learning model to create fully autonomous, adaptive quantum control system that re-calibrates in real-time against drifting hardware.
+1. **Hardware Validation**: Execute GRAPE-optimized pulses on IQM Garnet and measure fidelity via randomized benchmarking
+2. **Open-System GRAPE**: Implement gradient computation with collapse operators for optimization directly under decoherence
+3. **DRAG Comparison**: Benchmark against industry-standard DRAG pulses with optimized parameters
+4. **Adaptive Calibration**: Closed-loop system that queries hardware parameters, optimizes pulses, and re-calibrates in real-time
 
 ---
 
