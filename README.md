@@ -190,10 +190,10 @@ print(f"Qubits: {system_info['qubits']}")
 ```
 
 **Verified Capabilities**:
-- ✅ API connectivity to IQM Garnet confirmed (20-qubit system)
-- ✅ System topology retrieved (qubits QB1-QB20)
-- ✅ Hardware-representative parameters for simulation (T₁=50µs, T₂=70µs)
-- ⚠️ Hardware execution infrastructure implemented but not yet validated with physical QPU runs
+-  API connectivity to IQM Garnet confirmed (20-qubit system)
+-  System topology retrieved (qubits QB1-QB20)
+-  Hardware-representative parameters for simulation (T₁=50µs, T₂=70µs)
+-  Hardware execution infrastructure implemented but not yet validated with physical QPU runs
 
 **Note**: All results in this work are from simulation using hardware-representative parameters. No quantum circuits were executed on physical hardware. The framework provides the infrastructure for hardware-in-the-loop optimization pending access to quantum execution credits.
 
@@ -367,4 +367,4 @@ Project: [QubitPulseOpt](https://github.com/rylanmalarchick/QubitPulseOpt)
 
 ---
 
-*Built with Python 🐍 • Powered by QuTiP & Qiskit • Validated on IQM Hardware*
+*Built with Python • Powered by QuTiP & Qiskit • Validated on IQM Hardware*
