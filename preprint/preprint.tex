@@ -1,4 +1,6 @@
 \documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{times}  % or \usepackage{times} for Times-like font
 
 % Standard academic packages
 \usepackage{amsmath}
@@ -6,11 +8,9 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{hyperref}
-\usepackage{fontspec}
 \usepackage{geometry}
 
-% Set font to Noto Serif
-\setmainfont{Noto Serif}
+
 
 % Page geometry
 \geometry{
@@ -32,7 +32,7 @@
     Rylan Malarchick \\
     \textit{Embry-Riddle Aeronautical University} \\
     \textit{Daytona Beach, FL} \\
-    \texttt{rylan.malarchick@erau.edu}
+    \texttt{malarchr@erau.edu}
 }
 
 \date{November 9, 2025}
@@ -57,7 +57,7 @@ Quantum optimal control (QOC) provides a principled framework for addressing thi
 
 Despite these successes, a fundamental limitation persists: most QOC implementations optimize pulses using idealized or static device parameters. Real quantum hardware exhibits temporal drift in critical parameters such as qubit frequencies, anharmonicities, and coherence times, driven by fluctuations in magnetic fields, temperature, and microscopic two-level system defects. A pulse optimized against yesterday's device calibration may perform suboptimally or even fail catastrophically when deployed on today's hardware. This ``sim-to-real gap''---the mismatch between simulation assumptions and physical reality---represents a critical barrier to translating QOC from theoretical promise to practical utility. Furthermore, the typical academic QOC codebase often lacks the software engineering rigor necessary to ensure numerical reliability and reproducibility, raising questions about the trustworthiness of reported results.
 
-In this paper, I present QubitPulseOpt, an open-source, rigorously-tested Python framework for designing noise-robust quantum control pulses that directly addresses the sim-to-real gap. The framework implements a workflow that (1) demonstrates API connectivity to quantum cloud platforms, (2) constructs a high-fidelity Lindblad master equation simulation incorporating hardware-representative noise parameters, and (3) executes GRAPE optimization to discover custom pulse sequences tailored to realistic device characteristics. I validate this approach through simulation by demonstrating significant gate error reduction when comparing optimized pulses to standard pulses within hardware-representative noise models. While no physical hardware execution was performed, the simulation framework is designed to enable rapid pulse development using realistic device parameters before accessing limited quantum hardware resources. Critically, QubitPulseOpt distinguishes itself through a software-engineering-first philosophy: the codebase maintains a 570+ test verification and validation (V\&V) suite achieving 97\% code coverage and adheres to NASA JPL Power-of-10 safety-critical coding standards, ensuring numerical stability and reproducibility. The remainder of this paper is organized as follows: Section~\ref{sec:theory} details the theoretical model and computational methods; Section~\ref{sec:framework} describes the software architecture and hardware integration workflow; Section~\ref{sec:results} presents validation results demonstrating performance improvements with hardware-representative parameters; Section~\ref{sec:conclusion} discusses conclusions and future research directions.
+In this paper, I present QubitPulseOpt, an open-source, rigorously-tested Python framework for designing noise-robust quantum control pulses that directly addresses the sim-to-real gap. The framework implements a workflow that (1) demonstrates API connectivity to quantum cloud platforms, (2) constructs a high-fidelity Lindblad master equation simulation incorporating hardware-representative noise parameters, and (3) executes GRAPE optimization to discover custom pulse sequences tailored to realistic device characteristics. I validate this approach through simulation by demonstrating significant gate error reduction when comparing optimized pulses to standard pulses within hardware-representative noise models. While no physical hardware execution was performed, the simulation framework is designed to enable rapid pulse development using realistic device parameters before accessing limited quantum hardware resources. Critically, QubitPulseOpt distinguishes itself through a software-engineering-first philosophy: the codebase maintains an 864-test verification and validation suite achieving 74\% code coverage, with over 85\% coverage of critical hardware integration modules including the IQM backend interface and pulse translation layer. All hardware integration tests use mocked API responses to ensure reproducibility without requiring quantum hardware access. The framework adheres to NASA JPL Power-of-10 safety-critical coding standards, ensuring numerical stability and reproducibility. The remainder of this paper is organized as follows: Section~\ref{sec:theory} details the theoretical model and computational methods; Section~\ref{sec:framework} describes the software architecture and hardware integration workflow; Section~\ref{sec:results} presents validation results demonstrating performance improvements with hardware-representative parameters; Section~\ref{sec:conclusion} discusses conclusions and future research directions.
 
 \section{Theoretical and Computational Model}
 \label{sec:theory}
@@ -130,7 +130,7 @@ where $\epsilon$ is the learning rate (or determined adaptively by the optimizer
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.7\textwidth]{../figures/bloch_trajectory.png}
+    \includegraphics[width=0.7\textwidth]{figures/bloch_trajectory.png}
     \caption{Bloch sphere trajectory showing the optimized pulse evolution from initial state $|0\rangle$ to target state, demonstrating the complex path taken by the GRAPE-optimized control sequence.}
     \label{fig:bloch}
 \end{figure}
@@ -163,7 +163,7 @@ The central innovation of QubitPulseOpt is the implementation of an automated, h
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.9\textwidth]{../figures/architecture_workflow.png}
+    \includegraphics[width=0.9\textwidth]{figures/architecture_workflow.png}
     \caption{Architecture diagram of the QubitPulseOpt workflow. System topology and architecture can be queried from IQM quantum processors via the Resonance cloud API, used to instantiate a hardware-representative Lindblad simulation (``digital twin''), and fed into the GRAPE optimizer to produce optimized control pulses.}
     \label{fig:workflow}
 \end{figure}
@@ -175,7 +175,7 @@ Figure~\ref{fig:workflow} depicts this architecture, illustrating the data flow 
 A distinguishing feature of QubitPulseOpt is its commitment to software engineering best practices, a domain often underemphasized in academic research codes. Numerical simulations of quantum dynamics are inherently susceptible to errors from discretization, floating-point arithmetic, and algorithmic instabilities. To ensure reliability and reproducibility, the framework incorporates a comprehensive verification and validation (V\&V) infrastructure:
 
 \begin{itemize}
-    \item \textbf{Unit Test Suite:} The codebase includes over 570 unit tests covering all major functionality, from Hamiltonian construction and time evolution to gradient computation and optimization routines. This suite achieves 97\% code coverage, ensuring that nearly all code paths have been exercised and validated.
+    \item \textbf{Unit Test Suite:} The codebase includes 864 unit tests covering all major functionality, from Hamiltonian construction and time evolution to gradient computation and optimization routines. This suite achieves 74\% overall code coverage, with over 85\% coverage of critical hardware integration modules. The test suite validates pulse shape generation against analytical formulas, quantum evolution engine correctness through comparison with exact solutions, and hardware integration layer functionality using fully mocked API responses to ensure reproducibility without quantum hardware dependencies.
 
     \item \textbf{Continuous Integration:} Automated testing is executed on every code commit using continuous integration (CI) pipelines, catching regressions immediately and maintaining code quality over development cycles.
 
@@ -197,12 +197,12 @@ The GRAPE optimization was executed for a target X-gate ($\pi$-rotation about th
     \centering
     \begin{minipage}{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{../figures/verified_fidelity_convergence.png}
+        \includegraphics[width=\textwidth]{figures/verified_fidelity_convergence.png}
     \end{minipage}
     \hfill
     \begin{minipage}{0.48\textwidth}
         \centering
-        \includegraphics[width=\textwidth]{../figures/verified_pulse_comparison.png}
+        \includegraphics[width=\textwidth]{figures/verified_pulse_comparison.png}
     \end{minipage}
     \caption{\textbf{Left:} GRAPE optimization convergence over 200 iterations, starting from random initial pulse and reaching 99.14\% fidelity. \textbf{Right:} Pulse amplitude comparison. The smooth Gaussian baseline (orange) achieves only 33.4\% fidelity, while the GRAPE-optimized pulse (blue) achieves 99.14\% through a complex, non-intuitive shape. The GRAPE pulse consists of 50 piecewise-constant time slices (0.4 ns each), shown here with cubic interpolation for visualization clarity. The rapid amplitude modulation represents the optimizer exploiting quantum interference effects and independently exploring the full control Hamiltonian parameter space through discrete time-slice optimization. Each time interval's amplitude is independently tuned to maximize gate fidelity. This complexity is characteristic of optimal control: counterintuitive pulse shapes that cannot be derived analytically but emerge from gradient-based optimization.}
     \label{fig:optimization}
@@ -237,7 +237,7 @@ Both the GRAPE-optimized pulse and a standard Gaussian pulse were then simulated
 
 \begin{figure}[t]
     \centering
-    \includegraphics[width=0.7\textwidth]{../figures/verified_error_comparison.png}
+    \includegraphics[width=0.7\textwidth]{figures/verified_error_comparison.png}
     \caption{Gate error comparison for closed quantum system (unitary evolution without decoherence). The standard Gaussian pulse achieves 66.60\% error (33.4\% fidelity), while the GRAPE-optimized pulse achieves 0.86\% error (99.14\% fidelity), demonstrating a 77$\times$ reduction in gate error. The GRAPE pulse's superior performance results from exploiting the full control Hamiltonian through gradient-based optimization.}
     \label{fig:hardware_validation}
 \end{figure}
@@ -312,7 +312,7 @@ G. J. Holzmann,
 \bibitem{qubitpulseopt}
 R. Malarchick,
 ``QubitPulseOpt: Hardware-Calibrated Quantum Optimal Control Framework,''
-\url{https://github.com/username/QubitPulseOpt}, 2025.
+\url{https://github.com/rylanmalarchick/QubitPulseOpt}, 2025.
 
 \end{thebibliography}
 
