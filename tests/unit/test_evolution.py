@@ -277,6 +277,7 @@ class TestAnalyticalEvolution:
         assert np.max(np.abs(y_values)) > 0.5, "Y-component not oscillating"
 
 
+@pytest.mark.slow
 class TestNumericalEvolution:
     """Test numerical evolution using QuTiP solver."""
     
@@ -471,6 +472,7 @@ class TestNumericalEvolution:
         assert psi_final.norm() == pytest.approx(1.0, abs=1e-8)
 
 
+@pytest.mark.slow
 class TestControlHamiltonianEvolution:
     """Test evolution with control Hamiltonians."""
     

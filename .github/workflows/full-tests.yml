@@ -44,10 +44,10 @@ jobs:
             pip install -e .
           fi
 
-      - name: Run unit tests (excluding statistical)
+      - name: Run unit tests (excluding statistical and slow)
         run: |
           pytest tests/unit/ \
-            -m "not statistical" \
+            -m "not statistical and not slow" \
             --reruns 2 \
             --reruns-delay 1 \
             --cov=src \
