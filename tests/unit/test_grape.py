@@ -264,6 +264,7 @@ class TestGRAPEFidelity:
         assert np.isclose(fid, expected, atol=1e-10)
 
 
+@pytest.mark.slow
 class TestGRAPEOptimization:
     """Test GRAPE optimization algorithms."""
 
@@ -413,6 +414,7 @@ class TestGRAPEConstraints:
         assert u_constrained[0, 4] == 1.0  # Clipped upper
 
 
+@pytest.mark.slow
 class TestGRAPEMultiControl:
     """Test multi-control optimization."""
 
@@ -475,6 +477,7 @@ class TestGRAPEPulseFunctions:
         assert np.isclose(pulse_funcs[1](1), 5, atol=0.5)
 
 
+@pytest.mark.slow
 class TestGRAPEAdaptiveStep:
     """Test adaptive learning rate."""
 
@@ -522,6 +525,7 @@ class TestGRAPEAdaptiveStep:
         assert result.n_iterations > 0
 
 
+@pytest.mark.slow
 class TestGRAPEEdgeCases:
     """Test edge cases and special scenarios."""
 

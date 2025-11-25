@@ -135,6 +135,7 @@ class TestKrotovInitialization:
             )
 
 
+@pytest.mark.slow
 class TestKrotovXGateOptimization:
     """Test Krotov optimization for X-gate (π-pulse)."""
     
@@ -283,6 +284,7 @@ class TestKrotovXGateOptimization:
             f"Pulse exceeds amplitude limit: {max_amplitude} > {u_max}"
 
 
+@pytest.mark.slow
 class TestMonotonicConvergence:
     """
     Test monotonic convergence property of Krotov.
@@ -444,6 +446,7 @@ class TestMonotonicConvergence:
         assert all(0 <= f <= 1 for f in result.fidelity_history)
 
 
+@pytest.mark.slow
 class TestGradientComputation:
     """Test gradient computation in Krotov."""
     
@@ -542,6 +545,7 @@ class TestGradientComputation:
         assert np.all(np.isfinite(result.optimized_pulses))
 
 
+@pytest.mark.slow
 class TestPulseProperties:
     """Test properties of Krotov-optimized pulses."""
     
@@ -640,6 +644,7 @@ class TestPulseProperties:
         assert np.all(result.optimized_pulses <= u_max * 1.01)
 
 
+@pytest.mark.slow
 class TestEdgeCases:
     """Test edge cases and error handling."""
     
