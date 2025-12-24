@@ -1,7 +1,7 @@
 # QubitPulseOpt: Quantum Optimal Control for High-Fidelity Gates
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Code Coverage](https://img.shields.io/badge/coverage-59%25-yellow.svg)](tests/)
+[![Code Coverage](https://img.shields.io/badge/coverage-74%25-yellowgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Hardware Ready](https://img.shields.io/badge/Hardware-IQM%20Resonance-orange.svg)](src/hardware/)
 
@@ -25,7 +25,7 @@ This framework demonstrates a complete software pipeline from theoretical simula
 - **High-Fidelity Simulation**: Full Lindblad master equation solver with T₁ (relaxation) and T₂ (dephasing) decoherence
 - **Hardware Integration**: API connectivity confirmed with IQM Garnet quantum processor (20-qubit system)
 - **Sim-to-Real Calibration**: Hardware-in-the-loop workflow with real-time parameter extraction
-- **Professional V&V**: 659 unit/integration tests (59% code coverage), NASA JPL Power-of-10 compliant
+- **Professional V&V**: 864 unit/integration tests (74% code coverage), NASA JPL Power-of-10 compliant
 
 ### Research Impact
 
@@ -133,7 +133,7 @@ QubitPulseOpt/
 │   ├── pulses/               # Pulse generators (DRAG, Gaussian, custom)
 │   ├── hardware/             # IQM hardware integration & async job management
 │   └── visualization/        # Bloch sphere, fidelity plots
-├── tests/                    # 570+ unit/integration tests (95.8% coverage)
+├── tests/                    # 864 unit/integration tests (74% coverage)
 ├── docs/                     # Documentation and figures
 ├── examples/                 # Tutorial notebooks
 └── hardware_validation_async.py  # Production hardware validation script
@@ -240,7 +240,7 @@ where β is the DRAG coefficient and Δ is the anharmonicity.
 
 ### Test Coverage
 
-- **570+ tests** across 95.8% code coverage
+- **864 tests** across 74% code coverage (>85% on critical hardware integration modules)
 - Unit tests for all core algorithms
 - Integration tests for hardware pipeline
 - Numerical stability validation
@@ -295,7 +295,7 @@ This work represents a complete research cycle in quantum optimal control:
 ### Intellectual Contributions
 
 1. **Ground-up framework design**: Complete QOC system from theoretical simulation to hardware validation
-2. **Professional software engineering**: NASA-standard V&V, 95.8% test coverage, production-ready codebase
+2. **Professional software engineering**: NASA-standard V&V, 74% test coverage (864 tests), production-ready codebase
 3. **Sim-to-real pipeline**: Hardware-in-the-loop calibration with real-time parameter extraction
 4. **Noise robustness analysis**: Quantitative benchmarking under aggressive decoherence regimes
 
