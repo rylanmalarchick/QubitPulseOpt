@@ -1,7 +1,7 @@
 name: Full Test Suite
 
 # Run complete test suite including stochastic tests
-# Target: < 30 minutes execution time
+# Target: < 45 minutes execution time (with safety margin for CI variability)
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ jobs:
   unit-tests:
     name: Unit Tests (All)
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
 
     strategy:
       matrix:
