@@ -1,36 +1,25 @@
 name: Full Test Suite
 
-# Run complete test suite including stochastic tests
-# Target: < 45 minutes execution time (with safety margin for CI variability)
+# Manual trigger only - use for pre-deployment validation
+# For regular CI, tests.yml runs on push/PR
 
 on:
-  pull_request:
-    branches: [main]
-  schedule:
-    # Run nightly at 2 AM UTC
-    - cron: "0 2 * * *"
   workflow_dispatch:
-    # Allow manual triggering
 
 jobs:
   unit-tests:
-    name: Unit Tests (All)
+    name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12"]
-      fail-fast: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install dependencies
@@ -57,10 +46,8 @@ jobs:
             -v \
             --durations=20 \
             -n auto
-        continue-on-error: true
 
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.xml
@@ -72,7 +59,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-py${{ matrix.python-version }}
+          name: test-results
           path: |
             .pytest_cache/
             tests/pytest.log
@@ -83,8 +70,6 @@ jobs:
     name: Statistical Tests
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    # Only run on schedule or manual trigger to save CI time
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout code
@@ -102,7 +87,6 @@ jobs:
           pip install numpy scipy matplotlib pytest pytest-rerunfailures
           pip install qutip>=4.7.0
 
-          # Install package in editable mode if setup files exist
           if [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "setup.cfg" ]; then
             pip install -e .
           fi
@@ -115,7 +99,6 @@ jobs:
             --tb=short \
             -v -s \
             --durations=10
-        continue-on-error: true
 
       - name: Upload statistical test results
         if: always()
@@ -130,8 +113,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    timeout-minutes: 30
 
     steps:
       - name: Checkout code
@@ -149,7 +131,6 @@ jobs:
           pip install numpy scipy matplotlib pytest pytest-rerunfailures
           pip install qutip>=4.7.0
 
-          # Install package in editable mode if setup files exist
           if [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "setup.cfg" ]; then
             pip install -e .
           fi
@@ -162,7 +143,6 @@ jobs:
             --tb=short \
             -v \
             --durations=10
-        continue-on-error: true
 
       - name: Upload integration test results
         if: always()
@@ -181,18 +161,13 @@ jobs:
     if: always()
 
     steps:
-      - name: Download all test results
-        uses: actions/download-artifact@v4
-        with:
-          path: test-results/
-
       - name: Generate test summary
         run: |
-          echo "# Test Suite Summary" >> $GITHUB_STEP_SUMMARY
+          echo "# Full Test Suite Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           echo "- **Unit Tests**: ${{ needs.unit-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Statistical Tests**: ${{ needs.statistical-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Integration Tests**: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "See uploaded artifacts for detailed results." >> $GITHUB_STEP_SUMMARY
+          echo "Triggered manually for pre-deployment validation." >> $GITHUB_STEP_SUMMARY
