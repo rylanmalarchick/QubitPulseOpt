@@ -9,7 +9,7 @@
 
 > *"Verified Implementation of GRAPE Pulse Optimization for Quantum Gates with Hardware-Representative Noise Models"*  
 > Rylan Malarchick | Independent Research Project | 2024-2025  
-> 📄 [Read the preprint](preprint/preprint.pdf)
+> [Read the preprint](preprint/preprint.pdf)
 
 ---
 
