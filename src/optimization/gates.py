@@ -61,6 +61,46 @@ import warnings
 from .grape import GRAPEOptimizer, GRAPEResult
 from .krotov import KrotovOptimizer, KrotovResult
 
+# Optional agentbible physics validation
+try:
+    from agentbible import validate_unitary, UnitarityError
+    HAS_AGENTBIBLE = True
+except ImportError:
+    HAS_AGENTBIBLE = False
+    UnitarityError = Exception  # Fallback for type hints
+
+
+def _validate_qobj_unitary(U: qt.Qobj, rtol: float = 1e-10, atol: float = 1e-12) -> None:
+    """Validate that a Qobj is unitary using agentbible validators.
+    
+    This helper function validates the numpy array representation
+    of a qutip.Qobj without changing return types in the public API.
+    
+    Parameters
+    ----------
+    U : qt.Qobj
+        Quantum operator to validate.
+    rtol : float
+        Relative tolerance for unitarity check.
+    atol : float
+        Absolute tolerance for unitarity check.
+        
+    Raises
+    ------
+    UnitarityError
+        If the matrix is not unitary within tolerance.
+    """
+    if not HAS_AGENTBIBLE:
+        return
+    
+    from agentbible import validate_unitary as _validate
+    
+    @_validate(rtol=rtol, atol=atol)
+    def _check():
+        return U.full()
+    
+    _check()
+
 
 @dataclass
 class GateResult:
@@ -309,7 +349,12 @@ class UniversalGates:
             + axis_vec[1] * qt.sigmay()
             + axis_vec[2] * qt.sigmaz()
         )
-        return (-1j * angle / 2 * n_dot_sigma).expm()
+        U = (-1j * angle / 2 * n_dot_sigma).expm()
+        
+        # Validate unitarity using agentbible (if available)
+        _validate_qobj_unitary(U)
+        
+        return U
 
     def _format_rotation_gate_name(self, axis_name: str, angle: float) -> str:
         """Format rotation gate name based on angle."""
@@ -868,4 +913,9 @@ def rotation_from_euler_angles(
     Ry = (-1j * theta / 2 * qt.sigmay()).expm()
     Rz2 = (-1j * phi2 / 2 * qt.sigmaz()).expm()
 
-    return Rz1 * Ry * Rz2
+    U = Rz1 * Ry * Rz2
+    
+    # Validate unitarity using agentbible (if available)
+    _validate_qobj_unitary(U)
+    
+    return U

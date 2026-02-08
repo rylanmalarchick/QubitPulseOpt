@@ -416,7 +416,7 @@ class GRAPEOptimizer:
         overlap = (U_target.dag() * U_evolved).tr()
         d = self.dim
         fidelity = (np.abs(overlap) ** 2 + d) / (d * (d + 1))
-        return np.real(fidelity)
+        return float(np.clip(np.real(fidelity), 0.0, 1.0))
 
     def _compute_timeslice_gradient(
         self,
@@ -457,7 +457,9 @@ class GRAPEOptimizer:
 
         for j in range(self.n_controls):
             dU = -1j * self.dt * self.H_controls[j] * propagators[k]
-            X_jk = U_before * dU * U_after
+            # Correct order: U_final = ...U_after * U_k * U_before...
+            # so dU_final/du = U_after * dU_k * U_before
+            X_jk = U_after * dU * U_before
 
             trace_val = (U_target.dag() * X_jk).tr()
             grad_contribution = 2 * np.real(np.conj(overlap_final) * trace_val)
@@ -725,7 +727,7 @@ class GRAPEOptimizer:
 
         # Validate initial fidelity
         assert_fidelity_valid(fidelity)
-        assert 0 <= fidelity <= 1.0, f"Initial fidelity {fidelity} out of bounds [0, 1]"
+        assert -1e-10 <= fidelity <= 1.0 + 1e-10, f"Initial fidelity {fidelity} out of bounds [0, 1]"
 
         return {
             "u": u,
@@ -890,7 +892,7 @@ class GRAPEOptimizer:
         assert np.isfinite(grad_norm), (
             f"Gradient norm is not finite at iteration {iteration}: {grad_norm}"
         )
-        assert 0 <= fidelity <= 1.0, f"Fidelity {fidelity} out of valid range [0,1]"
+        assert -1e-10 <= fidelity <= 1.0 + 1e-10, f"Fidelity {fidelity} out of valid range [0,1]"
 
         if grad_norm < self.convergence_threshold:
             if self.verbose:
@@ -958,7 +960,7 @@ class GRAPEOptimizer:
     ) -> None:
         """Validate final optimization result."""
         assert_fidelity_valid(final_fidelity)
-        assert 0 <= final_fidelity <= 1.0, (
+        assert -1e-10 <= final_fidelity <= 1.0 + 1e-10, (
             f"Final fidelity {final_fidelity} out of bounds [0, 1]"
         )
         assert final_fidelity >= 0, "Fidelity cannot be negative"

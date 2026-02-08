@@ -43,6 +43,19 @@ import qutip
 from typing import Optional, Union
 import warnings
 
+# Optional agentbible physics validation
+try:
+    from agentbible import validate_unitary
+    HAS_AGENTBIBLE = True
+except ImportError:
+    HAS_AGENTBIBLE = False
+    # Create a no-op decorator if agentbible is not installed
+    def validate_unitary(func=None, **kwargs):
+        """No-op decorator when agentbible is not installed."""
+        if func is not None:
+            return func
+        return lambda f: f
+
 
 class TimeEvolution:
     """
@@ -245,7 +258,27 @@ class TimeEvolution:
         """
         # Use QuTiP's propagator function
         U_t = (-1j * self.hamiltonian * t).expm()
+        
+        # Validate unitarity using agentbible (if available)
+        self._validate_unitary(U_t)
+        
         return U_t
+
+    def _validate_unitary(self, U: qutip.Qobj) -> None:
+        """Validate that a Qobj is unitary using agentbible validators.
+        
+        This is a helper method that validates the numpy array representation
+        of a qutip.Qobj without changing the return type of the public API.
+        """
+        if not HAS_AGENTBIBLE:
+            return
+        
+        # Use agentbible's validate_unitary as a function, not decorator
+        @validate_unitary(rtol=1e-10, atol=1e-12)
+        def _check():
+            return U.full()
+        
+        _check()
 
     def fidelity_over_time(
         self, psi0: qutip.Qobj, psi_target: qutip.Qobj, times: np.ndarray
