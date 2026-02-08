@@ -197,8 +197,8 @@ class TestBetaOptimization:
 
         beta_opt = drag.optimize_beta()
 
-        # Should match β_opt = -α / (2Ω)
-        expected = -anharmonicity / (2.0 * amplitude)
+        # Should match β_opt = -1/(2α), Motzoi et al. PRL 103, 110501 (2009)
+        expected = -1.0 / (2.0 * anharmonicity)
         assert np.allclose(beta_opt, expected, rtol=1e-10)
 
     def test_optimize_beta_various_anharmonicities(self):
@@ -213,7 +213,7 @@ class TestBetaOptimization:
             drag = DRAGPulse(params)
 
             beta_opt = drag.optimize_beta()
-            expected = -alpha / (2.0 * amplitude)
+            expected = -1.0 / (2.0 * alpha)
 
             assert np.allclose(beta_opt, expected, rtol=1e-10)
 
@@ -324,8 +324,8 @@ class TestLeakageEstimate:
             amplitude, sigma, anharmonicity, beta=0.0
         )
 
-        # Leakage with optimal DRAG
-        beta_opt = -anharmonicity / (2.0 * amplitude)
+        # Leakage with optimal DRAG: β = -1/(2α)
+        beta_opt = -1.0 / (2.0 * anharmonicity)
         leakage_with_drag = leakage_error_estimate(
             amplitude, sigma, anharmonicity, beta=beta_opt
         )
@@ -380,8 +380,8 @@ class TestBetaScan:
         amplitude = 5.0  # Lower amplitude for easier integration
         sigma = 8.0  # Wider pulse
 
-        # Scan β around optimal value
-        beta_opt_theory = -anharmonicity / (2.0 * amplitude)
+        # Scan β around optimal value: β = -1/(2α)
+        beta_opt_theory = -1.0 / (2.0 * anharmonicity)
         beta_range = np.linspace(
             beta_opt_theory * 0.5, beta_opt_theory * 1.5, 5
         )  # Fewer points

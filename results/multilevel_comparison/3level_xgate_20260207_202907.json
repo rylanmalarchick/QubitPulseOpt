@@ -1,0 +1,361 @@
+{
+  "timestamp": "2026-02-07T20:26:14.966787",
+  "experiment": "3-level transmon comparison",
+  "parameters": {
+    "n_levels": 3,
+    "anharmonicity_mhz": -200.0,
+    "grape_max_iter": 1000
+  },
+  "gate_times": [
+    10,
+    15,
+    20,
+    25,
+    30,
+    40,
+    50,
+    60,
+    80,
+    100
+  ],
+  "sweeps": [
+    {
+      "gate_time_ns": 10.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 10.0,
+        "fidelity": 0.7857266341638643,
+        "infidelity": 0.21427336583613565,
+        "leakage": 0.10223903250937601,
+        "time_s": 0.006773616994905751,
+        "amplitude_radns": 1.0026513098524004
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 10.0,
+        "fidelity": 0.9672584463719767,
+        "infidelity": 0.032741553628023334,
+        "leakage": 0.026783724944679323,
+        "time_s": 0.006488740997156128,
+        "amplitude_radns": 1.0026513098524004,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 10.0,
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "leakage": 2.7899800186454203e-16,
+        "grape_fidelity": 1.0,
+        "iterations": 312,
+        "converged": true,
+        "time_s": 1.7521774300039397
+      }
+    },
+    {
+      "gate_time_ns": 15.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 15.0,
+        "fidelity": 0.9391084459442443,
+        "infidelity": 0.06089155405575575,
+        "leakage": 0.012952090938148416,
+        "time_s": 0.0071408250005333684,
+        "amplitude_radns": 0.6684342065682668
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 15.0,
+        "fidelity": 0.9956805915677778,
+        "infidelity": 0.004319408432222227,
+        "leakage": 0.003065735791437715,
+        "time_s": 0.006976860997383483,
+        "amplitude_radns": 0.6684342065682668,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 15.0,
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "leakage": 1.3404364534725811e-16,
+        "grape_fidelity": 1.0,
+        "iterations": 88,
+        "converged": true,
+        "time_s": 0.5159627070024726
+      }
+    },
+    {
+      "gate_time_ns": 20.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 20.0,
+        "fidelity": 0.9718050367320825,
+        "infidelity": 0.028194963267917483,
+        "leakage": 0.0006423161382625505,
+        "time_s": 0.00709866700344719,
+        "amplitude_radns": 0.5013256549262002
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 20.0,
+        "fidelity": 0.9995138740288697,
+        "infidelity": 0.0004861259711302912,
+        "leakage": 0.0001239854105758985,
+        "time_s": 0.006918172002770007,
+        "amplitude_radns": 0.5013256549262002,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 20.0,
+        "fidelity": 0.9999999999999998,
+        "infidelity": 2.220446049250313e-16,
+        "leakage": 1.9776399510482354e-16,
+        "grape_fidelity": 1.0,
+        "iterations": 120,
+        "converged": true,
+        "time_s": 0.7159766189943184
+      }
+    },
+    {
+      "gate_time_ns": 25.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 25.0,
+        "fidelity": 0.9821662701076022,
+        "infidelity": 0.017833729892397843,
+        "leakage": 1.2218795486942072e-05,
+        "time_s": 0.011321630001475569,
+        "amplitude_radns": 0.4010605239409601
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 25.0,
+        "fidelity": 0.9998557439486939,
+        "infidelity": 0.00014425605130607977,
+        "leakage": 1.3466406593227527e-06,
+        "time_s": 0.011401213996578008,
+        "amplitude_radns": 0.4010605239409601,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 25.0,
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "leakage": 1.1683438910637768e-15,
+        "grape_fidelity": 1.0,
+        "iterations": 715,
+        "converged": true,
+        "time_s": 5.63115490799828
+      }
+    },
+    {
+      "gate_time_ns": 30.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 30.0,
+        "fidelity": 0.9875790331106178,
+        "infidelity": 0.012420966889382212,
+        "leakage": 3.256103386647697e-08,
+        "time_s": 0.013977902999613434,
+        "amplitude_radns": 0.3342171032841334
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 30.0,
+        "fidelity": 0.9999318078054293,
+        "infidelity": 6.819219457065984e-05,
+        "leakage": 5.614386644460906e-08,
+        "time_s": 0.013904816994909197,
+        "amplitude_radns": 0.3342171032841334,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 30.0,
+        "fidelity": 0.9999999999710257,
+        "infidelity": 2.8974267429759948e-11,
+        "leakage": 2.85512310893226e-11,
+        "grape_fidelity": 0.9999999999681245,
+        "iterations": 1000,
+        "converged": false,
+        "time_s": 10.858264816000883
+      }
+    },
+    {
+      "gate_time_ns": 40.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 40.0,
+        "fidelity": 0.9929932764093669,
+        "infidelity": 0.007006723590633146,
+        "leakage": 7.181731127894651e-09,
+        "time_s": 0.017895200006023515,
+        "amplitude_radns": 0.2506628274631001
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 40.0,
+        "fidelity": 0.9999783859360016,
+        "infidelity": 2.1614063998365296e-05,
+        "leakage": 6.055429177986346e-09,
+        "time_s": 0.01805567799601704,
+        "amplitude_radns": 0.2506628274631001,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 40.0,
+        "fidelity": 0.9999999999812481,
+        "infidelity": 1.875188893052382e-11,
+        "leakage": 1.7387565652101533e-11,
+        "grape_fidelity": 0.9999999999784998,
+        "iterations": 1000,
+        "converged": false,
+        "time_s": 15.414676353000687
+      }
+    },
+    {
+      "gate_time_ns": 50.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 50.0,
+        "fidelity": 0.9955104207781054,
+        "infidelity": 0.004489579221894635,
+        "leakage": 1.2618606540917536e-09,
+        "time_s": 0.01825089700287208,
+        "amplitude_radns": 0.20053026197048004
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 50.0,
+        "fidelity": 0.9999909969686434,
+        "infidelity": 9.003031356646929e-06,
+        "leakage": 1.3242607045353523e-09,
+        "time_s": 0.018659740999282803,
+        "amplitude_radns": 0.20053026197048004,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 50.0,
+        "fidelity": 0.9999999999544721,
+        "infidelity": 4.552791477152596e-11,
+        "leakage": 4.4548851940988664e-11,
+        "grape_fidelity": 0.9999999999485935,
+        "iterations": 1000,
+        "converged": false,
+        "time_s": 19.793240708997473
+      }
+    },
+    {
+      "gate_time_ns": 60.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 60.0,
+        "fidelity": 0.9968803301142468,
+        "infidelity": 0.0031196698857531846,
+        "leakage": 8.304624271665467e-10,
+        "time_s": 0.02651337400311604,
+        "amplitude_radns": 0.1671085516420667
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 60.0,
+        "fidelity": 0.9999955465578699,
+        "infidelity": 4.453442130070151e-06,
+        "leakage": 8.870508360677474e-10,
+        "time_s": 0.026582181002595462,
+        "amplitude_radns": 0.1671085516420667,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 60.0,
+        "fidelity": 0.999999999968603,
+        "infidelity": 3.1396996114096964e-11,
+        "leakage": 3.0863735069740775e-11,
+        "grape_fidelity": 0.9999999999658726,
+        "iterations": 1000,
+        "converged": false,
+        "time_s": 27.884130644000834
+      }
+    },
+    {
+      "gate_time_ns": 80.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 80.0,
+        "fidelity": 0.9982441461356617,
+        "infidelity": 0.001755853864338297,
+        "leakage": 5.03256428023763e-10,
+        "time_s": 0.03570938999473583,
+        "amplitude_radns": 0.12533141373155005
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 80.0,
+        "fidelity": 0.9999984904466118,
+        "infidelity": 1.5095533881792633e-06,
+        "leakage": 5.229310913453055e-10,
+        "time_s": 0.03620148399932077,
+        "amplitude_radns": 0.12533141373155005,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 80.0,
+        "fidelity": 0.9999999999750968,
+        "infidelity": 2.490319062076196e-11,
+        "leakage": 2.344544618501236e-11,
+        "grape_fidelity": 0.9999999999749845,
+        "iterations": 1000,
+        "converged": false,
+        "time_s": 39.099285279997275
+      }
+    },
+    {
+      "gate_time_ns": 100.0,
+      "gaussian": {
+        "method": "gaussian",
+        "gate_time_ns": 100.0,
+        "fidelity": 0.998875949134848,
+        "infidelity": 0.0011240508651519932,
+        "leakage": 3.344214555636376e-10,
+        "time_s": 0.037982275993272197,
+        "amplitude_radns": 0.10026513098524002
+      },
+      "drag": {
+        "method": "drag",
+        "gate_time_ns": 100.0,
+        "fidelity": 0.9999993248547439,
+        "infidelity": 6.751452561459814e-07,
+        "leakage": 3.4277174710170465e-10,
+        "time_s": 0.04456663299788488,
+        "amplitude_radns": 0.10026513098524002,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate_time_ns": 100.0,
+        "fidelity": 0.9999999999826917,
+        "infidelity": 1.7308265931603728e-11,
+        "leakage": 1.4039380269695235e-11,
+        "grape_fidelity": 0.9999999999796212,
+        "iterations": 1000,
+        "converged": false,
+        "time_s": 50.28762214199378
+      }
+    }
+  ],
+  "summary": {
+    "gaussian_avg_fidelity": 0.9648889542630641,
+    "gaussian_avg_leakage": 0.011584570105403987,
+    "drag_avg_fidelity": 0.9962203208486617,
+    "drag_avg_leakage": 0.0029974858063662258,
+    "grape_avg_fidelity": 0.9999999999833136,
+    "grape_avg_leakage": 1.588379893563945e-11
+  }
+}

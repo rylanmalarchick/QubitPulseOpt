@@ -104,3 +104,16 @@ WORKFLOW_*.md
 # Agent development directories
 src/agent/
 notebooks/agents/
+
+# Additional LaTeX build artifacts
+*.bbl
+*.blg
+*.pdf
+*Notes.bib
+
+# Agent/tool configuration (session-specific)
+opencode.json
+agent_docs/
+
+# Test logs
+tests/pytest.log

@@ -49,7 +49,7 @@ class DRAGParameters:
         Gaussian width parameter (ns or dimensionless)
     beta : float
         DRAG coefficient (dimensionless)
-        Optimal value: β ≈ -α / (2 * amplitude) where α is anharmonicity
+        Optimal value: β = -1/(2α) where α is anharmonicity in angular freq (rad/ns)
     detuning : float
         Detuning from qubit resonance (MHz)
     anharmonicity : float, optional
@@ -211,10 +211,20 @@ class DRAGPulse:
 
         where α is the anharmonicity and Ω_max is the peak Rabi frequency.
 
+        .. warning::
+            Both ``anharmonicity`` and ``amplitude`` must be in the **same
+            angular-frequency units** (e.g., both in rad/ns or both in rad/s).
+            If anharmonicity is provided in MHz and amplitude in rad/ns, the
+            caller must convert first:
+            ``anharmonicity_radns = 2π × anharmonicity_MHz × 1e-3``
+
+        Typical DRAG β values are O(1) for transmon qubits. If the returned
+        value is >> 10, the units are likely mismatched.
+
         Returns
         -------
         beta_opt : float
-            Optimal β parameter
+            Optimal β parameter (dimensionless)
 
         Raises
         ------
@@ -228,8 +238,20 @@ class DRAGPulse:
         if self.params.anharmonicity is None:
             raise ValueError("Anharmonicity must be set to optimize β")
 
-        # Optimal β formula (first-order perturbation theory)
-        beta_opt = -self.params.anharmonicity / (2.0 * self.params.amplitude)
+        # Optimal β formula from Motzoi et al. PRL 103, 110501 (2009)
+        # β = -1/(2α) where α is anharmonicity in angular frequency (rad/ns)
+        # NOTE: self.params.anharmonicity must be in angular frequency units (rad/ns)
+        # If in MHz, convert first: α_rad = 2π × f_MHz × 1e-3
+        beta_opt = -1.0 / (2.0 * self.params.anharmonicity)
+
+        if abs(beta_opt) > 5:
+            import warnings
+            warnings.warn(
+                f"Computed β = {beta_opt:.2f} is unusually large (expected ~0.4 for transmon). "
+                f"Verify anharmonicity ({self.params.anharmonicity}) is in rad/ns. "
+                f"For α/2π = -200 MHz, α = -1.257 rad/ns, β = 0.398.",
+                stacklevel=2,
+            )
 
         return beta_opt
 
@@ -588,7 +610,8 @@ def _compute_drag_pulse_params(
     # Set initial β (will be optimized if requested)
     beta = 0.0
     if optimize_beta and anharmonicity is not None:
-        beta = -anharmonicity / (2.0 * amplitude)
+        # β = -1/(2α), Motzoi et al. PRL 103, 110501 (2009)
+        beta = -1.0 / (2.0 * anharmonicity)
 
     return amplitude, sigma, beta
 
@@ -657,7 +680,7 @@ def leakage_error_estimate(
 
     Notes
     -----
-    For optimal DRAG (β = -α/(2Ω)), leakage is suppressed to second order.
+    For optimal DRAG (β = -1/(2α)), leakage is suppressed to second order.
     For Gaussian (β=0), leakage scales as (Ω/α)².
 
     References
@@ -667,8 +690,8 @@ def leakage_error_estimate(
     if anharmonicity == 0:
         raise ValueError("Anharmonicity cannot be zero")
 
-    # Optimal β for first-order cancellation
-    beta_opt = -anharmonicity / (2.0 * amplitude)
+    # Optimal β = -1/(2α), Motzoi et al. PRL 103, 110501 (2009)
+    beta_opt = -1.0 / (2.0 * anharmonicity)
 
     # Deviation from optimal
     delta_beta = beta - beta_opt

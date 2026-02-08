@@ -1,0 +1,121 @@
+{
+  "timestamp": "2026-02-07T20:25:24.655223",
+  "parameters": {
+    "gate_time": 40.0,
+    "n_samples": 400,
+    "detuning": 0.0,
+    "anharmonicity": -200.0,
+    "T1_us": 50.0,
+    "T2_us": 70.0,
+    "n_grape_slices": 50,
+    "grape_max_iter": 500
+  },
+  "calibration": {
+    "sigma_ns": 5.0,
+    "pi_amplitude_radns": 0.2506628274631001
+  },
+  "gates": {
+    "X": {
+      "gaussian": {
+        "method": "gaussian",
+        "gate": "X",
+        "fidelity": 0.9999999900889063,
+        "infidelity": 9.911093723502518e-09,
+        "time_s": 0.013998489994264673,
+        "amplitude_MHz": 0.2506628274631001,
+        "sigma_ns": 5.0,
+        "beta": 0.0
+      },
+      "drag": {
+        "method": "drag",
+        "gate": "X",
+        "fidelity": 0.9929953084484284,
+        "infidelity": 0.0070046915515715735,
+        "time_s": 0.015061124999192543,
+        "amplitude_MHz": 0.2506628274631001,
+        "sigma_ns": 5.0,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate": "X",
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "time_s": 0.0422470589983277,
+        "iterations": 7,
+        "converged": true
+      }
+    },
+    "Y": {
+      "gaussian": {
+        "method": "gaussian",
+        "gate": "Y",
+        "fidelity": 0.9999999900889072,
+        "infidelity": 9.911092835324098e-09,
+        "time_s": 0.01490110900340369,
+        "amplitude_MHz": 0.2506628274631001,
+        "sigma_ns": 5.0,
+        "beta": 0.0
+      },
+      "drag": {
+        "method": "drag",
+        "gate": "Y",
+        "fidelity": 0.9929953084484278,
+        "infidelity": 0.00700469155157224,
+        "time_s": 0.015005827997811139,
+        "amplitude_MHz": 0.2506628274631001,
+        "sigma_ns": 5.0,
+        "beta": 0.3978873577297384
+      },
+      "grape": {
+        "method": "grape",
+        "gate": "Y",
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "time_s": 0.0405938839976443,
+        "iterations": 7,
+        "converged": true
+      }
+    },
+    "H": {
+      "grape": {
+        "method": "grape",
+        "gate": "H",
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "time_s": 2.144379288001801,
+        "iterations": 160,
+        "converged": true
+      }
+    },
+    "S": {
+      "grape": {
+        "method": "grape",
+        "gate": "S",
+        "fidelity": 1.0,
+        "infidelity": 0.0,
+        "time_s": 3.968368287998601,
+        "iterations": 273,
+        "converged": true
+      }
+    },
+    "T": {
+      "grape": {
+        "method": "grape",
+        "gate": "T",
+        "fidelity": 0.9999999835460249,
+        "infidelity": 1.645397507132884e-08,
+        "time_s": 7.257381948002148,
+        "iterations": 500,
+        "converged": false
+      }
+    }
+  },
+  "summary": {
+    "avg_gaussian_fidelity": 0.9999999900889067,
+    "avg_drag_fidelity": 0.9929953084484281,
+    "avg_grape_fidelity": 0.999999996709205,
+    "n_gates": 5,
+    "n_baseline_gates": 2
+  }
+}

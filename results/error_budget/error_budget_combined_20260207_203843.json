@@ -1,0 +1,238 @@
+{
+  "timestamp": "2026-02-07T20:38:43.522775",
+  "experiment": "error_budget_analysis_combined",
+  "parameters": {
+    "gate_time_ns": 20.0,
+    "T1_us": 37.0,
+    "T2_us": 9.6,
+    "anharmonicity_mhz": -200.0,
+    "n_samples": 400,
+    "n_grape_slices": 50,
+    "grape_max_iter": 500,
+    "T1_ns": 37000.0,
+    "T2_ns": 9600.0
+  },
+  "budgets_2level": {
+    "gaussian": {
+      "method": "Gaussian",
+      "coherent_fidelity": 0.9999999900889063,
+      "coherent_infidelity": 9.911093723502518e-09,
+      "t1_only_fidelity": 0.9997540514688446,
+      "t1_only_infidelity": 0.0002459485311554488,
+      "t2_only_fidelity": 0.9996203866977893,
+      "t2_only_infidelity": 0.0003796133022107018,
+      "full_decoherence_fidelity": 0.9994244737800717,
+      "full_decoherence_infidelity": 0.0005755262199282907,
+      "control_noise": {
+        "1pct": {
+          "noise_level": 0.01,
+          "mean_fidelity": 0.9997702868039886,
+          "std_fidelity": 0.0002746857799127417,
+          "mean_infidelity": 0.00022971319601139406
+        },
+        "2pct": {
+          "noise_level": 0.02,
+          "mean_fidelity": 0.9990811835378826,
+          "std_fidelity": 0.0010986074934546289,
+          "mean_infidelity": 0.0009188164621174444
+        },
+        "5pct": {
+          "noise_level": 0.05,
+          "mean_fidelity": 0.9942779834181799,
+          "std_fidelity": 0.006824739935774203,
+          "mean_infidelity": 0.005722016581820144
+        }
+      }
+    },
+    "drag": {
+      "method": "DRAG",
+      "coherent_fidelity": 0.9721858040739267,
+      "coherent_infidelity": 0.02781419592607326,
+      "t1_only_fidelity": 0.9719536502659749,
+      "t1_only_infidelity": 0.02804634973402509,
+      "t2_only_fidelity": 0.971842767852217,
+      "t2_only_infidelity": 0.028157232147782985,
+      "full_decoherence_fidelity": 0.9716543076088954,
+      "full_decoherence_infidelity": 0.028345692391104627,
+      "control_noise": {
+        "1pct": {
+          "noise_level": 0.01,
+          "mean_fidelity": 0.9719007550989144,
+          "std_fidelity": 0.000748929432628294,
+          "mean_infidelity": 0.028099244901085618
+        },
+        "2pct": {
+          "noise_level": 0.02,
+          "mean_fidelity": 0.9711566570548151,
+          "std_fidelity": 0.0018360817599536647,
+          "mean_infidelity": 0.02884334294518487
+        },
+        "5pct": {
+          "noise_level": 0.05,
+          "mean_fidelity": 0.9661928120013437,
+          "std_fidelity": 0.008006550790143346,
+          "mean_infidelity": 0.03380718799865634
+        }
+      }
+    },
+    "grape": {
+      "method": "GRAPE",
+      "coherent_fidelity": 1.0,
+      "coherent_infidelity": 0.0,
+      "t1_only_fidelity": 0.9997561400618883,
+      "t1_only_infidelity": 0.00024385993811171236,
+      "t2_only_fidelity": 0.9996218084751256,
+      "t2_only_infidelity": 0.0003781915248743939,
+      "full_decoherence_fidelity": 0.9994260244825277,
+      "full_decoherence_infidelity": 0.0005739755174722916,
+      "control_noise": {
+        "1pct": {
+          "noise_level": 0.01,
+          "mean_fidelity": 0.9997700141691213,
+          "std_fidelity": 0.00027517724423187115,
+          "mean_infidelity": 0.0002299858308787428
+        },
+        "2pct": {
+          "noise_level": 0.02,
+          "mean_fidelity": 0.9990805709604993,
+          "std_fidelity": 0.0010996760509904646,
+          "mean_infidelity": 0.0009194290395007076
+        },
+        "5pct": {
+          "noise_level": 0.05,
+          "mean_fidelity": 0.9942760193331155,
+          "std_fidelity": 0.006827947049347615,
+          "mean_infidelity": 0.0057239806668845095
+        }
+      }
+    }
+  },
+  "budgets_3level": {
+    "gaussian": {
+      "method": "Gaussian",
+      "n_levels": 3,
+      "coherent_fidelity": 0.9718019067365311,
+      "coherent_infidelity": 0.028198093263468893,
+      "coherent_leakage": 0.0006427655272426869,
+      "t1_only_fidelity": 0.9715711880542879,
+      "t1_only_infidelity": 0.028428811945712118,
+      "t1_only_leakage": 0.0006422913981727189,
+      "t2_only_fidelity": 0.9716806125249722,
+      "t2_only_infidelity": 0.028319387475027824,
+      "t2_only_leakage": 0.0006643996767040604,
+      "full_decoherence_fidelity": 0.9714638766803072,
+      "full_decoherence_infidelity": 0.028536123319692797,
+      "full_decoherence_leakage": 0.0006613800376617592,
+      "control_noise": {
+        "1pct": {
+          "noise_level": 0.01,
+          "mean_fidelity": 0.9715925524003265,
+          "std_fidelity": 0.0002505886342167683,
+          "mean_infidelity": 0.028407447599673508,
+          "mean_leakage": 0.0006429370638411536,
+          "std_leakage": 5.029728923007025e-06
+        },
+        "2pct": {
+          "noise_level": 0.02,
+          "mean_fidelity": 0.9709600910861179,
+          "std_fidelity": 0.0010055259999099417,
+          "mean_infidelity": 0.029039908913882084,
+          "mean_leakage": 0.0006425942018416178,
+          "std_leakage": 9.98013213931395e-06
+        },
+        "5pct": {
+          "noise_level": 0.05,
+          "mean_fidelity": 0.9665439296800041,
+          "std_fidelity": 0.00626954302261286,
+          "mean_infidelity": 0.03345607031999587,
+          "mean_leakage": 0.0006384733885168725,
+          "std_leakage": 2.454387991729157e-05
+        }
+      }
+    },
+    "drag": {
+      "method": "DRAG",
+      "n_levels": 3,
+      "coherent_fidelity": 0.999513705226512,
+      "coherent_infidelity": 0.0004862947734880496,
+      "coherent_leakage": 0.00012408136241741808,
+      "t1_only_fidelity": 0.9992695520221362,
+      "t1_only_infidelity": 0.0007304479778638129,
+      "t1_only_leakage": 0.0001241219299416561,
+      "t2_only_fidelity": 0.9993862117483131,
+      "t2_only_infidelity": 0.0006137882516868975,
+      "t2_only_leakage": 0.00014325771088380388,
+      "full_decoherence_fidelity": 0.9991586702321225,
+      "full_decoherence_infidelity": 0.0008413297678775411,
+      "full_decoherence_leakage": 0.00014083005294099538,
+      "control_noise": {
+        "1pct": {
+          "noise_level": 0.01,
+          "mean_fidelity": 0.9993424871900884,
+          "std_fidelity": 0.000549927609670064,
+          "mean_infidelity": 0.0006575128099115535,
+          "mean_leakage": 0.0001239208911583966,
+          "std_leakage": 9.152236160915846e-07
+        },
+        "2pct": {
+          "noise_level": 0.02,
+          "mean_fidelity": 0.9987403470113837,
+          "std_fidelity": 0.001355298339412937,
+          "mean_infidelity": 0.0012596529886163,
+          "mean_leakage": 0.00012359059460309113,
+          "std_leakage": 1.8953388943591718e-06
+        },
+        "5pct": {
+          "noise_level": 0.05,
+          "mean_fidelity": 0.9943669729389044,
+          "std_fidelity": 0.006535371712804504,
+          "mean_infidelity": 0.005633027061095586,
+          "mean_leakage": 0.00012160277973982417,
+          "std_leakage": 5.466947083328248e-06
+        }
+      }
+    },
+    "grape": {
+      "method": "GRAPE",
+      "n_levels": 3,
+      "coherent_fidelity": 0.9999999999999998,
+      "coherent_infidelity": 2.220446049250313e-16,
+      "coherent_leakage": 1.9776399510482354e-16,
+      "t1_only_fidelity": 0.9997885964606319,
+      "t1_only_infidelity": 0.00021140353936810463,
+      "t1_only_leakage": 3.147208081488203e-05,
+      "t2_only_fidelity": 0.9994175579025086,
+      "t2_only_infidelity": 0.0005824420974913647,
+      "t2_only_leakage": 0.00021743898978134453,
+      "full_decoherence_fidelity": 0.9992756195164992,
+      "full_decoherence_infidelity": 0.0007243804835007639,
+      "full_decoherence_leakage": 0.0002260001451857257,
+      "control_noise": {
+        "1pct": {
+          "noise_level": 0.01,
+          "mean_fidelity": 0.9997645454772242,
+          "std_fidelity": 0.00028167105237476614,
+          "mean_infidelity": 0.00023545452277584644,
+          "mean_leakage": 1.573288085000637e-05,
+          "std_leakage": 1.8811783590167423e-05
+        },
+        "2pct": {
+          "noise_level": 0.02,
+          "mean_fidelity": 0.9990583741819067,
+          "std_fidelity": 0.0011258330316018953,
+          "mean_infidelity": 0.0009416258180933168,
+          "mean_leakage": 6.352832751306236e-05,
+          "std_leakage": 7.62821993254627e-05
+        },
+        "5pct": {
+          "noise_level": 0.05,
+          "mean_fidelity": 0.9941323799268243,
+          "std_fidelity": 0.006993761523959349,
+          "mean_infidelity": 0.00586762007317565,
+          "mean_leakage": 0.00041137964721025806,
+          "std_leakage": 0.0005126432965314423
+        }
+      }
+    }
+  }
+}
