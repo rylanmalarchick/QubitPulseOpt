@@ -14,30 +14,30 @@
 
 We submit the enclosed manuscript, ``Numerical GRAPE optimization of single-qubit gates in a three-level transmon model: Leakage suppression and error budget analysis with hardware-representative parameters,'' for consideration as a Regular Article in Physical Review A.
 
-This manuscript presents a systematic numerical comparison of Gaussian, DRAG, and GRAPE pulse optimization methods for single-qubit gates in a three-level transmon model---the minimal model that captures leakage physics in superconducting qubits. Using hardware-representative parameters from IQM's Garnet processor, we provide four key results:
+This manuscript presents a systematic numerical comparison of Gaussian, DRAG, and GRAPE pulse optimization methods for single-qubit gates in a three-level transmon model---the minimal model that captures leakage physics in superconducting qubits. Using hardware-representative parameters from IQM's Garnet processor ($T_1 = 37\;\mu$s, $T_2 = 9.6\;\mu$s, $\alpha/2\pi = -200$ MHz), we provide four key results:
 
 \begin{enumerate}
-\item \textbf{Complete leakage suppression by GRAPE}: In the three-level transmon, GRAPE achieves unit closed-system fidelity ($1 - F < 10^{-15}$) with negligible leakage to the $|2\rangle$ state across gate times from 10 to 100 ns, while Gaussian and DRAG pulses retain significant coherent errors (2.8\% and 12.8\% infidelity, respectively, at 20 ns).
+\item \textbf{Complete leakage suppression by GRAPE}: In the closed three-level system at 20 ns gate time, GRAPE achieves unit fidelity ($1 - F < 10^{-15}$) with negligible leakage ($P_2 < 10^{-16}$), while Gaussian pulses retain $F = 0.972$ and properly calibrated DRAG achieves $F = 0.9995$.
 
-\item \textbf{Decoherence floor identification}: An error budget analysis using the Lindblad master equation decomposes gate error into coherent, $T_1$, $T_2$, and control noise contributions. GRAPE reaches the decoherence floor ($\epsilon = 7.2 \times 10^{-4}$), outperforming Gaussian by 39$\times$ and DRAG by 178$\times$ in the three-level model.
+\item \textbf{Decoherence floor identification}: An error budget analysis using the Lindblad master equation decomposes gate error into coherent, $T_1$, $T_2$, and control noise contributions. GRAPE reaches the decoherence floor ($\epsilon = 7.2 \times 10^{-4}$), outperforming Gaussian by $39\times$. Properly calibrated DRAG achieves $\epsilon = 8.4 \times 10^{-4}$, only $1.2\times$ above GRAPE---demonstrating that DRAG is already near the decoherence floor when correctly implemented.
 
-\item \textbf{DRAG overcorrection anomaly}: We show that the analytical DRAG parameter $\beta = -\alpha/(2\Omega_\text{max})$ leads to monotonically \emph{decreasing} fidelity at longer gate times due to overcorrection---a result highlighting the limited validity regime of first-order perturbative corrections.
+\item \textbf{Correct DRAG calibration matters}: We show that the analytical DRAG parameter $\beta = -1/(2\alpha)$ yields an amplitude-independent, $O(1)$ quantity ($\beta = 0.398$) that provides effective first-order leakage suppression improving monotonically with gate time, achieving $F > 0.999999$ at 100 ns.
 
-\item \textbf{Robustness characterization}: GRAPE pulses exhibit excellent amplitude robustness ($F > 0.994$ over $\pm 5\%$ error) but modest detuning sensitivity, motivating future robust optimization approaches.
+\item \textbf{Nuanced robustness tradeoffs}: DRAG exhibits \emph{superior} detuning robustness compared to both Gaussian and GRAPE (minimum fidelity 0.990 vs.\ 0.931 for GRAPE over $\pm 5$ MHz), while GRAPE retains the best amplitude robustness (minimum 0.994). This finding has practical implications for choosing control strategies based on the dominant calibration uncertainty.
 \end{enumerate}
 
-We believe this work makes a timely contribution to Physical Review A because it addresses a gap in the literature: while both DRAG and GRAPE are widely used, rigorous side-by-side comparisons under identical multi-level conditions with realistic hardware parameters are surprisingly sparse. Our error budget analysis provides a clear picture of which error sources limit gate performance in modern transmon hardware and where numerical optimization offers genuine advantages over analytical corrections.
+We believe this work makes a timely contribution to Physical Review A because it addresses a gap in the literature: while both DRAG and GRAPE are widely used, rigorous side-by-side comparisons under identical multi-level conditions with hardware-representative parameters remain sparse. Our results provide a nuanced picture that goes beyond the common narrative of numerical optimization uniformly outperforming analytical methods---showing instead that properly calibrated DRAG and GRAPE have complementary strengths.
 
-The work is novel in its systematic approach and in identifying the DRAG overcorrection anomaly. All code and data are open source. A preprint of an earlier version is available at arXiv:2511.12799; this submission is substantially revised with new experiments and analysis.
+All code and data are available as the open-source QubitPulseOpt framework at \url{https://github.com/rylanmalarchick/QubitPulseOpt}. A preprint of an earlier version is available at arXiv:2511.12799; this submission is substantially revised with corrected DRAG implementation, new experiments, and updated analysis.
 
 This manuscript has not been submitted elsewhere. All authors have approved the manuscript for submission.
 
 We suggest the following referees who are experts in quantum optimal control for superconducting qubits:
 \begin{itemize}
-\item Frank K. Wilhelm (Forschungszentrum J\"ulich) -- pioneer of DRAG and optimal control theory
-\item Felix Motzoi (Forschungszentrum J\"ulich) -- co-inventor of DRAG
-\item Christiane P. Koch (Freie Universit\"at Berlin) -- quantum optimal control theory
-\item David I. Schuster (Stanford University) -- experimental quantum control
+\item Frank K. Wilhelm (Forschungszentrum J\"ulich) --- pioneer of DRAG and optimal control theory
+\item Felix Motzoi (Forschungszentrum J\"ulich) --- co-inventor of DRAG
+\item Christiane P. Koch (Freie Universit\"at Berlin) --- quantum optimal control theory
+\item David I. Schuster (Stanford University) --- experimental quantum control
 \end{itemize}
 
 Thank you for considering our manuscript.

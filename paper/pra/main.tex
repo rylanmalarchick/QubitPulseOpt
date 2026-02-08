@@ -10,6 +10,23 @@
 \usepackage{algpseudocode}
 \usepackage{bm}
 \usepackage{dcolumn}
+\usepackage{braket}
+\usepackage[section]{placeins}
+
+
+\graphicspath{{figures/}}
+
+% Aggressive float placement parameters to avoid stuck floats in twocolumn
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\renewcommand{\dbltopfraction}{0.9}
+\renewcommand{\dblfloatpagefraction}{0.8}
+\setcounter{topnumber}{4}
+\setcounter{bottomnumber}{4}
+\setcounter{totalnumber}{8}
+\setcounter{dbltopnumber}{4}
 
 \hypersetup{
     colorlinks=true,
@@ -43,11 +60,11 @@ We present a systematic numerical comparison of Gaussian, derivative removal by 
 \label{sec:introduction}
 %==============================================================================
 
-High-fidelity single-qubit gates are a prerequisite for fault-tolerant quantum computation~\cite{preskill2018quantum, knill2005quantum}. In superconducting transmon qubits~\cite{koch2007charge}, the weakly anharmonic energy spectrum creates a persistent tension: fast gates require strong driving fields that couple the computational subspace $\{\ket{0}, \ket{1}\}$ to higher transmon levels, introducing leakage errors that are not correctable by standard quantum error correction codes~\cite{aliferis2007fault, ghosh2013understanding}. This leakage-speed tradeoff is the central challenge for single-qubit gate optimization in transmon architectures.
+High-fidelity single-qubit gates are a prerequisite for fault-tolerant quantum computation~\cite{preskill2018quantum, knill2005quantum, arute2019quantum}. In superconducting transmon qubits~\cite{koch2007charge, krantz2019quantum, kjaergaard2020superconducting}, the weakly anharmonic energy spectrum creates a persistent tension: fast gates require strong driving fields that couple the computational subspace $\{\ket{0}, \ket{1}\}$ to higher transmon levels, introducing leakage errors that are not correctable by standard quantum error correction codes~\cite{aliferis2007fault, ghosh2013understanding}. This leakage-speed tradeoff is the central challenge for single-qubit gate optimization in transmon architectures~\cite{blais2021circuit}.
 
 The derivative removal by adiabatic gate (DRAG) protocol~\cite{motzoi2009simple, gambetta2011analytic} provides a first-order analytical correction that adds a derivative component to the quadrature control channel, suppressing transitions to the $\ket{2}$ state. DRAG has been widely adopted in experimental practice and achieves high fidelities when properly calibrated~\cite{chen2016measuring, sheldon2016procedure}. However, DRAG is a perturbative correction valid to first order in $\Omega/\alpha$ (the ratio of Rabi frequency to anharmonicity) and does not account for higher-order leakage pathways or non-perturbative effects at short gate times.
 
-Numerical optimal control methods, particularly the gradient ascent pulse engineering (GRAPE) algorithm~\cite{khaneja2005optimal}, can in principle discover pulse shapes that suppress leakage to arbitrary order by optimizing directly over the full multi-level Hilbert space. GRAPE has been successfully applied to superconducting qubit gates~\cite{lucero2010reduced, kelly2014optimal, werninghaus2021leakage, propson2022robust}, nitrogen-vacancy centers~\cite{dolde2014high}, and trapped ions~\cite{nebendahl2009optimal}. The key advantage of numerical optimization is its ability to exploit the full control landscape without perturbative approximations.
+Numerical optimal control methods~\cite{glaser2015training}, particularly the gradient ascent pulse engineering (GRAPE) algorithm~\cite{khaneja2005optimal}, can in principle discover pulse shapes that suppress leakage to arbitrary order by optimizing directly over the full multi-level Hilbert space. GRAPE has been successfully applied to superconducting qubit gates~\cite{lucero2010reduced, kelly2014optimal, werninghaus2021leakage, propson2022robust}, nitrogen-vacancy centers~\cite{dolde2014high}, and trapped ions~\cite{nebendahl2009optimal}. The key advantage of numerical optimization is its ability to exploit the full control landscape without perturbative approximations.
 
 Despite the extensive literature on both DRAG and GRAPE, systematic comparisons under identical conditions with hardware-representative parameters remain surprisingly sparse. Many GRAPE demonstrations compare against uncalibrated baselines, while DRAG studies focus on two-level models where leakage is absent by construction. A rigorous comparison requires: (i) a multi-level transmon model that captures leakage physics, (ii) realistic device parameters from contemporary hardware, (iii) an error budget decomposing coherent and incoherent contributions, and (iv) robustness analysis against calibration imperfections.
 
@@ -87,7 +104,7 @@ For the two-level model used in validation experiments, we set $H_d = 0$ (resona
 
 \subsubsection{Gaussian pulse}
 
-The Gaussian pulse drives only the $I$-channel:
+The Gaussian pulse drives only the $I$-channel (Fig.~\ref{fig:pulses}a):
 \begin{equation}
 \Omega_I(t) = A \exp\left[-\frac{(t - T/2)^2}{2\sigma^2}\right], \quad \Omega_Q(t) = 0,
 \label{eq:gaussian}
@@ -117,6 +134,13 @@ For our parameters ($\alpha/2\pi = \SI{-200}{\mega\hertz}$, i.e., $\alpha = -1.2
 \subsubsection{GRAPE pulse}
 
 The GRAPE algorithm~\cite{khaneja2005optimal} represents the control pulse as piecewise-constant amplitudes $\{\Omega_I^{(k)}, \Omega_Q^{(k)}\}$ for $k = 1, \ldots, N$ time slices of duration $\delta t = T/N$. These $2N$ parameters are optimized to maximize the gate fidelity (Sec.~\ref{sec:fidelity}).
+
+
+\begin{figure}[!htbp]
+\includegraphics[width=\columnwidth]{fig1_pulse_shapes.pdf}
+\caption{Control pulse waveforms for the X gate on a three-level transmon ($T = \SI{20}{\nano\second}$, $\alpha/2\pi = \SI{-200}{\mega\hertz}$). (a)~Gaussian pulse: in-phase ($I$) channel only. (b)~DRAG pulse: the $I$-channel carries the Gaussian envelope while the quadrature $Q$-channel applies the derivative correction $\Omega_Q = \beta\, d\Omega_I/dt$ with $\beta = 0.398$. (c)~GRAPE-optimized pulse: both $I$ and $Q$ channels are piecewise-constant with $N = 50$ time slices, showing the richer spectral content discovered by numerical optimization.}
+\label{fig:pulses}
+\end{figure}
 
 \subsection{Gate fidelity}
 \label{sec:fidelity}
@@ -192,7 +216,7 @@ Open-system dynamics are solved using QuTiP's \texttt{mesolve}~\cite{johansson20
 
 All simulations use parameters representative of IQM's Garnet 20-qubit superconducting processor~\cite{iqm2024garnet}:
 
-\begin{table}[tb]
+\begin{table}[!htbp]
 \caption{Simulation parameters representative of IQM Garnet.}
 \label{tab:params}
 \begin{ruledtabular}
@@ -224,7 +248,7 @@ We present four experiments of increasing complexity: (A) two-level validation, 
 
 As a validation step, we first compare pulse methods in the two-level (qubit-only) model where leakage is absent. Table~\ref{tab:2level} summarizes the closed-system fidelities for five single-qubit gates.
 
-\begin{table}[tb]
+\begin{table}[!htbp]
 \caption{Closed-system fidelity in the two-level model. GRAPE achieves unit fidelity for all gates. DRAG's reduced fidelity ($F = 0.993$) arises because the quadrature correction---designed to suppress $\ket{1}\!\leftrightarrow\!\ket{2}$ leakage---introduces a small parasitic rotation in the two-level system where no $\ket{2}$ state exists. Gaussian and DRAG are defined only for X and Y gates.}
 \label{tab:2level}
 \begin{ruledtabular}
@@ -240,16 +264,16 @@ T & --- & --- & 1.000000 \\
 \end{ruledtabular}
 \end{table}
 
-In the two-level model, the Gaussian pulse achieves near-unit fidelity because the $\pi$-rotation condition [Eq.~\eqref{eq:gaussian_amp}] is exact when no leakage channel exists. DRAG's fidelity of $F = 0.993$ reflects the fact that the quadrature correction $\Omega_Q = \beta\, d\Omega_I/dt$ is designed to cancel $\ket{1} \leftrightarrow \ket{2}$ transitions that do not exist in the two-level model, so it acts as an unwanted $\sigma_y$ rotation. With the correct $\beta = 0.398$, this parasitic rotation is modest ($\sim\! 0.7\%$ infidelity), consistent with $\beta$ being $O(1)$ rather than a large overcorrection. GRAPE converges to unit fidelity for all five gates, with X and Y gates requiring only 7 iterations and T gate requiring 500.
+In the two-level model, the Gaussian pulse achieves near-unit fidelity because the $\pi$-rotation condition [Eq.~\eqref{eq:gaussian_amp}] is exact when no leakage channel exists. DRAG's fidelity of $F = 0.993$ reflects the fact that the quadrature correction $\Omega_Q = \beta\, d\Omega_I/dt$ is designed to cancel $\ket{1} \leftrightarrow \ket{2}$ transitions that do not exist in the two-level model, so it acts as an unwanted $\sigma_y$ rotation. With the correct $\beta = 0.398$, this parasitic rotation is modest ($\sim\! 0.7\%$ infidelity), consistent with $\beta$ being $O(1)$ rather than a large overcorrection. GRAPE converges to unit fidelity for all five gates, with X and Y gates requiring only 7 iterations and T gate requiring 500. In practice, phase gates (S, T) can be implemented as virtual Z rotations at zero error~\cite{mckay2017efficient}; we include them here as a test of GRAPE convergence.
 
-This experiment confirms that the optimization framework is functioning correctly and that the comparison baseline (Gaussian) is properly calibrated.
+This experiment confirms that the optimization framework is functioning correctly (and provides the baseline for future randomized benchmarking~\cite{magesan2012efficient}) and that the comparison baseline (Gaussian) is properly calibrated.
 
 \subsection{Experiment B: Three-level gate-time sweep}
 \label{sec:3level}
 
 The three-level model is where the comparison becomes physically meaningful. Table~\ref{tab:3level} shows the X-gate fidelity and leakage probability $P_2$ as a function of gate time from 10 to \SI{100}{\nano\second}.
 
-\begin{table}[tb]
+\begin{table*}[!htbp]
 \caption{Closed-system X-gate fidelity $F$ and leakage $P_2$ in the three-level transmon model as a function of gate time. GRAPE achieves $F = 1$ (to machine precision) at all gate times (GRAPE leakage column omitted; $P_2 < 10^{-15}$ throughout). Gaussian and DRAG fidelities both improve monotonically with gate time. The DRAG parameter $\beta = 0.398$ is constant across all gate times.}
 \label{tab:3level}
 \begin{ruledtabular}
@@ -266,9 +290,9 @@ $T$ (ns) & $F$ & $P_2$ & $F$ & $P_2$ & $F$ \\
 100 & 0.999 & $3\!\times\!10^{-10}$  & 0.999999 & $3\!\times\!10^{-10}$ & 1.000 \\
 \end{tabular}
 \end{ruledtabular}
-\end{table}
+\end{table*}
 
-Three qualitative features are evident:
+Figure~\ref{fig:gatetime} and Table~\ref{tab:3level} reveal three qualitative features:
 
 \textit{GRAPE achieves unit fidelity at all gate times.} The numerical optimizer exploits both control channels to construct pulse shapes that simultaneously implement the target rotation in the computational subspace and suppress all leakage to $\ket{2}$. The leakage probabilities are at or below machine precision ($< 10^{-15}$) for all tested gate times.
 
@@ -278,29 +302,37 @@ Three qualitative features are evident:
 
 DRAG consistently outperforms Gaussian at all gate times, with the improvement most dramatic at short gate times (factor of $5.5\times$ infidelity reduction at \SI{10}{\nano\second}) where leakage is largest. GRAPE's advantage over DRAG is most pronounced at short gate times ($F = 1.000$ vs.\ $0.967$ at \SI{10}{\nano\second}) where higher-order leakage pathways, not captured by the first-order DRAG correction, become significant.
 
+
+\begin{figure}[!htbp]
+\includegraphics[width=\columnwidth]{fig2_gatetime_sweep.pdf}
+\caption{Three-level X-gate performance vs.\ gate time ($\alpha/2\pi = \SI{-200}{\mega\hertz}$, closed system). (a)~Infidelity $1 - F$ on a logarithmic scale. GRAPE achieves machine-precision fidelity at all gate times. Both Gaussian and DRAG infidelities decrease monotonically. Dotted lines mark $10^{-2}$ and $10^{-4}$ infidelity levels. (b)~Leakage probability $P_2$ to the $\ket{2}$ state. DRAG's leakage suppression improves exponentially with gate time, consistent with the perturbative scaling of the first-order correction.}
+\label{fig:gatetime}
+\end{figure}
+
 \subsection{Experiment C: Error budget analysis}
 \label{sec:error_budget}
 
 To decompose the error sources, we evaluate each pulse method under progressively more realistic noise models using the Lindblad master equation [Eq.~\eqref{eq:lindblad}] with IQM Garnet parameters ($T_1 = \SI{37}{\micro\second}$, $T_2 = \SI{9.6}{\micro\second}$) at a gate time of \SI{20}{\nano\second}. Table~\ref{tab:error_budget} presents the three-level error budget.
 
-\begin{table}[tb]
-\caption{Error budget for the X gate in the three-level transmon model at $T = \SI{20}{\nano\second}$. Infidelity $\epsilon = 1 - F$ is shown for each noise channel. ``Coherent'' denotes closed-system (unitary) evolution. Control noise entries show the mean infidelity over 100 random realizations with the indicated relative amplitude noise level.}
+\begin{table*}[!htbp]
+\caption{Error budget for the X gate at $T = \SI{20}{\nano\second}$. Infidelity $\epsilon = 1 - F$ is shown for each noise channel in both three-level and two-level models. ``Coherent'' denotes closed-system (unitary) evolution. Control noise entries show the mean infidelity over 100 random realizations. In the three-level model (upper panel), Gaussian error is dominated by coherent leakage; DRAG and GRAPE are decoherence-limited. In the two-level model (lower panel), Gaussian and GRAPE achieve identical decoherence-limited performance.}
 \label{tab:error_budget}
 \begin{ruledtabular}
-\begin{tabular}{l ccc}
-Error source & Gaussian $\epsilon$ & DRAG $\epsilon$ & GRAPE $\epsilon$ \\
+\begin{tabular}{l ccc ccc}
+& \multicolumn{3}{c}{Three-level model} & \multicolumn{3}{c}{Two-level model} \\
+Error source & Gaussian $\epsilon$ & DRAG $\epsilon$ & GRAPE $\epsilon$ & Gaussian $\epsilon$ & DRAG $\epsilon$ & GRAPE $\epsilon$ \\
 \hline
-Coherent        & $2.8\!\times\!10^{-2}$ & $4.9\!\times\!10^{-4}$ & $<\!10^{-15}$ \\
-$T_1$ only      & $2.8\!\times\!10^{-2}$ & $7.3\!\times\!10^{-4}$ & $2.1\!\times\!10^{-4}$ \\
-$T_2$ only      & $2.8\!\times\!10^{-2}$ & $6.1\!\times\!10^{-4}$ & $5.8\!\times\!10^{-4}$ \\
-$T_1 + T_2$     & $2.9\!\times\!10^{-2}$ & $8.4\!\times\!10^{-4}$ & $7.2\!\times\!10^{-4}$ \\
-Noise 1\%       & $2.8\!\times\!10^{-2}$ & $6.6\!\times\!10^{-4}$ & $2.4\!\times\!10^{-4}$ \\
-Noise 5\%       & $3.4\!\times\!10^{-2}$ & $5.6\!\times\!10^{-3}$ & $5.9\!\times\!10^{-3}$ \\
+Coherent        & $2.8\!\times\!10^{-2}$ & $4.9\!\times\!10^{-4}$ & $<\!10^{-15}$ & $<\!10^{-8}$ & $2.8\!\times\!10^{-2}$ & 0 \\
+$T_1$ only      & $2.8\!\times\!10^{-2}$ & $7.3\!\times\!10^{-4}$ & $2.1\!\times\!10^{-4}$ & $2.5\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $2.4\!\times\!10^{-4}$ \\
+$T_2$ only      & $2.8\!\times\!10^{-2}$ & $6.1\!\times\!10^{-4}$ & $5.8\!\times\!10^{-4}$ & $3.8\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $3.8\!\times\!10^{-4}$ \\
+$T_1 + T_2$     & $2.9\!\times\!10^{-2}$ & $8.4\!\times\!10^{-4}$ & $7.2\!\times\!10^{-4}$ & $5.8\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $5.7\!\times\!10^{-4}$ \\
+Noise 1\%       & $2.8\!\times\!10^{-2}$ & $6.6\!\times\!10^{-4}$ & $2.4\!\times\!10^{-4}$ & $2.3\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $2.3\!\times\!10^{-4}$ \\
+Noise 5\%       & $3.4\!\times\!10^{-2}$ & $5.6\!\times\!10^{-3}$ & $5.9\!\times\!10^{-3}$ & $5.7\!\times\!10^{-3}$ & $3.4\!\times\!10^{-2}$ & $5.7\!\times\!10^{-3}$ \\
 \end{tabular}
 \end{ruledtabular}
-\end{table}
+\end{table*}
 
-The error budget reveals a striking three-tier structure. For Gaussian pulses, coherent error dominates at all noise levels: adding full decoherence changes the infidelity from $2.8 \times 10^{-2}$ to $2.9 \times 10^{-2}$ (a relative change of only $\sim\!4\%$), indicating that Gaussian gate error is overwhelmingly due to leakage and rotation error, not decoherence.
+The error budget (Fig.~\ref{fig:error_budget}) reveals a striking three-tier structure. For Gaussian pulses, coherent error dominates at all noise levels: adding full decoherence changes the infidelity from $2.8 \times 10^{-2}$ to $2.9 \times 10^{-2}$ (a relative change of only $\sim\!4\%$), indicating that Gaussian gate error is overwhelmingly due to leakage and rotation error, not decoherence.
 
 For GRAPE, the coherent error vanishes to machine precision ($< 10^{-15}$), and the total error under full decoherence ($7.2 \times 10^{-4}$) represents the \emph{decoherence floor}---the minimum achievable infidelity set by the hardware's $T_1$ and $T_2$ for this gate time.
 
@@ -315,24 +347,14 @@ For $T = \SI{20}{\nano\second}$, $T_1 = \SI{37}{\micro\second}$, $T_2 = \SI{9.6}
 
 At $5\%$ control noise, both DRAG and GRAPE degrade significantly ($5.6 \times 10^{-3}$ and $5.9 \times 10^{-3}$, respectively), with DRAG actually performing slightly \emph{better} than GRAPE. This suggests that DRAG's simpler pulse shape may provide marginally better resilience to large amplitude perturbations.
 
-Table~\ref{tab:error_budget_2level} shows the corresponding two-level error budget for comparison. In the two-level model (no leakage), Gaussian and GRAPE perform identically---both are decoherence-limited. This confirms that GRAPE's advantage in the three-level model arises entirely from leakage suppression, not from a superior two-level rotation. DRAG in two levels shows coherent infidelity of $2.8 \times 10^{-2}$, dominated by the parasitic quadrature rotation that serves no purpose without a $\ket{2}$ state.
 
-\begin{table}[tb]
-\caption{Error budget for the X gate in the two-level model at $T = \SI{20}{\nano\second}$. Without leakage, Gaussian and GRAPE achieve identical decoherence-limited performance. DRAG's infidelity is dominated by the parasitic quadrature rotation.}
-\label{tab:error_budget_2level}
-\begin{ruledtabular}
-\begin{tabular}{l ccc}
-Error source & Gaussian $\epsilon$ & DRAG $\epsilon$ & GRAPE $\epsilon$ \\
-\hline
-Coherent        & $<\!10^{-8}$           & $2.8\!\times\!10^{-2}$ & 0 \\
-$T_1$ only      & $2.5\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $2.4\!\times\!10^{-4}$ \\
-$T_2$ only      & $3.8\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $3.8\!\times\!10^{-4}$ \\
-$T_1 + T_2$     & $5.8\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $5.7\!\times\!10^{-4}$ \\
-Noise 1\%       & $2.3\!\times\!10^{-4}$ & $2.8\!\times\!10^{-2}$ & $2.3\!\times\!10^{-4}$ \\
-Noise 5\%       & $5.7\!\times\!10^{-3}$ & $3.4\!\times\!10^{-2}$ & $5.7\!\times\!10^{-3}$ \\
-\end{tabular}
-\end{ruledtabular}
-\end{table}
+\begin{figure}[!htbp]
+\includegraphics[width=\columnwidth]{fig4_error_budget.pdf}
+\caption{Error budget decomposition for the X gate in the three-level transmon model at $T = \SI{20}{\nano\second}$ with IQM Garnet parameters. Stacked bars show the contributions of coherent error (red), $T_1$ relaxation (blue), and $T_2$ dephasing (green) to the total infidelity. Numerical values above each bar indicate the total infidelity under full decoherence. Black crosses show the leakage probability $P_2$ (right axis). Gaussian error is dominated by coherent leakage; DRAG and GRAPE are decoherence-limited. GRAPE's zero coherent error is not visible at this scale.}
+\label{fig:error_budget}
+\end{figure}
+
+The two-level error budget (right columns of Table~\ref{tab:error_budget}) confirms that GRAPE's advantage in the three-level model arises entirely from leakage suppression, not from a superior two-level rotation. In two levels (no leakage), Gaussian and GRAPE perform identically---both are decoherence-limited ($\epsilon \approx 5.8 \times 10^{-4}$). DRAG in two levels shows coherent infidelity of $2.8 \times 10^{-2}$, dominated by the parasitic quadrature rotation that serves no purpose without a $\ket{2}$ state.
 
 \subsection{Experiment D: Robustness analysis}
 \label{sec:robustness}
@@ -341,7 +363,7 @@ We evaluate robustness by sweeping two common calibration errors: (i) qubit freq
 
 Table~\ref{tab:robustness} summarizes the results for the three-level model.
 
-\begin{table}[tb]
+\begin{table}[!htbp]
 \caption{Robustness of X-gate fidelity in the three-level model under detuning ($\delta\omega/2\pi \in \pm\SI{5}{\mega\hertz}$) and amplitude error ($\epsilon_a \in \pm 5\%$). ``Nom.'' is the nominal (zero-error) fidelity; ``Min'' and ``Mean'' are over the sweep range.}
 \label{tab:robustness}
 \begin{ruledtabular}
@@ -356,9 +378,16 @@ GRAPE    & 1.000 & 0.931 & 0.976 & 1.000 & 0.994 & 0.998 \\
 \end{ruledtabular}
 \end{table}
 
-The robustness results reveal a nuanced picture. GRAPE shows excellent amplitude robustness: even at $\pm 5\%$ amplitude error, the minimum fidelity remains 0.994, the best among all three methods. DRAG also shows strong amplitude robustness (minimum 0.990), significantly outperforming Gaussian (minimum 0.965).
+The robustness results (Fig.~\ref{fig:robustness}) reveal a nuanced picture. GRAPE shows excellent amplitude robustness: even at $\pm 5\%$ amplitude error, the minimum fidelity remains 0.994, the best among all three methods. DRAG also shows strong amplitude robustness (minimum 0.990), significantly outperforming Gaussian (minimum 0.965).
 
 For detuning, DRAG is the \emph{most robust} method, with a minimum fidelity of 0.990 over $\pm\SI{5}{\mega\hertz}$ detuning, compared to 0.937 for Gaussian and 0.931 for GRAPE. GRAPE's minimum detuning fidelity is actually the \emph{lowest} of all three methods. This arises because GRAPE-optimized pulse shapes contain richer spectral content that can couple more strongly to off-resonant transitions when the qubit frequency shifts. In contrast, DRAG's smooth analytical pulse shape and frequency-independent $\beta$ provide natural resilience to small frequency offsets. This finding is consistent with the known sensitivity of numerically optimized pulses to parameter variations~\cite{propson2022robust} and motivates incorporating detuning robustness directly into the GRAPE cost function~\cite{wilhelm2020introduction, goerz2014optimal}.
+
+
+\begin{figure*}[!htbp]
+\includegraphics[width=\textwidth]{fig3_robustness.pdf}
+\caption{Robustness of X-gate fidelity in the three-level transmon model ($T = \SI{20}{\nano\second}$, $\alpha/2\pi = \SI{-200}{\mega\hertz}$, closed system). (a)~Fidelity vs.\ qubit frequency detuning over $\pm\SI{5}{\mega\hertz}$. DRAG (blue) maintains the highest minimum fidelity (0.990), outperforming both Gaussian (orange, 0.937) and GRAPE (green, 0.931). GRAPE's sensitivity arises from its richer spectral content coupling to off-resonant transitions. (b)~Fidelity vs.\ systematic amplitude error over $\pm 5\%$. GRAPE shows the best amplitude robustness (minimum 0.994), followed by DRAG (0.990) and Gaussian (0.965).}
+\label{fig:robustness}
+\end{figure*}
 
 %==============================================================================
 \section{Discussion}
