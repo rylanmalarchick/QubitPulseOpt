@@ -94,6 +94,8 @@ def setup_style():
         "savefig.bbox": "tight",
         "savefig.pad_inches": 0.02,
         "text.usetex": False,
+        "pdf.fonttype": 42,
+        "ps.fonttype": 42,
     })
 
 
