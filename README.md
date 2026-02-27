@@ -4,12 +4,13 @@
 [![Code Coverage](https://img.shields.io/badge/coverage-74%25-yellowgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Hardware Ready](https://img.shields.io/badge/Hardware-IQM%20Resonance-orange.svg)](src/hardware/)
+[![Paper](https://img.shields.io/badge/Paper-Quantum%20Submitted-blue.svg)](paper/quantum/)
 
 **A professional-grade quantum optimal control framework for designing noise-robust quantum gates through gradient-based pulse optimization.**
 
-> *"Verified Implementation of GRAPE Pulse Optimization for Quantum Gates with Hardware-Representative Noise Models"*  
-> Rylan Malarchick | Independent Research Project | 2024-2025  
-> [Read the preprint](preprint/preprint.pdf)
+> *"When does numerical pulse optimization actually help? Error budgets, robustness tradeoffs, and calibration guidance for transmon single-qubit gates"*
+> Rylan Malarchick | 2024–2025
+> [arXiv:2511.12799](https://arxiv.org/abs/2511.12799) · Submitted to Quantum
 
 ---
 
@@ -111,7 +112,7 @@ python examples/phase4_demo.py
 ┌─────────────────────┐      ┌──────────────────────┐      ┌─────────────────┐
 │  IQM Quantum        │  (1) │  QubitPulseOpt       │  (2) │  QPU Execution  │
 │  Processor          │─────▶│  GRAPE + Lindblad    │─────▶│  Real Hardware  │
-│  (16-qubit Sirius)  │      │  Noise Simulator     │      │  Validation     │
+│  (20-qubit Garnet)  │      │  Noise Simulator     │      │  Validation     │
 └─────────────────────┘      └──────────────────────┘      └─────────────────┘
      │                                                              │
      └──────────────────────────────────────────────────────────────┘
@@ -133,10 +134,10 @@ QubitPulseOpt/
 │   ├── pulses/               # Pulse generators (DRAG, Gaussian, custom)
 │   ├── hardware/             # IQM hardware integration & async job management
 │   └── visualization/        # Bloch sphere, fidelity plots
-├── tests/                    # 864 unit/integration tests (74% coverage)
-├── docs/                     # Documentation and figures
-├── examples/                 # Tutorial notebooks
-└── hardware_validation_async.py  # Production hardware validation script
+├── tests/                    # Unit/integration tests
+├── scripts/                  # Experiment and figure generation scripts
+├── docs/                     # Documentation
+└── examples/                 # Tutorial notebooks
 ```
 
 ---
@@ -309,10 +310,12 @@ This work represents a complete research cycle in quantum optimal control:
 
 ### Future Work
 
-1. **Hardware Validation**: Execute GRAPE-optimized pulses on IQM Garnet and measure fidelity via randomized benchmarking
-2. **Open-System GRAPE**: Implement gradient computation with collapse operators for optimization directly under decoherence
-3. **DRAG Comparison**: Benchmark against industry-standard DRAG pulses with optimized parameters
-4. **Adaptive Calibration**: Closed-loop system that queries hardware parameters, optimizes pulses, and re-calibrates in real-time
+Several items originally planned as future work for QubitPulseOpt have been implemented in [QubitOS](https://github.com/qubit-os), the open-source quantum control kernel that builds on this project's methodology:
+
+1. **~~Hardware Validation~~** → QubitOS provides IQM, IBM Quantum, and AWS Braket backend infrastructure with randomized benchmarking (v0.1.0+)
+2. **~~Open-System GRAPE~~** → QubitOS v0.5.0 implements a Rust-native Lindblad master equation solver with decoherence-aware GRAPE optimization
+3. **DRAG Comparison**: Completed in paper — DRAG with correct β achieves 99.95% fidelity; GRAPE advantage is 1.2x at 20ns
+4. **~~Adaptive Calibration~~** → QubitOS v0.4.0 implements `ActiveCalibrationLoop` with drift detection, automatic recalibration triggers, and provenance tracking
 
 ---
 
@@ -321,12 +324,15 @@ This work represents a complete research cycle in quantum optimal control:
 If you use QubitPulseOpt in your research, please cite:
 
 ```bibtex
-@software{malarchick2024qubitpulseopt,
+@article{malarchick2025qubitpulseopt,
   author = {Malarchick, Rylan},
-  title = {QubitPulseOpt: Quantum Optimal Control for High-Fidelity Gates},
-  year = {2024},
-  url = {https://github.com/rylanmalarchick/QubitPulseOpt},
-  note = {Independent research project demonstrating sim-to-real quantum control}
+  title = {When does numerical pulse optimization actually help? {E}rror budgets, robustness tradeoffs, and calibration guidance for transmon single-qubit gates},
+  year = {2025},
+  eprint = {2511.12799},
+  archivePrefix = {arXiv},
+  primaryClass = {quant-ph},
+  url = {https://arxiv.org/abs/2511.12799},
+  note = {Submitted to Quantum}
 }
 ```
 
