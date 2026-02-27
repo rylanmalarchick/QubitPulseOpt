@@ -114,6 +114,15 @@ notebooks/agents/
 # Agent/tool configuration (session-specific)
 opencode.json
 agent_docs/
+CLAUDE.md
+CLAUDE.md.bak
 
 # Test logs
 tests/pytest.log
+
+# Binary archives
+*.tar.gz
+
+# Untracked experimental files
+src/rl_env.py
+src/train_agent.py

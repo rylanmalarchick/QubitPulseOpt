@@ -1,5 +1,0 @@
-hamiltonian
-io
-optimization
-pulses
-visualization
