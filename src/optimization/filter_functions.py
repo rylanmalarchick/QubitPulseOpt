@@ -25,7 +25,6 @@ from dataclasses import dataclass
 from typing import Callable, Optional, Union, Dict, List, Tuple
 from scipy.integrate import simpson, quad
 from scipy.optimize import minimize
-import warnings
 
 
 @dataclass
@@ -308,7 +307,7 @@ class NoiseInfidelityCalculator:
 
         # Integrate
         if integration_method == "trapz":
-            integral = np.trapz(integrand, frequencies)
+            integral = np.trapezoid(integrand, frequencies)
         elif integration_method == "simpson":
             integral = simpson(integrand, x=frequencies)
         elif integration_method == "quad":
@@ -419,13 +418,12 @@ class NoiseTailoredOptimizer:
         """
 
         def objective(amps):
-            try:
-                ff_result = self.ff_calc.compute_from_pulse(times, amps, noise_type)
-                chi = self.infid_calc.compute_infidelity(ff_result, noise_psd)
-                return chi
-            except Exception as e:
-                warnings.warn(f"Error in objective: {e}")
-                return 1e10
+            ff_result = self.ff_calc.compute_from_pulse(times, amps, noise_type)
+            chi = self.infid_calc.compute_infidelity(ff_result, noise_psd)
+            # Penalize numerically infeasible pulses (non-finite cost, e.g. from
+            # overflow or a divergent PSD) without masking genuine bugs, which
+            # are allowed to propagate.
+            return chi if np.isfinite(chi) else 1e10
 
         return objective
 
@@ -444,7 +442,7 @@ class NoiseTailoredOptimizer:
         if "area" in constraints:
             target_area = constraints["area"]
             scipy_constraints.append(
-                {"type": "eq", "fun": lambda amps: np.trapz(amps, times) - target_area}
+                {"type": "eq", "fun": lambda amps: np.trapezoid(amps, times) - target_area}
             )
         return scipy_constraints
 
@@ -534,12 +532,11 @@ class NoiseTailoredOptimizer:
             times = np.linspace(0, dur, n_points)
             amps = pulse_shape(times)
 
-            try:
-                ff_result = self.ff_calc.compute_from_pulse(times, amps, noise_type)
-                chi = self.infid_calc.compute_infidelity(ff_result, noise_psd)
-                return chi
-            except Exception:
-                return 1e10
+            ff_result = self.ff_calc.compute_from_pulse(times, amps, noise_type)
+            chi = self.infid_calc.compute_infidelity(ff_result, noise_psd)
+            # Penalize numerically infeasible pulses (non-finite cost) without
+            # masking genuine bugs, which are allowed to propagate.
+            return chi if np.isfinite(chi) else 1e10
 
         result = minimize(
             objective,
