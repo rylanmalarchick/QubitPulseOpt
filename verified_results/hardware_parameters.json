@@ -1,10 +1,15 @@
 {
   "system": "IQM Garnet",
   "qubit_id": "QB1",
-  "T1_us": 50.0,
-  "T2_us": 70.0,
+  "T1_us": 37.0,
+  "T2_us": 9.6,
+  "anharmonicity_MHz": -200.0,
   "frequency_GHz": 5.0,
+  "single_qubit_gate_fidelity": 0.9991,
+  "two_qubit_cz_fidelity": 0.995,
+  "readout_error": 0.03,
   "timestamp": "2025-11-09T21:38:43.079129",
-  "source": "representative_values",
-  "note": "Typical values for IQM superconducting transmon qubits (calibration API not accessible)"
+  "source": "representative_values; cross-checked against IQM Garnet whitepaper arXiv:2408.12433",
+  "note": "Hardware-representative parameters used in the QubitPulseOpt paper and experiments. The IQM Garnet whitepaper (arXiv:2408.12433) reports T1 of the order of 40 us, median single-qubit gate error 9e-4 (fidelity ~99.91%), CZ fidelity ~99.5%, and median readout error ~3e-2. T2 (9.6 us) and anharmonicity (-200 MHz) are representative transmon values not separately published in that whitepaper; the live IQM calibration API was not accessible.",
+  "reference": "M. Algaba et al., Technology and Performance Benchmarks of IQM's 20-Qubit Quantum Computer, arXiv:2408.12433 (2024)"
 }

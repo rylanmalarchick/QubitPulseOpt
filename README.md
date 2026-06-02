@@ -26,11 +26,11 @@ This framework demonstrates a complete software pipeline from theoretical simula
 - **High-Fidelity Simulation**: Full Lindblad master equation solver with T₁ (relaxation) and T₂ (dephasing) decoherence
 - **Hardware Integration**: API connectivity confirmed with IQM Garnet quantum processor (20-qubit system)
 - **Sim-to-Real Calibration**: Hardware-in-the-loop workflow with real-time parameter extraction
-- **Professional V&V**: 864 unit/integration tests (74% code coverage), NASA JPL Power-of-10 compliant
+- **Verification & validation**: 857 unit/integration tests, 74% code coverage; NASA JPL Power-of-10–informed coding practices
 
 ### Research Impact
 
-**Simulation Results**: Achieved **99.14% fidelity** for an X-gate in 20 ns in closed quantum system optimization (unitary evolution without decoherence during optimization). The GRAPE-optimized pulse demonstrates **77× error reduction** compared to standard Gaussian baselines (33.4% fidelity) in the idealized closed-system regime. Note: IQM Garnet achieves 99.92% median single-qubit fidelity with standard pulses in hardware; the low Gaussian baseline here reflects suboptimal pulse calibration in our simulation setup. Literature-typical GRAPE improvements over properly calibrated baselines are 2-10×.
+**Simulation results**: On a three-level transmon model with IQM-Garnet-representative parameters (T₁ = 37 µs, T₂ = 9.6 µs, α/2π = −200 MHz), GRAPE eliminates all coherent X-gate error to machine precision (1 − F < 10⁻¹⁵) at 20 ns — but **properly calibrated DRAG already operates within 1.2× of the decoherence floor** (1 − F = 8.4×10⁻⁴ vs. GRAPE's 7.2×10⁻⁴ under full decoherence). DRAG is also **more robust to qubit-frequency detuning** than GRAPE (minimum fidelity 0.990 vs. 0.931 over ±5 MHz), while GRAPE retains the best amplitude robustness (0.994 vs. 0.990). The practical conclusion: numerical optimization earns its added complexity mainly at short gate times (≲ 15 ns) or when targeting error rates below the decoherence floor. The full error budget and methodology are in the paper (`paper/quantum/`).
 
 **Hardware Integration**: Confirmed API connectivity to IQM Garnet quantum processor (20-qubit system, qubits QB1-QB20). Developed infrastructure for hardware-in-the-loop optimization workflow using hardware-representative parameters. All results verified with full provenance documentation.
 
@@ -49,8 +49,8 @@ cd QubitPulseOpt
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install dependencies
-pip install -r requirements-dev.txt
+# Install the package with dev (and optional RL) extras
+pip install -e ".[dev]"      # add ,rl for the reinforcement-learning subsystem: ".[dev,rl]"
 
 # Run test suite (verify installation)
 pytest tests/ -v
@@ -59,31 +59,28 @@ pytest tests/ -v
 ### Basic Usage
 
 ```python
+import qutip as qt
 from src.optimization import GRAPEOptimizer
-from src.hamiltonian import DriftHamiltonian, ControlHamiltonian
-import numpy as np
 
-# Define system: superconducting qubit with decoherence
-drift = DriftHamiltonian(omega_0=5.0)  # 5 GHz qubit
-control = ControlHamiltonian()
-T1, T2 = 50e-6, 70e-6  # Coherence times (seconds)
+# Single-qubit system: zero drift, X and Y control channels
+H_drift = qt.qzero(2)
+H_controls = [qt.sigmax(), qt.sigmay()]
 
-# Initialize GRAPE optimizer for X-gate
+# Initialize the GRAPE optimizer
 optimizer = GRAPEOptimizer(
-    drift_hamiltonian=drift,
-    control_hamiltonian=control,
-    target_gate='X',
-    duration=20e-9,  # 20 nanoseconds
-    num_steps=100,
-    T1=T1,
-    T2=T2
+    H_drift=H_drift,
+    H_controls=H_controls,
+    n_timeslices=50,
+    total_time=20.0,      # gate duration (ns)
+    max_iterations=200,
+    verbose=False,
 )
 
-# Optimize pulse
-result = optimizer.optimize(max_iterations=200)
+# Optimize the pulse to implement an X gate
+result = optimizer.optimize_unitary(qt.sigmax())
 
-print(f"Final fidelity: {result['fidelity']*100:.2f}%")
-print(f"Optimized pulse shape: {result['pulse']}")
+print(f"Final fidelity: {result.final_fidelity * 100:.2f}%")
+print(f"Optimized pulses shape: {result.optimized_pulses.shape}")  # (n_controls, n_timeslices)
 ```
 
 ### Running Demos
@@ -144,33 +141,31 @@ QubitPulseOpt/
 
 ## Key Results
 
-### 1. GRAPE Optimization Convergence
+These are the four figures from the paper (`paper/quantum/`); all numbers are reproducible with the experiment scripts in `scripts/`.
 
-The GRAPE algorithm converges to **99.14% fidelity** in 200 iterations for an X-gate in the closed quantum system (unitary evolution):
+### 1. Pulse shapes
 
-![Fidelity Convergence](figures/verified_fidelity_convergence.png)
+![Pulse Shapes](figures/fig1_pulse_shapes.png)
 
-*Figure 1: GRAPE optimization convergence starting from random initial pulse. The algorithm reaches 99.14% fidelity in the idealized closed-system regime.*
+*Figure 1: Control waveforms for the X gate (T = 20 ns, α/2π = −200 MHz). (a) Gaussian: I-channel only. (b) DRAG: Gaussian on I, derivative correction on Q with β = 0.398. (c) GRAPE: both channels piecewise-constant over 50 time slices, showing the richer spectral content discovered by numerical optimization.*
 
-### 2. GRAPE-Optimized Pulse Discovery
+### 2. Gate-time sweep (three-level, closed system)
 
-The GRAPE algorithm discovered a complex, non-intuitive pulse shape with rapid amplitude modulation that exploits the full control Hamiltonian:
+![Gate-time sweep](figures/fig2_gatetime_sweep.png)
 
-![Pulse Comparison](figures/verified_pulse_comparison.png)
+*Figure 2: X-gate infidelity (a) and leakage P₂ (b) vs. gate time. GRAPE reaches machine-precision fidelity at all gate times; DRAG's perturbative correction begins to fail below ≈ 15 ns. DRAG's leakage suppression improves exponentially with gate time.*
 
-*Figure 2: GRAPE-optimized pulse (blue) vs. Gaussian baseline (orange). The GRAPE pulse achieves 99.14% fidelity while the Gaussian baseline achieves only 33.4% fidelity. The complex piecewise-constant structure (50 time slices) emerges from independent optimization of each discrete time interval.*
+### 3. Robustness to calibration error
 
-### 3. Gate Error Comparison
+![Robustness](figures/fig3_robustness.png)
 
-![Error Comparison](figures/verified_error_comparison.png)
+*Figure 3: Fidelity under (a) qubit-frequency detuning (±5 MHz) and (b) amplitude error (±5%). DRAG keeps the highest minimum fidelity under detuning (0.990 vs. GRAPE's 0.931) because GRAPE's richer spectrum couples more strongly to off-resonant transitions; GRAPE wins on amplitude robustness (0.994).*
 
-*Figure 3: Gate error comparison in closed quantum system. The GRAPE-optimized pulse achieves 0.86% error (99.14% fidelity) compared to 66.60% error (33.4% fidelity) for the Gaussian baseline, demonstrating a 77× error reduction. Note: This comparison is in the idealized closed-system regime; IQM Garnet achieves 99.92% median single-qubit fidelity with standard pulses in hardware.*
+### 4. Error budget at 20 ns
 
-### 4. Bloch Sphere Visualization
+![Error budget](figures/fig4_error_budget.png)
 
-![Bloch Trajectory](figures/bloch_trajectory.png)
-
-*Figure 4: Quantum state trajectory on the Bloch sphere during GRAPE-optimized X-gate execution, showing smooth rotation from |0⟩ to |1⟩.*
+*Figure 4: Error budget with IQM-Garnet-representative parameters. The uncorrected Gaussian is coherent-error-limited (≈ 39× the decoherence floor); DRAG and GRAPE are both decoherence-limited, with DRAG only 1.2× above GRAPE. Dephasing (T₂) dominates the floor, making T₂ the highest-leverage hardware upgrade.*
 
 ---
 
@@ -193,7 +188,7 @@ print(f"Qubits: {system_info['qubits']}")
 **Verified Capabilities**:
 -  API connectivity to IQM Garnet confirmed (20-qubit system)
 -  System topology retrieved (qubits QB1-QB20)
--  Hardware-representative parameters for simulation (T₁=50µs, T₂=70µs)
+-  Hardware-representative parameters for simulation (T₁=37µs, T₂=9.6µs, α/2π=−200MHz; see [HARDWARE_REFERENCE.md](HARDWARE_REFERENCE.md))
 -  Hardware execution infrastructure implemented but not yet validated with physical QPU runs
 
 **Note**: All results in this work are from simulation using hardware-representative parameters. No quantum circuits were executed on physical hardware. The framework provides the infrastructure for hardware-in-the-loop optimization pending access to quantum execution credits.
@@ -241,15 +236,14 @@ where β is the DRAG coefficient and Δ is the anharmonicity.
 
 ### Test Coverage
 
-- **864 tests** across 74% code coverage (>85% on critical hardware integration modules)
-- Unit tests for all core algorithms
-- Integration tests for hardware pipeline
-- Numerical stability validation
-- Regression test suite
+- **857 tests**, 74% code coverage
+- Unit tests for all core algorithms (optimization, pulses, Hamiltonians, I/O)
+- Numerical stability and regression tests
+- IQM hardware-integration modules covered at the unit level (REST/translation); no live-QPU tests
 
 ### Code Quality Standards
 
-- **NASA JPL Power-of-10 compliant**: Safety-critical coding practices
+- **NASA JPL Power-of-10–informed**: bounded loops, assertions, short functions (partial; see `scripts/compliance/`)
 - Automated linting (flake8, black)
 - Type hints throughout
 - Comprehensive docstrings (Google style)
@@ -272,7 +266,7 @@ mypy src/
 | Operation | Time | Fidelity | Notes |
 |-----------|------|----------|-------|
 | Lindblad Evolution (100 steps) | 0.8s | N/A | QuTiP adaptive solver |
-| GRAPE Optimization (200 iter) | 45s | 99.94% | X-gate, T₁=50µs, T₂=70µs |
+| GRAPE Optimization (200 iter) | ~45s | →1.000 | X gate, 3-level, closed system |
 | Hardware Job Submission | 2s | N/A | REST API v1 |
 | Full Phase 1-4 Validation | 90s | Various | Simulation-based |
 
@@ -296,7 +290,7 @@ This work represents a complete research cycle in quantum optimal control:
 ### Intellectual Contributions
 
 1. **Ground-up framework design**: Complete QOC system from theoretical simulation to hardware validation
-2. **Professional software engineering**: NASA-standard V&V, 74% test coverage (864 tests), production-ready codebase
+2. **Software engineering**: 74% test coverage (857 tests), CI, and reproducible provenance for all results
 3. **Sim-to-real pipeline**: Hardware-in-the-loop calibration with real-time parameter extraction
 4. **Noise robustness analysis**: Quantitative benchmarking under aggressive decoherence regimes
 
@@ -348,6 +342,8 @@ If you use QubitPulseOpt in your research, please cite:
 
 4. **IQM Quantum Computers**: [IQM Resonance Documentation](https://iqm-finland.github.io/iqm-client/)
 
+5. **IQM Garnet Benchmarks**: Algaba et al., "Technology and Performance Benchmarks of IQM's 20-Qubit Quantum Computer," [arXiv:2408.12433](https://arxiv.org/abs/2408.12433) (2024)
+
 ---
 
 ## License
@@ -373,4 +369,4 @@ Project: [QubitPulseOpt](https://github.com/rylanmalarchick/QubitPulseOpt)
 
 ---
 
-*Built with Python • Powered by QuTiP & Qiskit • Validated on IQM Hardware*
+*Built with Python and QuTiP • Simulated with IQM-Garnet-representative parameters*

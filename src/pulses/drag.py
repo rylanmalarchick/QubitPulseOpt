@@ -207,9 +207,11 @@ class DRAGPulse:
         Calculate optimal β parameter for given anharmonicity.
 
         The optimal DRAG coefficient for suppressing leakage to first order is:
-            β_opt = -α / (2 * Ω_max)
+            β_opt = -1 / (2 * α)
 
-        where α is the anharmonicity and Ω_max is the peak Rabi frequency.
+        where α is the anharmonicity in angular-frequency units (rad/ns). This
+        is the standard DRAG result (Motzoi et al. 2009): it depends only on the
+        anharmonicity, not on the pulse amplitude or gate time.
 
         .. warning::
             Both ``anharmonicity`` and ``amplitude`` must be in the **same
