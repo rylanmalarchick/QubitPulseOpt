@@ -462,12 +462,8 @@ class TestGradientComputation:
             verbose=False
         )
         
-        # Forward propagation should preserve state normalization
-        psi0 = qt.basis(2, 0)
-        u_test = np.random.randn(1, 30) * 0.1
-        
-        # This tests internal method (if accessible)
-        # Otherwise test through optimization
+        # Forward propagation correctness is exercised through optimization:
+        # a successful optimize_unitary requires accurate propagation.
         result = optimizer.optimize_unitary(qt.sigmax())
         assert result.final_fidelity > 0
     

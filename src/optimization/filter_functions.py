@@ -20,9 +20,8 @@ References:
 """
 
 import numpy as np
-import qutip as qt
 from dataclasses import dataclass
-from typing import Callable, Optional, Union, Dict, List, Tuple
+from typing import Callable, Optional, Dict, Tuple
 from scipy.integrate import simpson, quad
 from scipy.optimize import minimize
 
@@ -184,7 +183,6 @@ class FilterFunctionCalculator:
         self, times: np.ndarray, modulation: np.ndarray, frequencies: np.ndarray
     ) -> np.ndarray:
         """Compute filter function using discrete Fourier transform."""
-        dt = times[1] - times[0]  # Assume uniform sampling
         filter_func = np.zeros(len(frequencies))
 
         for i, omega in enumerate(frequencies):

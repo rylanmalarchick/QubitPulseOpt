@@ -37,7 +37,7 @@ Date: 2026-01-20
 
 import numpy as np
 import qutip as qt
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Union
 from dataclasses import dataclass
 from .lindblad import DecoherenceParams
 

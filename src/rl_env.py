@@ -33,7 +33,7 @@ import qutip as qt
 from gymnasium import spaces
 from typing import Optional, Tuple, Dict, Any
 
-from .hamiltonian.stochastic import StochasticEvolution, MeasurementParams
+from .hamiltonian.stochastic import MeasurementParams
 from .hamiltonian.lindblad import DecoherenceParams
 
 class QuantumStabilizationEnv(gym.Env):
