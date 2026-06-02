@@ -26,9 +26,6 @@ import numpy as np
 import qutip as qt
 from src.optimization.krotov import KrotovOptimizer, KrotovResult
 
-# Krotov optimizer has a known bug (.tr() called on scalar); not used in PRA paper.
-pytestmark = pytest.mark.xfail(reason="Krotov optimizer not yet functional", strict=False)
-
 
 class TestKrotovInitialization:
     """Test Krotov optimizer initialization and validation."""
@@ -787,3 +784,49 @@ class TestEdgeCases:
         assert isinstance(result.n_iterations, int)
         assert isinstance(result.converged, bool)
         assert isinstance(result.message, str)
+
+
+class TestStateOptimization:
+    """Test the state-to-state transfer entry point (optimize_state)."""
+
+    @pytest.mark.slow
+    def test_state_transfer_converges(self):
+        """|0> -> |1> transfer should reach high fidelity."""
+        H0 = 0.5 * 2.0 * qt.sigmaz()
+        Hc = [qt.sigmax()]
+        optimizer = KrotovOptimizer(
+            H0, Hc, n_timeslices=40, total_time=100.0, penalty_lambda=0.5,
+            max_iterations=60, verbose=False,
+        )
+        result = optimizer.optimize_state(qt.basis(2, 0), qt.basis(2, 1))
+        assert result.final_fidelity > 0.95
+
+    @pytest.mark.slow
+    def test_state_transfer_monotonic(self):
+        """Recorded fidelity history must be non-decreasing."""
+        H0 = 0.5 * 2.0 * qt.sigmaz()
+        Hc = [qt.sigmax()]
+        optimizer = KrotovOptimizer(
+            H0, Hc, n_timeslices=30, total_time=80.0, max_iterations=40, verbose=False
+        )
+        result = optimizer.optimize_state(qt.basis(2, 0), qt.basis(2, 1))
+        fidelities = np.array(result.fidelity_history)
+        assert np.all(np.diff(fidelities) >= -1e-10)
+
+    def test_invalid_initial_state_raises(self):
+        H0 = qt.sigmaz()
+        optimizer = KrotovOptimizer(H0, [qt.sigmax()], n_timeslices=10, total_time=50, verbose=False)
+        with pytest.raises(ValueError, match="Initial state cannot be None"):
+            optimizer.optimize_state(None, qt.basis(2, 1))
+
+    def test_dimension_mismatch_raises(self):
+        H0 = qt.sigmaz()
+        optimizer = KrotovOptimizer(H0, [qt.sigmax()], n_timeslices=10, total_time=50, verbose=False)
+        with pytest.raises(ValueError, match="ket"):
+            optimizer.optimize_state(qt.basis(3, 0), qt.basis(3, 1))
+
+    def test_unnormalized_state_raises(self):
+        H0 = qt.sigmaz()
+        optimizer = KrotovOptimizer(H0, [qt.sigmax()], n_timeslices=10, total_time=50, verbose=False)
+        with pytest.raises(ValueError, match="not normalized"):
+            optimizer.optimize_state(2.0 * qt.basis(2, 0), qt.basis(2, 1))

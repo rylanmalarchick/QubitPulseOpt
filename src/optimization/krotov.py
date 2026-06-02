@@ -1,63 +1,50 @@
 """
-Krotov's Method for Quantum Optimal Control
-============================================
+Krotov-style optimal control for quantum gates.
+=================================================
 
-This module implements Krotov's method, a monotonically convergent algorithm
-for optimal quantum control that produces smooth pulse shapes.
+This module implements gradient-based optimal control using Krotov's adjoint
+(co-state) construction for the gradient, combined with a backtracking line
+search that makes the recorded fidelity monotonically non-decreasing.
 
-Algorithm Overview:
-------------------
-Krotov's method differs from GRAPE in several key ways:
-1. Monotonic convergence: fidelity increases (or stays constant) each iteration
-2. Smooth pulse updates: uses continuous-time formulation
-3. No learning rate tuning: update step size determined by penalty factor
-4. First-order method: uses gradient information but no Hessian
+Algorithm
+---------
+The objective is to maximise the gate (process) fidelity
 
-Mathematical Framework:
-----------------------
-The objective is to maximize:
-    J[u] = F[U(T)] - ∫ g(u(t)) dt
+    F[U(T)] = |Tr(U_target^dagger U(T))|^2 / d^2
 
-where F is the fidelity functional and g(u) is a penalty on control amplitude:
-    g(u) = λ/2 * u²
+for the piecewise-constant control Hamiltonian
 
-The control update equation is:
-    u_{k+1}(t) = u_k(t) + (1/λ) * Re[⟨χ(t)|H_c|ψ(t)⟩]
+    H(t_k) = H_drift + sum_j u_j(t_k) H_j .
 
-where:
-- ψ(t) is the forward-propagated state
-- χ(t) is the backward-propagated co-state (Lagrange multiplier)
-- λ is the penalty parameter (controls update magnitude)
+Each iteration:
 
-Key Features:
-------------
-- Monotonic convergence guarantees
-- Smooth pulse shapes (continuous updates)
-- No learning rate tuning required
-- Suitable for high-fidelity gate optimization
-- Automatic handling of amplitude constraints via penalty λ
+1. Forward-propagate the cumulative propagators U(t_k) and, via the Krotov
+   adjoint relation, the backward propagators U_after(t_k). The fidelity
+   gradient w.r.t. each control amplitude is
 
-Physical Interpretation:
------------------------
-Krotov's method can be viewed as a gradient flow in the space of control
-functions, where the penalty parameter λ acts as an "inertia" that prevents
-rapid changes and ensures smooth convergence.
+       dF/du_j(t_k) = (2/d^2) Re[ conj(tau) Tr(U_target^dagger X_jk) ],
+       X_jk = U_after(t_k) (-i dt H_j U_k) U_before(t_k),  tau = Tr(U_target^dagger U(T)).
 
-References:
+2. A backtracking line search picks the largest step along the gradient that
+   increases F. The best pulse seen so far is retained, so the reported
+   ``fidelity_history`` never decreases. If no step improves F, a bounded number
+   of random restarts are attempted to escape a stalled point.
+
+Monotonicity here is enforced numerically by the line search (the recorded
+fidelity cannot decrease), rather than claimed from the exact continuous-time
+Krotov update. ``optimize_state`` solves the analogous state-transfer problem
+with the state fidelity |<psi_target|psi(T)>|^2.
+
+References
 ----------
-- Reich et al., J. Chem. Phys. 136, 104103 (2012)
-- Goerz et al., SciPost Phys. 7, 080 (2019)
-- Krotov, "Global Methods in Optimal Control Theory" (1996)
-- QuTiP documentation on optimal control
-
-Author: Orchestrator Agent
-Date: 2025-01-27
-SOW Reference: Phase 2.2 - Krotov Implementation
+- Khaneja et al., J. Magn. Reson. 172, 296 (2005) - gradient pulse engineering
+- Reich et al., J. Chem. Phys. 136, 104103 (2012) - Krotov adjoint construction
+- Goerz et al., SciPost Phys. 7, 080 (2019) - Krotov implementation notes
 """
 
 import numpy as np
 import qutip as qt
-from typing import Union, Callable, Optional, List, Tuple, Dict
+from typing import Callable, Optional, List, Tuple
 from dataclasses import dataclass
 
 # Power of 10 compliance: Import loop bounds and assertion helpers
@@ -70,6 +57,14 @@ from ..constants import (
     assert_system_size,
     assert_fidelity_valid,
 )
+
+# Bounded-loop limits for the line search and restart logic (Power-of-10 Rule 2).
+_MAX_LINE_SEARCH_HALVINGS = 50
+_MAX_RESTARTS = 20
+_CONVERGENCE_PATIENCE = 3
+_LINE_SEARCH_MAX_SCALE = 64.0
+_STEP_GROWTH = 1.3
+_RESTART_NOISE = 0.2
 
 
 @dataclass
@@ -84,9 +79,9 @@ class KrotovResult:
     optimized_pulses : np.ndarray
         Optimized control amplitudes, shape (n_controls, n_timeslices).
     fidelity_history : list
-        Fidelity at each iteration.
+        Fidelity at each iteration (monotonically non-decreasing).
     delta_fidelity : list
-        Change in fidelity per iteration (monotonicity check).
+        Change in fidelity per iteration (non-negative by construction).
     n_iterations : int
         Number of iterations performed.
     converged : bool
@@ -106,28 +101,27 @@ class KrotovResult:
 
 class KrotovOptimizer:
     """
-    Krotov optimizer for quantum optimal control.
+    Krotov-style gradient optimizer for quantum optimal control.
 
-    This class implements Krotov's method with monotonic convergence guarantees
-    and smooth pulse updates.
+    Maximises gate fidelity with a Krotov adjoint gradient and a monotonic
+    (line-searched) update. Produces smooth, amplitude-bounded pulses.
 
     Parameters
     ----------
     H_drift : qutip.Qobj
         Drift Hamiltonian (time-independent part).
     H_controls : list of qutip.Qobj
-        List of control Hamiltonians.
-        Total Hamiltonian: H(t) = H_drift + Σ u_k(t) H_k
+        Control Hamiltonians. Total: H(t) = H_drift + sum_k u_k(t) H_k.
     n_timeslices : int
         Number of time discretization slices.
     total_time : float
         Total evolution time.
     penalty_lambda : float, optional
-        Penalty parameter λ controlling update magnitude.
-        Larger λ → smaller updates, more iterations.
-        Default: 1.0.
+        Penalty parameter lambda. Sets the initial line-search step (1/lambda):
+        larger lambda -> smaller initial updates. Default: 1.0.
     convergence_threshold : float, optional
-        Convergence criterion on relative fidelity change.
+        Convergence criterion on fidelity change. Optimization stops after
+        ``_CONVERGENCE_PATIENCE`` consecutive iterations with change below this.
         Default: 1e-5.
     max_iterations : int, optional
         Maximum number of iterations. Default: 200.
@@ -138,18 +132,13 @@ class KrotovOptimizer:
 
     Examples
     --------
-    >>> # Setup: Hadamard gate on a qubit
-    >>> H0 = 0.5 * 2.0 * qt.sigmaz()  # 2 MHz detuning
-    >>> Hc = [qt.sigmax(), qt.sigmay()]  # X and Y controls
-    >>> optimizer = KrotovOptimizer(H0, Hc, n_timeslices=100, total_time=50)
-    >>>
-    >>> # Target: Hadamard gate
-    >>> H_gate = 1/np.sqrt(2) * (qt.sigmax() + qt.sigmaz())
-    >>> U_target = (-1j * np.pi/2 * H_gate).expm()
-    >>>
-    >>> # Optimize
-    >>> result = optimizer.optimize_unitary(U_target)
-    >>> print(f"Final fidelity: {result.final_fidelity:.6f}")
+    >>> H0 = 0.5 * 2.0 * qt.sigmaz()
+    >>> Hc = [qt.sigmax()]
+    >>> optimizer = KrotovOptimizer(H0, Hc, n_timeslices=50, total_time=100,
+    ...                             verbose=False)
+    >>> result = optimizer.optimize_unitary(qt.sigmax())
+    >>> result.final_fidelity > 0.95
+    True
     """
 
     @staticmethod
@@ -220,7 +209,9 @@ class KrotovOptimizer:
                 f"penalty_lambda must be non-negative, got {penalty_lambda}"
             )
         if not np.isfinite(penalty_lambda):
-            raise ValueError(f"penalty_lambda must be finite")
+            raise ValueError("penalty_lambda must be finite")
+        if penalty_lambda == 0:
+            raise ValueError("penalty_lambda must be positive (sets the step 1/lambda)")
 
         if u_limits is None:
             raise ValueError("u_limits cannot be None")
@@ -252,7 +243,7 @@ class KrotovOptimizer:
         total_params = n_controls * n_timeslices
         if total_params > MAX_PARAMS:
             raise ValueError(
-                f"Total parameters {total_params} = {n_controls} controls × "
+                f"Total parameters {total_params} = {n_controls} controls x "
                 f"{n_timeslices} slices exceeds maximum {MAX_PARAMS}"
             )
 
@@ -269,7 +260,6 @@ class KrotovOptimizer:
         verbose: bool = True,
     ):
         """Initialize Krotov optimizer."""
-        # Validate all parameters
         self._validate_drift_hamiltonian(H_drift)
         self._validate_control_hamiltonians(H_controls, H_drift)
         self._validate_time_parameters(n_timeslices, total_time)
@@ -290,457 +280,275 @@ class KrotovOptimizer:
         self.u_limits = u_limits
         self.verbose = verbose
 
-        # Get Hilbert space dimension
         self.dim = H_drift.shape[0]
 
         # Rule 5: Post-initialization invariant checks
         assert self.dt > 0, f"Computed dt must be positive, got {self.dt}"
         assert np.isfinite(self.dt), f"Computed dt must be finite, got {self.dt}"
 
+    # ------------------------------------------------------------------
+    # Propagation
+    # ------------------------------------------------------------------
+
+    def _slice_hamiltonian(self, u: np.ndarray, k: int) -> qt.Qobj:
+        """Total Hamiltonian at timeslice k."""
+        H_total = self.H_drift.copy()
+        for j in range(self.n_controls):
+            H_total += u[j, k] * self.H_controls[j]
+        return H_total
+
+    def _compute_propagators(self, u: np.ndarray) -> List[qt.Qobj]:
+        """Per-slice propagators U_k = exp(-i H(t_k) dt)."""
+        return [
+            (-1j * self._slice_hamiltonian(u, k) * self.dt).expm()
+            for k in range(self.n_timeslices)
+        ]
+
     def _forward_propagation(self, psi_init: qt.Qobj, u: np.ndarray) -> List[qt.Qobj]:
         """
-        Forward propagate initial state under control pulses.
+        Forward propagate a state under control pulses.
 
-        Parameters
-        ----------
-        psi_init : qutip.Qobj
-            Initial state.
-        u : np.ndarray
-            Control amplitudes, shape (n_controls, n_timeslices).
-
-        Returns
-        -------
-        list of qutip.Qobj
-            States at each timeslice [ψ(t_0), ψ(t_1), ..., ψ(t_N)].
+        Returns states [psi(t_0), psi(t_1), ..., psi(t_N)].
         """
         states = [psi_init]
         psi = psi_init.copy()
-
         for k in range(self.n_timeslices):
-            # Total Hamiltonian at timeslice k
-            H_total = self.H_drift.copy()
-            for j in range(self.n_controls):
-                H_total += u[j, k] * self.H_controls[j]
-
-            # Propagate: ψ(t+dt) = exp(-i H dt) ψ(t)
-            U_k = (-1j * H_total * self.dt).expm()
-            psi = U_k * psi
+            psi = (-1j * self._slice_hamiltonian(u, k) * self.dt).expm() * psi
             states.append(psi)
-
         return states
-
-    def _log_convergence(
-        self, iteration: int, fidelity: float, delta_fid: float
-    ) -> None:
-        """
-        Log convergence information.
-
-        Rule 4: Helper method to reduce nesting depth in optimize_state.
-
-        Args:
-            iteration: Current iteration number
-            fidelity: Current fidelity value
-            delta_fid: Change in fidelity
-        """
-        if self.verbose:
-            print(
-                f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                f"ΔF = {delta_fid:.2e} [CONVERGED]"
-            )
-
-    def _backward_propagation(self, chi_final: qt.Qobj, u: np.ndarray) -> List[qt.Qobj]:
-        """
-        Backward propagate co-state (Lagrange multiplier).
-
-        The co-state χ(t) satisfies:
-            i dχ/dt = H(t) χ(t)
-
-        which is backward-propagated from χ(T).
-
-        Parameters
-        ----------
-        chi_final : qutip.Qobj
-            Final co-state χ(T) = ∂F/∂ψ(T).
-        u : np.ndarray
-            Control amplitudes.
-
-        Returns
-        -------
-        list of qutip.Qobj
-            Co-states at each timeslice [χ(t_N), χ(t_{N-1}), ..., χ(t_0)].
-        """
-        costates = [chi_final]
-        chi = chi_final.copy()
-
-        for k in range(self.n_timeslices - 1, -1, -1):
-            # Total Hamiltonian at timeslice k
-            H_total = self.H_drift.copy()
-            for j in range(self.n_controls):
-                H_total += u[j, k] * self.H_controls[j]
-
-            # Backward propagate: χ(t) = exp(+i H dt) χ(t+dt)
-            U_k_dag = (1j * H_total * self.dt).expm()
-            chi = U_k_dag * chi
-            costates.insert(0, chi)
-
-        return costates
-
-    def _compute_fidelity_unitary(self, U_evolved: qt.Qobj, U_target: qt.Qobj) -> float:
-        """
-        Compute gate fidelity.
-
-        F = (1/d²) |Tr(U_target† U_evolved)|²
-        """
-        overlap = (U_target.dag() * U_evolved).tr()
-        fidelity = np.abs(overlap) ** 2 / self.dim**2
-        return np.real(fidelity)
-
-    def _compute_control_updates(
-        self,
-        u: np.ndarray,
-        forward_states: List[qt.Qobj],
-        costates: List[qt.Qobj],
-    ) -> np.ndarray:
-        """
-        Compute control updates using Krotov's formula.
-
-        Δu_j(t) = (1/λ) * Re[⟨χ(t)|H_j|ψ(t)⟩]
-
-        Parameters
-        ----------
-        u : np.ndarray
-            Current control amplitudes.
-        forward_states : list of qutip.Qobj
-            Forward-propagated states.
-        costates : list of qutip.Qobj
-            Backward-propagated co-states.
-
-        Returns
-        -------
-        np.ndarray
-            Control updates, shape (n_controls, n_timeslices).
-        """
-        updates = np.zeros((self.n_controls, self.n_timeslices))
-
-        for k in range(self.n_timeslices):
-            psi_k = forward_states[k]
-            chi_k = costates[k]
-
-            for j in range(self.n_controls):
-                # Compute ⟨χ|H_j|ψ⟩
-                expectation = (chi_k.dag() * self.H_controls[j] * psi_k).tr()
-
-                # Krotov update
-                updates[j, k] = (1.0 / self.penalty_lambda) * np.real(expectation)
-
-        return updates
 
     def _apply_constraints(self, u: np.ndarray) -> np.ndarray:
         """Apply amplitude constraints."""
         return np.clip(u, self.u_limits[0], self.u_limits[1])
 
-    def _initialize_controls_for_unitary(
-        self, u_init: Optional[np.ndarray]
-    ) -> np.ndarray:
+    # ------------------------------------------------------------------
+    # Gate (unitary) fidelity and gradient
+    # ------------------------------------------------------------------
+
+    def _gate_fidelity(self, U_evolved: qt.Qobj, U_target: qt.Qobj) -> float:
+        """Process fidelity F = |Tr(U_target^dagger U)|^2 / d^2."""
+        overlap = (U_target.dag() * U_evolved).tr()
+        return float(np.clip(np.abs(overlap) ** 2 / self.dim**2, 0.0, 1.0))
+
+    def _gate_gradient(
+        self, u: np.ndarray, U_target: qt.Qobj
+    ) -> Tuple[np.ndarray, float]:
         """
-        Initialize control pulse array for unitary optimization.
+        Gradient of the gate fidelity w.r.t. all control amplitudes.
 
-        Parameters
-        ----------
-        u_init : np.ndarray or None
-            Initial control guess. If None, uses small random values.
+        Uses the Krotov adjoint construction: cumulative forward propagators
+        U_before(t_k) and backward propagators U_after(t_k) give
 
-        Returns
-        -------
-        np.ndarray
-            Initialized control array with constraints applied.
+            dU(T)/du_j(t_k) = U_after(t_k) (-i dt H_j U_k) U_before(t_k).
+
+        Returns (gradient[n_controls, n_timeslices], fidelity).
         """
-        if u_init is None:
-            u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
-            u_init = self._apply_constraints(u_init)
-        return u_init.copy()
+        propagators = self._compute_propagators(u)
 
-    def _initialize_unitary_state(self, psi_init: Optional[qt.Qobj]) -> qt.Qobj:
+        # Cumulative forward propagators: before[k] = U_{k-1} ... U_0 (before[0] = I).
+        before = [qt.qeye(self.dim)]
+        U_accum = qt.qeye(self.dim)
+        for U_k in propagators:
+            U_accum = U_k * U_accum
+            before.append(U_accum)
+        U_final = before[-1]
+
+        # Cumulative backward propagators: after[k] = U_{N-1} ... U_{k+1} (after[N-1] = I).
+        after = [None] * self.n_timeslices
+        acc = qt.qeye(self.dim)
+        for k in range(self.n_timeslices - 1, -1, -1):
+            after[k] = acc
+            acc = acc * propagators[k]
+
+        overlap = (U_target.dag() * U_final).tr()
+        gradient = np.zeros((self.n_controls, self.n_timeslices))
+        prefactor = 2.0 / self.dim**2
+        for k in range(self.n_timeslices):
+            for j in range(self.n_controls):
+                dU = after[k] * (-1j * self.dt * self.H_controls[j] * propagators[k]) * before[k]
+                trace_val = (U_target.dag() * dU).tr()
+                gradient[j, k] = prefactor * np.real(np.conj(overlap) * trace_val)
+
+        fidelity = float(np.clip(np.abs(overlap) ** 2 / self.dim**2, 0.0, 1.0))
+        return gradient, fidelity
+
+    # ------------------------------------------------------------------
+    # State-transfer fidelity and gradient
+    # ------------------------------------------------------------------
+
+    def _state_fidelity(self, psi_final: qt.Qobj, psi_target: qt.Qobj) -> float:
+        """State fidelity F = |<psi_target|psi_final>|^2."""
+        overlap = psi_target.overlap(psi_final)
+        return float(np.clip(np.abs(overlap) ** 2, 0.0, 1.0))
+
+    def _state_gradient(
+        self, u: np.ndarray, psi_init: qt.Qobj, psi_target: qt.Qobj
+    ) -> Tuple[np.ndarray, float]:
         """
-        Initialize quantum state for unitary optimization.
+        Gradient of the state-transfer fidelity w.r.t. control amplitudes.
 
-        Parameters
-        ----------
-        psi_init : qutip.Qobj or None
-            Initial state. If None, uses ground state |0⟩.
+        dF/du_j(t_k) = 2 dt Im[ conj(tau) <chi(t_k)|H_j|psi(t_k)> ], with the
+        linear co-state chi(T) = psi_target back-propagated under the same field
+        and tau = <psi_target|psi(T)>.
 
-        Returns
-        -------
-        qutip.Qobj
-            Initialized quantum state.
+        Returns (gradient[n_controls, n_timeslices], fidelity).
         """
-        if psi_init is None:
-            return qt.basis(self.dim, 0)
-        return psi_init
+        states = self._forward_propagation(psi_init, u)
+        tau = psi_target.overlap(states[-1])
 
-    def _compute_unitary_fidelity(
-        self, psi_final: qt.Qobj, psi_target: qt.Qobj
-    ) -> float:
-        """
-        Compute state transfer fidelity.
+        # Backward co-state chi(t_k) = exp(+i H(t_k) dt) chi(t_{k+1}), chi(T) = psi_target.
+        costates = [None] * (self.n_timeslices + 1)
+        chi = psi_target.copy()
+        costates[self.n_timeslices] = chi
+        for k in range(self.n_timeslices - 1, -1, -1):
+            chi = (1j * self._slice_hamiltonian(u, k) * self.dt).expm() * chi
+            costates[k] = chi
 
-        Parameters
-        ----------
-        psi_final : qutip.Qobj
-            Final evolved state.
-        psi_target : qutip.Qobj
-            Target state.
+        gradient = np.zeros((self.n_controls, self.n_timeslices))
+        for k in range(self.n_timeslices):
+            for j in range(self.n_controls):
+                mel = costates[k].overlap(self.H_controls[j] * states[k])
+                gradient[j, k] = 2.0 * self.dt * np.imag(np.conj(tau) * mel)
 
-        Returns
-        -------
-        float
-            State fidelity (real value between 0 and 1).
-        """
-        fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
-        return np.real(fidelity)
+        return gradient, float(np.clip(np.abs(tau) ** 2, 0.0, 1.0))
 
-    def _check_krotov_convergence(
-        self,
-        iteration: int,
-        fidelity: float,
-        fidelity_history: List[float],
-        delta_fidelity_history: List[float],
-    ) -> Tuple[bool, str, float]:
-        """
-        Check convergence of Krotov optimization.
+    # ------------------------------------------------------------------
+    # Monotonic line-searched optimization core
+    # ------------------------------------------------------------------
 
-        Parameters
-        ----------
-        iteration : int
-            Current iteration number.
-        fidelity : float
-            Current fidelity value.
-        fidelity_history : list
-            History of fidelity values.
-        delta_fidelity_history : list
-            History of fidelity changes.
-
-        Returns
-        -------
-        tuple
-            (converged, message, delta_fid) where converged is bool,
-            message is convergence message, delta_fid is fidelity change.
-        """
-        if iteration > 0:
-            delta_fid = fidelity - fidelity_history[-2]
-            delta_fidelity_history.append(delta_fid)
-
-            if np.abs(delta_fid) < self.convergence_threshold:
-                message = "Converged (fidelity change below threshold)"
-                self._log_convergence(iteration, fidelity, delta_fid)
-                return True, message, delta_fid
-            return False, "", delta_fid
-        else:
-            delta_fidelity_history.append(0.0)
-            return False, "", 0.0
-
-    def _execute_krotov_iteration(
-        self,
-        psi_init: qt.Qobj,
-        U_target: qt.Qobj,
-        u: np.ndarray,
-    ) -> Tuple[float, qt.Qobj, List[qt.Qobj], List[qt.Qobj]]:
-        """
-        Execute one iteration of Krotov optimization.
-
-        Parameters
-        ----------
-        psi_init : qutip.Qobj
-            Initial state.
-        U_target : qutip.Qobj
-            Target unitary.
-        u : np.ndarray
-            Current control array.
-
-        Returns
-        -------
-        tuple
-            (fidelity, psi_target, forward_states, costates) containing
-            iteration results.
-        """
-        # Forward propagation
-        forward_states = self._forward_propagation(psi_init, u)
-        psi_final = forward_states[-1]
-
-        # Compute target state
-        psi_target = U_target * psi_init
-
-        # Compute fidelity
-        fidelity = self._compute_unitary_fidelity(psi_final, psi_target)
-
-        # Backward propagation (co-state is target state for state fidelity)
-        chi_final = psi_target
-        costates = self._backward_propagation(chi_final, u)
-
-        return fidelity, psi_target, forward_states, costates
-
-    def _update_krotov_controls(
+    def _line_search(
         self,
         u: np.ndarray,
-        forward_states: List[qt.Qobj],
-        costates: List[qt.Qobj],
-    ) -> np.ndarray:
+        gradient: np.ndarray,
+        fidelity_fn: Callable[[np.ndarray], float],
+        base_step: float,
+        f_current: float,
+    ) -> Tuple[Optional[np.ndarray], float]:
         """
-        Update control pulses using Krotov gradient.
+        Backtracking line search along the gradient.
 
-        Parameters
-        ----------
-        u : np.ndarray
-            Current control array.
-        forward_states : list
-            Forward-propagated states.
-        costates : list
-            Backward-propagated co-states.
-
-        Returns
-        -------
-        np.ndarray
-            Updated control array with constraints applied.
+        Returns the largest-step improving pulse (and its fidelity), or
+        (None, f_current) if no tried step increases the fidelity.
         """
-        updates = self._compute_control_updates(u, forward_states, costates)
-        u_new = u + updates
-        return self._apply_constraints(u_new)
+        step = base_step * _LINE_SEARCH_MAX_SCALE
+        for _ in range(_MAX_LINE_SEARCH_HALVINGS):
+            candidate = self._apply_constraints(u + step * gradient)
+            f_candidate = fidelity_fn(candidate)
+            if f_candidate > f_current:
+                return candidate, f_candidate
+            step *= 0.5
+        return None, f_current
 
-    def _evaluate_final_unitary_fidelity(
-        self, psi_init: qt.Qobj, U_target: qt.Qobj, u: np.ndarray
-    ) -> float:
-        """
-        Evaluate final fidelity after optimization.
-
-        Parameters
-        ----------
-        psi_init : qutip.Qobj
-            Initial state.
-        U_target : qutip.Qobj
-            Target unitary.
-        u : np.ndarray
-            Optimized control array.
-
-        Returns
-        -------
-        float
-            Final fidelity value.
-        """
-        forward_states = self._forward_propagation(psi_init, u)
-        psi_final = forward_states[-1]
-        psi_target = U_target * psi_init
-        return self._compute_unitary_fidelity(psi_final, psi_target)
-
-    def _run_krotov_optimization_loop(
+    def _attempt_restart(
         self,
-        psi_init: qt.Qobj,
-        U_target: qt.Qobj,
-        u: np.ndarray,
-    ) -> Tuple[np.ndarray, List[float], List[float], bool, str, int]:
+        u_best: np.ndarray,
+        f_best: float,
+        fidelity_fn: Callable[[np.ndarray], float],
+        gradient_fn: Callable[[np.ndarray], Tuple[np.ndarray, float]],
+        base_step: float,
+    ) -> Tuple[Optional[np.ndarray], float]:
         """
-        Execute the main Krotov optimization loop.
+        Escape a stalled point with bounded random restarts.
 
-        Parameters
-        ----------
-        psi_init : qutip.Qobj
-            Initial quantum state.
-        U_target : qutip.Qobj
-            Target unitary gate.
-        u : np.ndarray
-            Initial control array.
-
-        Returns
-        -------
-        tuple
-            (u, fidelity_history, delta_fidelity_history, converged, message, n_iter)
+        Returns an improving pulse found from a perturbed start, or (None, f_best).
         """
-        fidelity_history = []
-        delta_fidelity_history = []
-        converged = False
-        message = "Max iterations reached"
-
-        for iteration in range(self.max_iterations):
-            # Execute iteration
-            fidelity, psi_target, forward_states, costates = (
-                self._execute_krotov_iteration(psi_init, U_target, u)
+        for _ in range(_MAX_RESTARTS):
+            perturbed = self._apply_constraints(
+                u_best + np.random.randn(*u_best.shape) * _RESTART_NOISE
             )
-            fidelity_history.append(fidelity)
-
-            # Check convergence
-            conv_result = self._check_krotov_convergence(
-                iteration, fidelity, fidelity_history, delta_fidelity_history
+            grad_p, _ = gradient_fn(perturbed)
+            cand, f_cand = self._line_search(
+                perturbed, grad_p, fidelity_fn, base_step, fidelity_fn(perturbed)
             )
-            converged, conv_message, delta_fid = conv_result
-            if converged:
-                message = conv_message
-                break
+            if cand is None:
+                cand, f_cand = perturbed, fidelity_fn(perturbed)
+            if f_cand > f_best:
+                return cand, f_cand
+        return None, f_best
 
-            # Update controls
-            u = self._update_krotov_controls(u, forward_states, costates)
-
-            # Verbose output
-            if self.verbose and (iteration % 10 == 0 or iteration < 5):
-                delta_str = f", ΔF = {delta_fid:.2e}" if iteration > 0 else ""
-                print(f"Iteration {iteration}: Fidelity = {fidelity:.8f}{delta_str}")
-
-        return (
-            u,
-            fidelity_history,
-            delta_fidelity_history,
-            converged,
-            message,
-            iteration + 1,
-        )
-
-    def _assemble_krotov_result(
+    def _optimize_core(
         self,
-        u: np.ndarray,
-        fidelity_history: List[float],
-        delta_fidelity_history: List[float],
-        converged: bool,
-        message: str,
-        n_iterations: int,
-        final_fidelity: float,
+        fidelity_fn: Callable[[np.ndarray], float],
+        gradient_fn: Callable[[np.ndarray], Tuple[np.ndarray, float]],
+        u_init: np.ndarray,
     ) -> KrotovResult:
         """
-        Assemble final optimization result.
+        Run the monotonic line-searched optimization loop.
 
-        Parameters
-        ----------
-        u : np.ndarray
-            Optimized control array.
-        fidelity_history : list
-            Fidelity at each iteration.
-        delta_fidelity_history : list
-            Change in fidelity per iteration.
-        converged : bool
-            Convergence status.
-        message : str
-            Convergence message.
-        n_iterations : int
-            Number of iterations performed.
-        final_fidelity : float
-            Final fidelity value.
-
-        Returns
-        -------
-        KrotovResult
-            Complete optimization result.
+        Maintains the best pulse seen so far, so ``fidelity_history`` is
+        non-decreasing. Stops on convergence (patience consecutive sub-threshold
+        improvements), on an unrecoverable stall, or at ``max_iterations``.
         """
+        u_best = self._apply_constraints(u_init.copy())
+        f_best = fidelity_fn(u_best)
+        fidelity_history = [f_best]
+        delta_history: List[float] = []
+        base_step = 1.0 / self.penalty_lambda
+        converged = False
+        message = "Max iterations reached"
+        small_steps = 0
+        n_iterations = 0
+
+        for iteration in range(self.max_iterations):
+            n_iterations = iteration + 1
+            gradient, _ = gradient_fn(u_best)
+            u_new, f_new = self._line_search(
+                u_best, gradient, fidelity_fn, base_step, f_best
+            )
+
+            if u_new is None:
+                u_new, f_new = self._attempt_restart(
+                    u_best, f_best, fidelity_fn, gradient_fn, base_step
+                )
+
+            if u_new is None or f_new <= f_best:
+                converged = True
+                message = "Converged (no further improvement found)"
+                break
+
+            delta = f_new - f_best
+            u_best, f_best = u_new, f_new
+            fidelity_history.append(f_best)
+            delta_history.append(delta)
+
+            if self.verbose and (iteration % 10 == 0 or iteration < 5):
+                print(f"Iteration {iteration}: Fidelity = {f_best:.8f}, dF = {delta:.2e}")
+
+            small_steps = small_steps + 1 if delta < self.convergence_threshold else 0
+            if small_steps >= _CONVERGENCE_PATIENCE:
+                converged = True
+                message = "Converged (fidelity change below threshold)"
+                break
+
+        assert_fidelity_valid(f_best)
+        assert np.all(np.isfinite(u_best)), "Optimized pulses contain non-finite values"
         if self.verbose:
             print(f"\nOptimization complete: {message}")
-            print(f"Final fidelity: {final_fidelity:.8f}")
+            print(f"Final fidelity: {f_best:.8f}")
             print(f"Iterations: {n_iterations}")
 
         return KrotovResult(
-            final_fidelity=final_fidelity,
-            optimized_pulses=u,
+            final_fidelity=float(f_best),
+            optimized_pulses=u_best,
             fidelity_history=fidelity_history,
-            delta_fidelity=delta_fidelity_history,
-            n_iterations=n_iterations,
-            converged=converged,
+            delta_fidelity=delta_history,
+            n_iterations=int(n_iterations),
+            converged=bool(converged),
             message=message,
         )
+
+    # ------------------------------------------------------------------
+    # Initialization helpers
+    # ------------------------------------------------------------------
+
+    def _default_controls(self) -> np.ndarray:
+        """Small random initial control pulse."""
+        u = np.random.randn(self.n_controls, self.n_timeslices) * 0.1
+        return self._apply_constraints(u)
+
+    # ------------------------------------------------------------------
+    # Public optimization entry points
+    # ------------------------------------------------------------------
 
     def optimize_unitary(
         self,
@@ -749,57 +557,50 @@ class KrotovOptimizer:
         u_init: Optional[np.ndarray] = None,
     ) -> KrotovResult:
         """
-        Optimize control pulses to implement a target unitary.
+        Optimize control pulses to implement a target unitary gate.
 
-        For unitary optimization, we consider multiple initial states
-        (computational basis) to ensure the full gate is correct.
-
-        This function orchestrates the Krotov optimization algorithm by:
-        1. Initializing controls and state
-        2. Iteratively updating controls via gradient flow
-        3. Checking convergence based on fidelity change
-        4. Assembling final results
+        Maximises the full gate (process) fidelity |Tr(U_target^dagger U(T))|^2/d^2,
+        i.e. the whole unitary, not a single state transfer.
 
         Parameters
         ----------
         U_target : qutip.Qobj
-            Target unitary gate.
+            Target unitary gate (d x d).
         psi_init : qutip.Qobj, optional
-            Initial state for optimization. If None, uses |0⟩.
+            Unused for gate optimization; accepted for API compatibility.
         u_init : np.ndarray, optional
-            Initial control guess. If None, initializes with small random values.
+            Initial control guess, shape (n_controls, n_timeslices). If None,
+            a small random pulse is used.
 
         Returns
         -------
         KrotovResult
             Optimization result containing fidelity, optimized pulses, and history.
-
-        Examples
-        --------
-        >>> H0 = qt.sigmaz()
-        >>> Hc = [qt.sigmax()]
-        >>> optimizer = KrotovOptimizer(H0, Hc, n_timeslices=100, total_time=50)
-        >>> U_target = qt.sigmax()  # X-gate
-        >>> result = optimizer.optimize_unitary(U_target)
-        >>> print(f"Fidelity: {result.final_fidelity:.6f}")
         """
-        # Initialize
-        u = self._initialize_controls_for_unitary(u_init)
-        psi_init = self._initialize_unitary_state(psi_init)
+        if not isinstance(U_target, qt.Qobj):
+            raise ValueError(f"U_target must be Qobj, got {type(U_target)}")
+        if U_target.shape != (self.dim, self.dim):
+            raise ValueError(
+                f"U_target shape {U_target.shape} != system shape "
+                f"({self.dim}, {self.dim})"
+            )
 
-        # Run optimization
-        u, fid_hist, delta_hist, converged, msg, n_iter = (
-            self._run_krotov_optimization_loop(psi_init, U_target, u)
+        u_start = self._default_controls() if u_init is None else u_init.copy()
+
+        return self._optimize_core(
+            fidelity_fn=lambda u: self._gate_fidelity(
+                self._forward_unitary(u), U_target
+            ),
+            gradient_fn=lambda u: self._gate_gradient(u, U_target),
+            u_init=u_start,
         )
 
-        # Final evaluation
-        final_fidelity = self._evaluate_final_unitary_fidelity(psi_init, U_target, u)
-        fid_hist.append(final_fidelity)
-
-        # Assemble result
-        return self._assemble_krotov_result(
-            u, fid_hist, delta_hist, converged, msg, n_iter, final_fidelity
-        )
+    def _forward_unitary(self, u: np.ndarray) -> qt.Qobj:
+        """Total propagator U(T) = U_{N-1} ... U_0."""
+        U = qt.qeye(self.dim)
+        for U_k in self._compute_propagators(u):
+            U = U_k * U
+        return U
 
     def _validate_state_parameters(
         self, psi_init: qt.Qobj, psi_target: qt.Qobj, u_init: Optional[np.ndarray]
@@ -809,178 +610,32 @@ class KrotovOptimizer:
             raise ValueError("Initial state cannot be None")
         if psi_target is None:
             raise ValueError("Target state cannot be None")
-        assert isinstance(psi_init, qt.Qobj), (
-            f"psi_init must be Qobj, got {type(psi_init)}"
-        )
-        assert isinstance(psi_target, qt.Qobj), (
-            f"psi_target must be Qobj, got {type(psi_target)}"
-        )
-
-        # Check state dimensions
-        assert psi_init.shape[0] == self.dim, (
-            f"Initial state dimension {psi_init.shape[0]} != system dimension {self.dim}"
-        )
-        assert psi_target.shape[0] == self.dim, (
-            f"Target state dimension {psi_target.shape[0]} != system dimension {self.dim}"
-        )
-        assert psi_init.shape[1] == 1, (
-            f"Initial state must be ket (column vector), got shape {psi_init.shape}"
-        )
-        assert psi_target.shape[1] == 1, (
-            f"Target state must be ket (column vector), got shape {psi_target.shape}"
-        )
-
-        # Check state normalization
-        psi_init_norm = psi_init.norm()
-        psi_target_norm = psi_target.norm()
-        assert 0.99 <= psi_init_norm <= 1.01, (
-            f"Initial state not normalized: ||psi_init|| = {psi_init_norm}"
-        )
-        assert 0.99 <= psi_target_norm <= 1.01, (
-            f"Target state not normalized: ||psi_target|| = {psi_target_norm}"
-        )
-
-        # Validate optional parameters
+        if not isinstance(psi_init, qt.Qobj):
+            raise ValueError(f"psi_init must be Qobj, got {type(psi_init)}")
+        if not isinstance(psi_target, qt.Qobj):
+            raise ValueError(f"psi_target must be Qobj, got {type(psi_target)}")
+        if psi_init.shape[0] != self.dim or psi_init.shape[1] != 1:
+            raise ValueError(f"psi_init must be a {self.dim}-dim ket, got {psi_init.shape}")
+        if psi_target.shape[0] != self.dim or psi_target.shape[1] != 1:
+            raise ValueError(
+                f"psi_target must be a {self.dim}-dim ket, got {psi_target.shape}"
+            )
+        if not (0.99 <= psi_init.norm() <= 1.01):
+            raise ValueError(f"psi_init not normalized: ||psi_init|| = {psi_init.norm()}")
+        if not (0.99 <= psi_target.norm() <= 1.01):
+            raise ValueError(
+                f"psi_target not normalized: ||psi_target|| = {psi_target.norm()}"
+            )
         if u_init is not None:
-            assert isinstance(u_init, np.ndarray), (
-                f"u_init must be ndarray, got {type(u_init)}"
-            )
-            assert u_init.shape == (self.n_controls, self.n_timeslices), (
-                f"u_init shape {u_init.shape} != expected "
-                f"({self.n_controls}, {self.n_timeslices})"
-            )
-            assert np.all(np.isfinite(u_init)), "u_init contains non-finite values"
-
-    def _initialize_controls_for_state(
-        self, u_init: Optional[np.ndarray]
-    ) -> np.ndarray:
-        """Initialize control pulses for state optimization."""
-        if u_init is None:
-            u_init = np.random.randn(self.n_controls, self.n_timeslices) * 0.01
-            u_init = self._apply_constraints(u_init)
-        return u_init.copy()
-
-    def _compute_state_fidelity(self, psi_final: qt.Qobj, psi_target: qt.Qobj) -> float:
-        """Compute state transfer fidelity."""
-        fidelity = np.abs((psi_target.dag() * psi_final).tr()) ** 2
-        return np.real(fidelity)
-
-    def _check_state_convergence(
-        self,
-        iteration: int,
-        fidelity: float,
-        fidelity_history: List[float],
-        delta_fidelity_history: List[float],
-    ) -> Tuple[bool, str, float]:
-        """Check convergence for state optimization."""
-        if iteration > 0:
-            delta_fid = fidelity - fidelity_history[-2]
-            delta_fidelity_history.append(delta_fid)
-
-            if np.abs(delta_fid) < self.convergence_threshold:
-                if self.verbose:
-                    print(
-                        f"Iteration {iteration}: Fidelity = {fidelity:.8f}, "
-                        f"ΔF = {delta_fid:.2e} [CONVERGED]"
-                    )
-                return True, "Converged (fidelity change below threshold)", delta_fid
-            return False, "", delta_fid
-        else:
-            delta_fidelity_history.append(0.0)
-            return False, "", 0.0
-
-    def _execute_state_iteration(
-        self, psi_init: qt.Qobj, psi_target: qt.Qobj, u: np.ndarray, iteration: int
-    ) -> Tuple[float, List[qt.Qobj], List[qt.Qobj]]:
-        """Execute one iteration of state optimization."""
-        assert iteration < MAX_ITERATIONS, (
-            f"Iteration {iteration} exceeds maximum {MAX_ITERATIONS}"
-        )
-
-        # Forward propagation
-        forward_states = self._forward_propagation(psi_init, u)
-        psi_final = forward_states[-1]
-
-        # Compute fidelity
-        fidelity = self._compute_state_fidelity(psi_final, psi_target)
-
-        # Validate fidelity
-        assert_fidelity_valid(fidelity)
-        assert np.isfinite(fidelity), f"Fidelity is not finite at iteration {iteration}"
-
-        # Backward propagation
-        chi_final = psi_target
-        costates = self._backward_propagation(chi_final, u)
-
-        return fidelity, forward_states, costates
-
-    def _run_state_optimization_loop(
-        self, psi_init: qt.Qobj, psi_target: qt.Qobj, u: np.ndarray
-    ) -> Tuple[np.ndarray, List[float], List[float], bool, str, int]:
-        """Execute the main state optimization loop."""
-        fidelity_history = []
-        delta_fidelity_history = []
-        converged = False
-        message = "Max iterations reached"
-
-        for iteration in range(self.max_iterations):
-            # Execute iteration
-            fidelity, forward_states, costates = self._execute_state_iteration(
-                psi_init, psi_target, u, iteration
-            )
-            fidelity_history.append(fidelity)
-
-            # Check convergence
-            conv_result = self._check_state_convergence(
-                iteration, fidelity, fidelity_history, delta_fidelity_history
-            )
-            converged, conv_message, delta_fid = conv_result
-            if converged:
-                message = conv_message
-                break
-
-            # Compute and apply control updates
-            updates = self._compute_control_updates(u, forward_states, costates)
-            u_new = u + updates
-            u = self._apply_constraints(u_new)
-
-            # Verbose output
-            if self.verbose and (iteration % 10 == 0 or iteration < 5):
-                delta_str = f", ΔF = {delta_fid:.2e}" if iteration > 0 else ""
-                print(f"Iteration {iteration}: Fidelity = {fidelity:.8f}{delta_str}")
-
-        return (
-            u,
-            fidelity_history,
-            delta_fidelity_history,
-            converged,
-            message,
-            iteration + 1,
-        )
-
-    def _validate_optimization_results(
-        self,
-        u: np.ndarray,
-        final_fidelity: float,
-        n_iterations: int,
-        fidelity_history: List[float],
-    ) -> None:
-        """Validate final optimization results."""
-        assert_fidelity_valid(final_fidelity)
-        assert 0 <= final_fidelity <= 1.0, (
-            f"Final fidelity {final_fidelity} out of bounds [0, 1]"
-        )
-        assert np.isfinite(final_fidelity), (
-            f"Final fidelity is not finite: {final_fidelity}"
-        )
-        assert np.all(np.isfinite(u)), "Optimized pulses contain non-finite values"
-        assert u.shape == (self.n_controls, self.n_timeslices), (
-            f"Optimized pulse shape {u.shape} != expected shape"
-        )
-        assert len(fidelity_history) > 0, "Fidelity history is empty"
-        assert n_iterations <= MAX_ITERATIONS, (
-            f"Iteration count {n_iterations} exceeds maximum {MAX_ITERATIONS}"
-        )
+            if not isinstance(u_init, np.ndarray):
+                raise ValueError(f"u_init must be ndarray, got {type(u_init)}")
+            if u_init.shape != (self.n_controls, self.n_timeslices):
+                raise ValueError(
+                    f"u_init shape {u_init.shape} != expected "
+                    f"({self.n_controls}, {self.n_timeslices})"
+                )
+            if not np.all(np.isfinite(u_init)):
+                raise ValueError("u_init contains non-finite values")
 
     def optimize_state(
         self,
@@ -991,43 +646,20 @@ class KrotovOptimizer:
         """
         Optimize control pulses for state-to-state transfer.
 
-        Orchestrates Krotov optimization for transferring from psi_init to psi_target.
+        Maximises the state fidelity |<psi_target|psi(T)>|^2 for the transfer
+        psi_init -> psi_target.
 
-        Returns KrotovResult with final_fidelity, optimized_pulses, and convergence info.
+        Returns a KrotovResult with final_fidelity, optimized_pulses, and history.
         """
-        # Validate parameters
         self._validate_state_parameters(psi_init, psi_target, u_init)
+        u_start = self._default_controls() if u_init is None else u_init.copy()
 
-        # Initialize controls
-        u = self._initialize_controls_for_state(u_init)
-
-        # Run optimization loop
-        u, fid_hist, delta_hist, converged, msg, n_iter = (
-            self._run_state_optimization_loop(psi_init, psi_target, u)
-        )
-
-        # Final evaluation
-        forward_states = self._forward_propagation(psi_init, u)
-        psi_final = forward_states[-1]
-        final_fidelity = self._compute_state_fidelity(psi_final, psi_target)
-        fid_hist.append(final_fidelity)
-
-        # Validate results
-        self._validate_optimization_results(u, final_fidelity, n_iter, fid_hist)
-
-        if self.verbose:
-            print(f"\nOptimization complete: {msg}")
-            print(f"Final fidelity: {final_fidelity:.8f}")
-            print(f"Iterations: {n_iter}")
-
-        return KrotovResult(
-            final_fidelity=final_fidelity,
-            optimized_pulses=u,
-            fidelity_history=fid_hist,
-            delta_fidelity=delta_hist,
-            n_iterations=n_iter,
-            converged=converged,
-            message=msg,
+        return self._optimize_core(
+            fidelity_fn=lambda u: self._state_fidelity(
+                self._forward_propagation(psi_init, u)[-1], psi_target
+            ),
+            gradient_fn=lambda u: self._state_gradient(u, psi_init, psi_target),
+            u_init=u_start,
         )
 
     def get_pulse_functions(self, u: np.ndarray) -> List[Callable]:
@@ -1042,7 +674,7 @@ class KrotovOptimizer:
         Returns
         -------
         list of callable
-            List of pulse functions.
+            One pulse function per control.
         """
         pulse_functions = []
 
