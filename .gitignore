@@ -82,8 +82,8 @@ htmlcov/
 *.fdb_latexmk
 *.synctex.gz
 
-# Test and diagnostic scripts (not for production)
-test_*.py
+# Root-level diagnostic scripts (not for production); unit tests under tests/ are tracked
+/test_*.py
 diagnose_*.py
 explore_*.py
 find_*.py
@@ -122,7 +122,3 @@ tests/pytest.log
 
 # Binary archives
 *.tar.gz
-
-# Untracked experimental files
-src/rl_env.py
-src/train_agent.py

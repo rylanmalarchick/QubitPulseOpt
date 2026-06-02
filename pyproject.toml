@@ -163,6 +163,11 @@ docs = [
     "sphinx>=7.0",
     "sphinx-rtd-theme",
 ]
+rl = [
+    # Reinforcement-learning feedback-control subsystem (src/rl_env.py, src/train_agent.py)
+    "gymnasium>=1.0",
+    "stable-baselines3>=2.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/YOUR_USERNAME/QubitPulseOpt"
