@@ -3,24 +3,19 @@
 > **Status:** not actively maintained. Left up as a reference.
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![Code Coverage](https://img.shields.io/badge/coverage-74%25-yellowgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Hardware Ready](https://img.shields.io/badge/Hardware-IQM%20Resonance-orange.svg)](src/hardware/)
-[![Paper](https://img.shields.io/badge/Paper-Quantum%20Submitted-blue.svg)](paper/quantum/)
 
-**A professional-grade quantum optimal control framework for designing noise-robust quantum gates through gradient-based pulse optimization.**
+Gradient-based pulse optimization (GRAPE) for noise-robust single-qubit gates on transmons, with a Lindblad open-system simulator and an error-budget comparison of GRAPE against DRAG.
 
 > *"When does numerical pulse optimization actually help? Error budgets, robustness tradeoffs, and calibration guidance for transmon single-qubit gates"*
 > Rylan Malarchick | 2024–2025
-> [arXiv:2511.12799](https://arxiv.org/abs/2511.12799) · Submitted to Quantum
+> [arXiv:2511.12799](https://arxiv.org/abs/2511.12799)
 
 ---
 
 ## Overview
 
-Quantum computers promise to solve problems intractable for classical machines, but their fundamental units—qubits—are incredibly fragile. Environmental noise causes quantum gates to fail at rates that prevent meaningful computation. **QubitPulseOpt** addresses this challenge by discovering complex, non-intuitive pulse shapes that execute perfect gate operations while actively canceling noise effects.
-
-This framework demonstrates a complete software pipeline from theoretical simulation using the Lindblad master equation to infrastructure for hardware validation on IQM quantum processors (demonstrated with IQM Garnet, a 20-qubit superconducting system).
+A pipeline from Lindblad-master-equation simulation to infrastructure for hardware validation on IQM processors (parameters representative of the 20-qubit IQM Garnet). Everything reported here is simulation; no circuits were run on physical hardware.
 
 ### Key Features
 
@@ -30,11 +25,9 @@ This framework demonstrates a complete software pipeline from theoretical simula
 - **Sim-to-Real Calibration**: Hardware-in-the-loop workflow with real-time parameter extraction
 - **Verification & validation**: 857 unit/integration tests, 74% code coverage; NASA JPL Power-of-10–informed coding practices
 
-### Research Impact
+### Results
 
 **Simulation results**: On a three-level transmon model with IQM-Garnet-representative parameters (T₁ = 37 µs, T₂ = 9.6 µs, α/2π = −200 MHz), GRAPE eliminates all coherent X-gate error to machine precision (1 − F < 10⁻¹⁵) at 20 ns — but **properly calibrated DRAG already operates within 1.2× of the decoherence floor** (1 − F = 8.4×10⁻⁴ vs. GRAPE's 7.2×10⁻⁴ under full decoherence). DRAG is also **more robust to qubit-frequency detuning** than GRAPE (minimum fidelity 0.990 vs. 0.931 over ±5 MHz), while GRAPE retains the best amplitude robustness (0.994 vs. 0.990). The practical conclusion: numerical optimization earns its added complexity mainly at short gate times (≲ 15 ns) or when targeting error rates below the decoherence floor. The full error budget and methodology are in the paper (`paper/quantum/`).
-
-**Hardware Integration**: Confirmed API connectivity to IQM Garnet quantum processor (20-qubit system, qubits QB1-QB20). Developed infrastructure for hardware-in-the-loop optimization workflow using hardware-representative parameters. All results verified with full provenance documentation.
 
 ---
 
@@ -285,26 +278,7 @@ mypy src/
 
 ---
 
-## Research Context
-
-This work represents a complete research cycle in quantum optimal control:
-
-### Intellectual Contributions
-
-1. **Ground-up framework design**: Complete QOC system from theoretical simulation to hardware validation
-2. **Software engineering**: 74% test coverage (857 tests), CI, and reproducible provenance for all results
-3. **Sim-to-real pipeline**: Hardware-in-the-loop calibration with real-time parameter extraction
-4. **Noise robustness analysis**: Quantitative benchmarking under aggressive decoherence regimes
-
-### Skills Demonstrated
-
-- **Quantum Theory**: Hamiltonian dynamics, Lindblad master equation, open quantum systems
-- **Optimal Control**: GRAPE algorithm, gradient-based optimization, cost function design
-- **Software Engineering**: Test-driven development, CI/CD, version control, documentation
-- **Hardware Integration**: REST APIs, quantum platform connectivity (IQM Garnet)
-- **Data Analysis**: Fidelity metrics, optimization convergence, reproducible provenance
-
-### Future Work
+## Continued in QubitOS
 
 Several items originally planned as future work for QubitPulseOpt have been implemented in [QubitOS](https://github.com/qubit-os), the open-source quantum control kernel that builds on this project's methodology:
 
@@ -327,8 +301,7 @@ If you use QubitPulseOpt in your research, please cite:
   eprint = {2511.12799},
   archivePrefix = {arXiv},
   primaryClass = {quant-ph},
-  url = {https://arxiv.org/abs/2511.12799},
-  note = {Submitted to Quantum}
+  url = {https://arxiv.org/abs/2511.12799}
 }
 ```
 
@@ -369,6 +342,3 @@ Project: [QubitPulseOpt](https://github.com/rylanmalarchick/QubitPulseOpt)
 - **QuTiP Development Team** for the quantum toolbox in Python
 - **Qiskit Community** for quantum circuit framework
 
----
-
-*Built with Python and QuTiP • Simulated with IQM-Garnet-representative parameters*
