@@ -1,5 +1,7 @@
 # QubitPulseOpt: Quantum Optimal Control for High-Fidelity Gates
 
+> **Status:** not actively maintained. Left up as a reference.
+
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Code Coverage](https://img.shields.io/badge/coverage-74%25-yellowgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
